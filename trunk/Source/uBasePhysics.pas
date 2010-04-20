@@ -2,17 +2,16 @@ unit uBasePhysics;
 
 interface
 uses
-  VectorGeometry, VectorLists, GLRenderContextInfo, GeometryBB,
-  VBOMesh, uVBO,
-  GLScene, GLVectorFileObjects;
+  VectorGeometry, VectorLists, GLRenderContextInfo,
+  uUtils;
 type
 //==============================================================================
 // базовый объект, сгодится для всего
   TBaseGameObject = class
   public
-    Function  DoCommand(const aCommand: cardinal; const aData: array of Single): boolean; virtual; abstract;
-    Function  ExecuteCommand(const aCommand: String; const aValue: String): boolean; virtual; abstract;
-    Procedure DoProgress(const DeltaTime: single); virtual; abstract;
+    Function  DoCommand(const aCommand: cardinal; const aData: array of Single): boolean; virtual;
+    Function  ExecuteCommand(const aCommand: String; const aValue: String): boolean; virtual;
+    Procedure DoProgress(const DeltaTime: single); virtual; 
   end;
 //==============================================================================
 // объект, отображаемый на экране, от него идет разделение на физику и графику
@@ -38,7 +37,7 @@ type
 //==============================================================================
 // граф. объект
   TBaseGraphObject = class(TBaseScreenObject)
-  private
+  protected
     fParent: TBaseGraphObject;
     fTriMesh: TAffineVectorList;
   protected
@@ -56,10 +55,8 @@ type
     property IsVisible: Boolean read GetVisible write SetVisible;
     property Extents: TExtents read GetExtents;
     property Matrix: TMatrix read GetMatrix write SetMatrix;
-//    property ActionRegion: TActionRegion read fActionRegion;
     function WantGraphUpdate: boolean; virtual; abstract;
 
-    Procedure PrepareBeforeRender; virtual; abstract; // для различных манипуляций перед рендером
     Procedure RenderObject(var aRenderInfo: TRenderContextInfo); virtual; abstract;
 
     Function TestHitPoint(const aPoint: TVector): boolean; override; abstract;
@@ -70,7 +67,7 @@ type
     Destructor Destroy; override;
   end;
 //==============================================================================
-// тип дя сочленений
+// тип для сочленений
   TBaseJointObject = class(TBaseGameObject)
   protected
     fGraphObject: TBaseGraphObject;
@@ -111,74 +108,29 @@ type
     Procedure ApplyImpulseAtPos(const aImpulse, aPos: TVector); virtual; abstract;
   end;
 //==============================================================================
-
-// Графический объект TVBOMeshObject 
-  TVBOGraphObject = class(TBaseGraphObject)
-  private
-    fVBOObject: TVBOMeshObject;
-  protected
-    function GetVisible: boolean; override;
-    procedure SetVisible(const aVisible: boolean);override;
-    procedure SetParent(aNewParent: TBaseGraphObject);override;
-    function GetExtents: TExtents;override;
-    function GetMatrix: TMatrix;override;
-    procedure SetMatrix(const aMatrix: TMatrix);override;
-
+// физический мир
+  TPhysicWorld = class(TBaseGameObject)
   public
-//    property GlObject: TGlCustomSceneObject read fGlObject;
-    property Parent: TBaseGraphObject read fParent write SetParent;
-    property IsVisible: Boolean read GetVisible write SetVisible;
-    property Extents: TExtents read GetExtents;
-    property Matrix: TMatrix read GetMatrix write SetMatrix;
-
-//    property ActionRegion: TActionRegion read fActionRegion;
-//    function WantGraphUpdate: boolean; virtual; abstract;
-
-//    Procedure PrepareBeforeRender; virtual; abstract; // для различных манипуляций перед рендером
-    Procedure RenderObject(var aRenderInfo: TRenderContextInfo); override;
-
-    Function TestHitPoint(const aPoint: TVector): boolean; override;
-    Function P_LocalToWorld(const aPoint: TVector): TVector; override;  // Point from Local To World
-    Function P_WorldToLocal(const aPoint: TVector): TVector; override;  // Point from World To Local
-    Function GetTriMesh: TAffineVectorList;override;    
-    Constructor Create(aParent: TBaseGraphObject);
+//    Procedure DoProgress(const DeltaTime: Single); // Делаем шаг симуляции физики
+    Constructor Create;
     Destructor Destroy; override;
   end;
-
-// Графический объект TGLSceneObject
-  TSceneGraphObject = class(TBaseGraphObject)
-  private
-    fSceneObject: TGLBaseSceneObject;
-  protected
-    function GetVisible: boolean; override;
-    procedure SetVisible(const aVisible: boolean);override;
-    procedure SetParent(aNewParent: TBaseGraphObject);override;
-    function GetExtents: TExtents;override;
-    function GetMatrix: TMatrix;override;
-    procedure SetMatrix(const aMatrix: TMatrix);override;
-  public
-//    property GlObject: TGlCustomSceneObject read fGlObject;
-    property Parent: TBaseGraphObject read fParent write SetParent;
-    property IsVisible: Boolean read GetVisible write SetVisible;
-    property Extents: TExtents read GetExtents;
-    property Matrix: TMatrix read GetMatrix write SetMatrix;
-
-//    property ActionRegion: TActionRegion read fActionRegion;
-//    function WantGraphUpdate: boolean; virtual; abstract;
-
-//    Procedure PrepareBeforeRender; virtual; abstract; // для различных манипуляций перед рендером
-    Procedure RenderObject(var aRenderInfo: TRenderContextInfo); override;
-
-    Function TestHitPoint(const aPoint: TVector): boolean; override;
-    Function P_LocalToWorld(const aPoint: TVector): TVector; override;  // Point from Local To World
-    Function P_WorldToLocal(const aPoint: TVector): TVector; override;  // Point from World To Local
-    Function GetTriMesh: TAffineVectorList;override;
-    Constructor Create(aParent: TBaseGraphObject);
-    Destructor Destroy; override;
-  end;
-
-
+//==============================================================================
 implementation
+
+Function  TBaseGameObject.DoCommand(const aCommand: cardinal; const aData: array of Single): boolean;
+begin
+  result := false;
+end;
+
+Function  TBaseGameObject.ExecuteCommand(const aCommand: String; const aValue: String): boolean;
+begin
+  result := false;
+end;
+
+Procedure TBaseGameObject.DoProgress(const DeltaTime: single);
+begin
+end;
 
 { TBaseGraphObject }
 
@@ -206,163 +158,16 @@ begin
   inherited;
 end;
 
-{ TVBOGraphObject }
+{TPhysicWorld}
 
-constructor TVBOGraphObject.Create(aParent: TBaseGraphObject);
-begin
-  inherited;
-  fParent:=aParent;
-end;
-
-destructor TVBOGraphObject.Destroy;
+Constructor TPhysicWorld.Create;
 begin
   inherited;
 end;
 
-function TVBOGraphObject.GetExtents: TExtents;
-begin
-  with fVBOObject do
-  if not WorldMatrixUpdated then UpdateWorldMatrix;
-  Result:= fVBOObject.Extents;
-end;
-
-function TVBOGraphObject.GetMatrix: TMatrix;
-begin
-  with fVBOObject do begin
-    if not WorldMatrixUpdated then UpdateWorldMatrix;
-    Result:= Matrices.WorldMatrix;
-  end;
-end;
-
-function TVBOGraphObject.GetTriMesh: TAffineVectorList;
-begin
-   if fTriMesh.Count=0 then fVBOObject.GetTriMesh(fTriMesh);
-   result:=fTriMesh;
-end;
-
-function TVBOGraphObject.GetVisible: boolean;
-begin
-  Result:= fVBOObject.Visible;
-end;
-
-function TVBOGraphObject.P_LocalToWorld(const aPoint: TVector): TVector;
-begin
-  result:=VectorTransform(aPoint,Matrix);
-end;
-
-function TVBOGraphObject.P_WorldToLocal(const aPoint: TVector): TVector;
-begin
-  result:=fVBOObject.AbsoluteToLocal(aPoint);
-end;
-
-procedure TVBOGraphObject.RenderObject(
-  var aRenderInfo: TRenderContextInfo);
-var view, proj: TMatrix;
-begin
-  view:=GetViewMatrix;
-  proj:=GetProjectionMatrix;
-  fVBOObject.Matrices.ProjectionMatrix:=proj;
-  fVBOObject.RenderObject(aRenderInfo,view);
-end;
-
-procedure TVBOGraphObject.SetMatrix(const aMatrix: TMatrix);
-begin
-  with fVBOObject do begin
-     ResetMatrices;
-     Matrices.ModelMatrix:=aMatrix;
-     UpdateWorldMatrix;
-  end;
-end;
-
-procedure TVBOGraphObject.SetParent(aNewParent: TBaseGraphObject);
-begin
-  fParent:=aNewParent;
-end;
-
-procedure TVBOGraphObject.SetVisible(const aVisible: boolean);
-begin
-  fVBOObject.Visible:=aVisible;
-end;
-
-function TVBOGraphObject.TestHitPoint(const aPoint: TVector): boolean;
-var aabb: TAABB;
-begin
-  aabb:=TAABB(Extents);
-  result:=PointInAABB(aPoint,aabb);
-end;
-
-{ TSceneGraphObject }
-
-constructor TSceneGraphObject.Create(aParent: TBaseGraphObject);
+Destructor TPhysicWorld.Destroy;
 begin
   inherited;
-  fParent:=aParent;
-end;
-
-destructor TSceneGraphObject.Destroy;
-begin
-  inherited;
-end;
-
-function TSceneGraphObject.GetExtents: TExtents;
-var aabb: TAABB;
-begin
-  aabb:=fSceneObject.AxisAlignedBoundingBox;
-  Result:=TExtents(aabb);
-end;
-
-function TSceneGraphObject.GetMatrix: TMatrix;
-begin
-  result:=fSceneObject.Matrix;
-end;
-
-function TSceneGraphObject.GetTriMesh: TAffineVectorList;
-begin
-  //Возвращается пустой список, так как нет информации о геометрии
-   result:=fTriMesh;
-end;
-
-function TSceneGraphObject.GetVisible: boolean;
-begin
-  result:=fSceneObject.Visible;
-end;
-
-function TSceneGraphObject.P_LocalToWorld(const aPoint: TVector): TVector;
-begin
-  result:=fSceneObject.LocalToAbsolute(aPoint);
-end;
-
-function TSceneGraphObject.P_WorldToLocal(const aPoint: TVector): TVector;
-begin
-  result:=fSceneObject.AbsoluteToLocal(aPoint);
-end;
-
-procedure TSceneGraphObject.RenderObject(
-  var aRenderInfo: TRenderContextInfo);
-begin
-  fSceneObject.Render(aRenderInfo);
-end;
-
-procedure TSceneGraphObject.SetMatrix(const aMatrix: TMatrix);
-begin
-  fSceneObject.Matrix:=aMatrix;
-end;
-
-procedure TSceneGraphObject.SetParent(aNewParent: TBaseGraphObject);
-begin
-  fParent:=aNewParent;
-end;
-
-procedure TSceneGraphObject.SetVisible(const aVisible: boolean);
-begin
-  fSceneObject.Visible:=aVisible;
-end;
-
-function TSceneGraphObject.TestHitPoint(const aPoint: TVector): boolean;
-var aabb:TAABB;
-begin
-  aabb:=fSceneObject.AxisAlignedBoundingBox;
-  result:=PointInAABB(aPoint,aabb);
 end;
 
 end.
