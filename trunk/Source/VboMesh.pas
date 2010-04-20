@@ -1,6 +1,8 @@
 
 {: vboMesh
 	Historique:
+        20/04/10 - Fantom - Добавлен метод TVBOMeshObject.LocalToAbsolute
+        20/04/10 - Fantom - Добавлен метод TVBOMeshObject.GetTriMesh
   17/04/10 - Fantom - Исправлено вычисление FBaseExtents
   17/04/10 - Fantom - Добавлено свойство TVBOMeshObject.Direction
         07/04/10 - Fantom - Добавлен класс TSkeletalRender
@@ -206,6 +208,8 @@ Type
     Function AbsoluteToLocal(P: TVector):TVector;
     //Переводит вектор из глобальной системы координат в локальную
     Function VectorToLocal(V: TAffineVector; Norm: boolean=true):TAffineVector;
+    //Переводит точку из локальной системы координат в глобальную
+    Function LocalToAbsolute(P: TVector): TVector;
     //Очищает занимаемую объектом оперативную память
     Procedure FreeObjectsMemory;
     //Строит Octree по каждому из мешей в MeshList
@@ -1431,6 +1435,12 @@ begin
   for i:=0 to MeshList.Count-1 do begin
      p:=MeshList[i]; ExtractTriangles(p^,TriMesh);
   end;
+end;
+
+function TVBOMeshObject.LocalToAbsolute(P: TVector): TVector;
+begin
+  if not WorldMatrixUpdated then UpdateWorldMatrix;
+  Result:=VectorTransform(P,Matrices.WorldMatrix);
 end;
 
 { TVBOMesh }

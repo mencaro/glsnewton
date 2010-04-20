@@ -74,7 +74,7 @@ const
   {$IFDEF NEWTONTUTORIAL}
    NewtonDLL = '..\..\sdk\dll\Newton.dll';
   {$ELSE}
-   NewtonDLL = 'Newton.dll';
+   NewtonDLL = '..\Source\Newton\Newton.dll';
   {$ENDIF}
 {$ENDIF}
 

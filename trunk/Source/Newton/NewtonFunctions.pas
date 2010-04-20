@@ -1,3 +1,8 @@
+{: NewtonFunctions
+	Historique:
+	18/04/10 - For[) - Создан модуль        
+}
+
 unit NewtonFunctions;
 
 interface

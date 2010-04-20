@@ -1,0 +1,1726 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<namespace name="NewtonImport">
+  <const name="NewtonDLL" type="ShortString">
+    <value>
+      
+Newton.dll
+    </value>
+  </const>
+  <type name="Bool" type="Boolean" />
+  <type name="Float" type="Float" />
+  <type name="Long_double" type="Extended" />
+  <type name="__int64" type="Int64" />
+  <pointer name="Pvoid" alias="Pointer" namespace="System" type="Pointer" indircnt="1" />
+  <pointer name="PBool" type="Boolean" indircnt="1" />
+  <pointer name="PFloat" type="Single" indircnt="1" />
+  <pointer name="PLong_double" type="Extended" indircnt="1" />
+  <pointer name="PInt" type="Integer" indircnt="1" />
+  <pointer name="P__int8" type="Shortint" indircnt="1" />
+  <pointer name="P__int16" type="Smallint" indircnt="1" />
+  <pointer name="P__int32" type="Integer" indircnt="1" />
+  <pointer name="P__int64" type="Int64" indircnt="1" />
+  <pointer name="P2Char" type="Shortint" indircnt="1" />
+  <pointer name="PUnsigned_char" type="Byte" indircnt="1" />
+  <pointer name="PShort" type="Smallint" indircnt="1" />
+  <pointer name="PUnsigned_short" type="Word" indircnt="1" />
+  <pointer name="PLong" type="Integer" indircnt="1" />
+  <pointer name="PUnsigned_long" type="Cardinal" indircnt="1" />
+  <pointer name="PUnsigned_int" type="Cardinal" indircnt="1" />
+  <pointer name="Psize_t" type="Cardinal" indircnt="1" />
+  <pointer name="PNewtonBody" type="Pointer" indircnt="1" />
+  <pointer name="PNewtonWorld" type="Pointer" indircnt="1" />
+  <pointer name="PNewtonJoint" type="Pointer" indircnt="1" />
+  <pointer name="PNewtonContact" type="Pointer" indircnt="1" />
+  <pointer name="PNewtonMaterial" type="Pointer" indircnt="1" />
+  <pointer name="PNewtonCollision" type="Pointer" indircnt="1" />
+  <pointer name="PNewtonRagDoll" type="Pointer" indircnt="1" />
+  <pointer name="PNewtonRagDollBone" type="Pointer" indircnt="1" />
+  <pointer name="PNewtonUserMeshCollisionCollideDesc" type="NewtonUserMeshCollisionCollideDesc" indircnt="1" />
+  <struct name="NewtonUserMeshCollisionCollideDesc">
+    <field name="m_boxP0" visibility="public">
+      <array name="m_boxP0" low="0" high="3">
+        <element type="Single" />
+      </array>
+    </field>
+    <field name="m_boxP1" visibility="public">
+      <array name="m_boxP1" low="0" high="3">
+        <element type="Single" />
+      </array>
+    </field>
+    <field name="m_userData" type="Pointer" visibility="public" />
+    <field name="m_faceCount" type="Integer" visibility="public" />
+    <field name="m_vertex" visibility="public">
+      <pointer name="m_vertex" type="Single" indircnt="1" />
+    </field>
+    <field name="m_vertexStrideInBytes" type="Integer" visibility="public" />
+    <field name="m_userAttribute" visibility="public">
+      <pointer name="m_userAttribute" type="Integer" indircnt="1" />
+    </field>
+    <field name="m_faceIndexCount" visibility="public">
+      <pointer name="m_faceIndexCount" type="Integer" indircnt="1" />
+    </field>
+    <field name="m_faceVertexIndex" visibility="public">
+      <pointer name="m_faceVertexIndex" type="Integer" indircnt="1" />
+    </field>
+    <field name="m_objBody" type="PNewtonBody" visibility="public" />
+    <field name="m_polySoupBody" type="PNewtonBody" visibility="public" />
+  </struct>
+  <pointer name="PNewtonUserMeshCollisionRayHitDesc" type="NewtonUserMeshCollisionRayHitDesc" indircnt="1" />
+  <struct name="NewtonUserMeshCollisionRayHitDesc">
+    <field name="m_p0" visibility="public">
+      <array name="m_p0" low="0" high="3">
+        <element type="Single" />
+      </array>
+    </field>
+    <field name="m_p1" visibility="public">
+      <array name="m_p1" low="0" high="3">
+        <element type="Single" />
+      </array>
+    </field>
+    <field name="m_normalOut" visibility="public">
+      <array name="m_normalOut" low="0" high="3">
+        <element type="Single" />
+      </array>
+    </field>
+    <field name="m_userId" type="Integer" visibility="public" />
+    <field name="m_thickness" type="Single" visibility="public" />
+    <field name="m_userData" type="Pointer" visibility="public" />
+  </struct>
+  <pointer name="PNewtonHingeSliderUpdateDesc" type="NewtonHingeSliderUpdateDesc" indircnt="1" />
+  <struct name="NewtonHingeSliderUpdateDesc">
+    <field name="m_accel" type="Single" visibility="public" />
+    <field name="m_minFriction" type="Single" visibility="public" />
+    <field name="m_maxFriction" type="Single" visibility="public" />
+    <field name="m_timestep" type="Single" visibility="public" />
+  </struct>
+  <pointer name="PNewtonAllocMemory" type="NewtonAllocMemory" indircnt="1" />
+  <pointer name="PNewtonFreeMemory" type="NewtonFreeMemory" indircnt="1" />
+  <pointer name="PNewtonSerialize" type="NewtonSerialize" indircnt="1" />
+  <pointer name="PNewtonDeserialize" type="NewtonDeserialize" indircnt="1" />
+  <pointer name="PNewtonUserMeshCollisionCollideCallback" type="NewtonUserMeshCollisionCollideCallback" indircnt="1" />
+  <pointer name="PNewtonUserMeshCollisionRayHitCallback" type="NewtonUserMeshCollisionRayHitCallback" indircnt="1" />
+  <pointer name="PNewtonUserMeshCollisionDestroyCallback" type="NewtonUserMeshCollisionDestroyCallback" indircnt="1" />
+  <pointer name="PNewtonTreeCollisionCallback" type="NewtonTreeCollisionCallback" indircnt="1" />
+  <pointer name="PNewtonBodyDestructor" type="NewtonBodyDestructor" indircnt="1" />
+  <pointer name="PNewtonApplyForceAndTorque" type="NewtonApplyForceAndTorque" indircnt="1" />
+  <pointer name="PNewtonBodyActivationState" type="NewtonBodyActivationState" indircnt="1" />
+  <pointer name="PNewtonSetTransform" type="NewtonSetTransform" indircnt="1" />
+  <pointer name="PNewtonSetRagDollTransform" type="NewtonSetRagDollTransform" indircnt="1" />
+  <pointer name="PNewtonGetBuoyancyPlane" type="NewtonGetBuoyancyPlane" indircnt="1" />
+  <pointer name="PNewtonVehicleTireUpdate" type="NewtonVehicleTireUpdate" indircnt="1" />
+  <pointer name="PNewtonWorldRayPrefilterCallback" type="NewtonWorldRayPrefilterCallback" indircnt="1" />
+  <pointer name="PNewtonWorldRayFilterCallback" type="NewtonWorldRayFilterCallback" indircnt="1" />
+  <pointer name="PNewtonBodyLeaveWorld" type="NewtonBodyLeaveWorld" indircnt="1" />
+  <pointer name="PNewtonContactBegin" type="NewtonContactBegin" indircnt="1" />
+  <pointer name="PNewtonContactProcess" type="NewtonContactProcess" indircnt="1" />
+  <pointer name="PNewtonContactEnd" type="NewtonContactEnd" indircnt="1" />
+  <pointer name="PNewtonBodyIterator" type="NewtonBodyIterator" indircnt="1" />
+  <pointer name="PNewtonCollisionIterator" type="NewtonCollisionIterator" indircnt="1" />
+  <pointer name="PNewtonBallCallBack" type="NewtonBallCallBack" indircnt="1" />
+  <pointer name="PNewtonHingeCallBack" type="NewtonHingeCallBack" indircnt="1" />
+  <pointer name="PNewtonSliderCallBack" type="NewtonSliderCallBack" indircnt="1" />
+  <pointer name="PNewtonUniversalCallBack" type="NewtonUniversalCallBack" indircnt="1" />
+  <pointer name="PNewtonCorkscrewCallBack" type="NewtonCorkscrewCallBack" indircnt="1" />
+  <pointer name="PNewtonUserBilateralCallBack" type="NewtonUserBilateralCallBack" indircnt="1" />
+  <pointer name="PNewtonConstraintDestructor" type="NewtonConstraintDestructor" indircnt="1" />
+  <function name="NewtonCreate" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="malloc" type="NewtonAllocMemory" />
+      <parameter name="mfree" type="NewtonFreeMemory" />
+      <retval type="PNewtonWorld" />
+    </parameters>
+  </function>
+  <procedure name="NewtonDestroy" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonDestroyAllBodies" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonUpdate" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="timestep" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonSetPlatformArchitecture" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="mode" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonSetSolverModel" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="NewtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="Model" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonSetFrictionModel" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="NewtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="Model" type="Integer" />
+    </parameters>
+  </procedure>
+  <function name="NewtonGetTimeStep" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="NewtonWorld" type="PNewtonWorld" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonSetMinimumFrameRate" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="frameRate" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonSetBodyLeaveWorldEvent" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="callback" type="PNewtonBodyLeaveWorld" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonSetWorldSize" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="minPoint" type="PFloat" paramflags="const" />
+      <parameter name="maxPoint" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonWorldFreezeBody" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonWorldUnfreezeBody" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonWorldForEachBodyDo" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="callback" type="PNewtonBodyIterator" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonWorldForEachBodyInAABBDo" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="p0" type="PFloat" paramflags="const" />
+      <parameter name="p1" type="PFloat" paramflags="const" />
+      <parameter name="callback" type="PNewtonBodyIterator" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonWorldSetUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="userData" type="Pointer" />
+    </parameters>
+  </procedure>
+  <function name="NewtonWorldGetUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <function name="NewtonWorldGetVersion" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <procedure name="NewtonWorldRayCast" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="p0" type="PFloat" paramflags="const" />
+      <parameter name="p1" type="PFloat" paramflags="const" />
+      <parameter name="filter" type="PNewtonWorldRayFilterCallback" />
+      <parameter name="userData" type="Pointer" />
+      <parameter name="prefilter" type="NewtonWorldRayPrefilterCallback" />
+    </parameters>
+  </procedure>
+  <function name="NewtonMaterialGetDefaultGroupID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonMaterialCreateGroupID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <procedure name="NewtonMaterialDestroyAllGroupID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetDefaultSoftness" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="id0" type="Integer" />
+      <parameter name="id1" type="Integer" />
+      <parameter name="value" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetDefaultElasticity" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="id0" type="Integer" />
+      <parameter name="id1" type="Integer" />
+      <parameter name="elasticCoef" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetDefaultCollidable" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="id0" type="Integer" />
+      <parameter name="id1" type="Integer" />
+      <parameter name="state" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetContinuousCollisionMode" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="id0" type="Integer" />
+      <parameter name="id1" type="Integer" />
+      <parameter name="state" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetDefaultFriction" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="id0" type="Integer" />
+      <parameter name="id1" type="Integer" />
+      <parameter name="staticFriction" type="Single" />
+      <parameter name="kineticFriction" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetCollisionCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="id0" type="Integer" />
+      <parameter name="id1" type="Integer" />
+      <parameter name="userData" type="Pointer" />
+      <parameter name="_begin" type="PNewtonContactBegin" />
+      <parameter name="process" type="PNewtonContactProcess" />
+      <parameter name="_end" type="PNewtonContactEnd" />
+    </parameters>
+  </procedure>
+  <function name="NewtonMaterialGetUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="NewtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="id0" type="Integer" />
+      <parameter name="id1" type="Integer" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <procedure name="NewtonMaterialDisableContact" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+    </parameters>
+  </procedure>
+  <function name="NewtonMaterialGetCurrentTimestep" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonMaterialGetMaterialPairUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <function name="NewtonMaterialGetContactFaceAttribute" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <retval type="Cardinal" />
+    </parameters>
+  </function>
+  <function name="NewtonMaterialGetBodyCollisionID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="body" type="PNewtonBody" />
+      <retval type="Cardinal" />
+    </parameters>
+  </function>
+  <function name="NewtonMaterialGetContactNormalSpeed" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="contactlHandle" type="PNewtonContact" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonMaterialGetContactForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="force" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialGetContactPositionAndNormal" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="posit" type="PFloat" />
+      <parameter name="normal" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialGetContactTangentDirections" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="dir0" type="PFloat" />
+      <parameter name="dir" type="PFloat" />
+    </parameters>
+  </procedure>
+  <function name="NewtonMaterialGetContactTangentSpeed" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="contactlHandle" type="PNewtonContact" paramflags="const" />
+      <parameter name="index" type="Integer" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonMaterialSetContactSoftness" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="softness" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetContactElasticity" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="restitution" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetContactFrictionState" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="state" type="Integer" />
+      <parameter name="index" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetContactStaticFrictionCoef" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="coef" type="Single" />
+      <parameter name="index" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetContactKineticFrictionCoef" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="coef" type="Single" />
+      <parameter name="index" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetContactNormalAcceleration" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="accel" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetContactNormalDirection" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="directionVector" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialSetContactTangentAcceleration" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="accel" type="Single" />
+      <parameter name="index" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonMaterialContactRotateTangentDirections" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="material" type="PNewtonMaterial" paramflags="const" />
+      <parameter name="directionVector" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <function name="NewtonCreateNull" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateSphere" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="radiusX" type="Single" />
+      <parameter name="radiusY" type="Single" />
+      <parameter name="radiusZ" type="Single" />
+      <parameter name="offsetMatrix" type="PFloat" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateBox" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="dx" type="Single" />
+      <parameter name="dy" type="Single" />
+      <parameter name="dz" type="Single" />
+      <parameter name="offsetMatrix" type="PFloat" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateCone" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="radius" type="Single" />
+      <parameter name="height" type="Single" />
+      <parameter name="offsetMatrix" type="PFloat" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateCapsule" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="radius" type="Single" />
+      <parameter name="height" type="Single" />
+      <parameter name="offsetMatrix" type="PFloat" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateCylinder" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="radius" type="Single" />
+      <parameter name="height" type="Single" />
+      <parameter name="offsetMatrix" type="PFloat" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateChamferCylinder" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="raduis" type="Single" />
+      <parameter name="height" type="Single" />
+      <parameter name="offsetMatrix" type="PFloat" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateConvexHull" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="count" type="Integer" />
+      <parameter name="vertexCloud" type="PFloat" paramflags="const" />
+      <parameter name="strideInBytes" type="Integer" />
+      <parameter name="offsetMatrix" type="PFloat" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateConvexHullModifier" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="convexHullCollision" type="PNewtonCollision" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <procedure name="NewtonConvexHullModifierGetMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="convexHullCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrix" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonConvexHullModifierSetMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="convexHullCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrix" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonConvexCollisionSetUserID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="convexCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="id" type="Cardinal" />
+    </parameters>
+  </procedure>
+  <function name="NewtonConvexCollisionGetUserID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="convexCollision" type="PNewtonCollision" paramflags="const" />
+      <retval type="Cardinal" />
+    </parameters>
+  </function>
+  <function name="NewtonConvexCollisionCalculateVolume" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="convexCollision" type="PNewtonCollision" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonConvexCollisionCalculateInertialMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="convexCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="inertia" type="PFloat" />
+      <parameter name="origin" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonCollisionMakeUnique" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="collision" type="PNewtonCollision" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonReleaseCollision" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="collision" type="PNewtonCollision" paramflags="const" />
+    </parameters>
+  </procedure>
+  <array name="TCollisionPrimitiveArray">
+    <element type="PNewtonCollision" />
+  </array>
+  <function name="NewtonCreateCompoundCollision" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="count" type="Integer" />
+      <parameter name="collisionPrimitiveArray" type="TCollisionPrimitiveArray" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateUserMeshCollision" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="minBox" type="PFloat" paramflags="const" />
+      <parameter name="maxBox" type="PFloat" paramflags="const" />
+      <parameter name="userData" type="Pointer" />
+      <parameter name="collideCallback" type="NewtonUserMeshCollisionCollideCallback" />
+      <parameter name="rayHitCallback" type="NewtonUserMeshCollisionRayHitCallback" />
+      <parameter name="destroyCallback" type="NewtonUserMeshCollisionDestroyCallback" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateTreeCollision" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="userCallback" type="NewtonTreeCollisionCallback" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <procedure name="NewtonTreeCollisionBeginBuild" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="treeCollision" type="PNewtonCollision" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonTreeCollisionAddFace" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="treeCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="vertexCount" type="Integer" />
+      <parameter name="vertexPtr" type="PFloat" paramflags="const" />
+      <parameter name="strideInBytes" type="Integer" />
+      <parameter name="faceAttribute" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonTreeCollisionEndBuild" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="treeCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="optimize" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonTreeCollisionSerialize" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="treeCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="serializeFunction" type="NewtonSerialize" />
+      <parameter name="serializeHandle" type="Pointer" />
+    </parameters>
+  </procedure>
+  <function name="NewtonCreateTreeCollisionFromSerialization" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="userCallback" type="NewtonTreeCollisionCallback" />
+      <parameter name="deserializeFunction" type="NewtonDeserialize" />
+      <parameter name="serializeHandle" type="Pointer" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonTreeCollisionGetFaceAtribute" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="treeCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="faceIndexArray" type="PInt" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <procedure name="NewtonTreeCollisionSetFaceAtribute" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="treeCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="faceIndexArray" type="PInt" paramflags="const" />
+      <parameter name="attribute" type="Integer" />
+    </parameters>
+  </procedure>
+  <function name="NewtonCollisionPointDistance" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="point" type="PFloat" paramflags="const" />
+      <parameter name="collision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrix" type="PFloat" paramflags="const" />
+      <parameter name="contact" type="PFloat" />
+      <parameter name="normal" type="PFloat" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonCollisionClosestPoint" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="collsionA" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrixA" type="PFloat" paramflags="const" />
+      <parameter name="collisionB" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrixB" type="PFloat" paramflags="const" />
+      <parameter name="contactA" type="PFloat" />
+      <parameter name="contactB" type="PFloat" />
+      <parameter name="normalAB" type="PFloat" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonCollisionCollide" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="maxSize" type="Integer" />
+      <parameter name="collsionA" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrixA" type="PFloat" paramflags="const" />
+      <parameter name="collisionB" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrixB" type="PFloat" paramflags="const" />
+      <parameter name="contacts" type="PFloat" />
+      <parameter name="normals" type="PFloat" />
+      <parameter name="penetration" type="PFloat" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonCollisionCollideContinue" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="maxSize" type="Integer" />
+      <parameter name="timestep" type="Single" paramflags="const" />
+      <parameter name="collsionA" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrixA" type="PFloat" paramflags="const" />
+      <parameter name="velocA" type="PFloat" paramflags="const" />
+      <parameter name="omegaA" type="Single" paramflags="const" />
+      <parameter name="collsionB" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrixB" type="PFloat" paramflags="const" />
+      <parameter name="velocB" type="PFloat" paramflags="const" />
+      <parameter name="omegaB" type="Single" paramflags="const" />
+      <parameter name="timeOfImpact" type="PFloat" />
+      <parameter name="contacts" type="PFloat" />
+      <parameter name="normals" type="PFloat" />
+      <parameter name="penetration" type="PFloat" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonCollisionRayCast" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="collision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="p0" type="PFloat" paramflags="const" />
+      <parameter name="p1" type="PFloat" paramflags="const" />
+      <parameter name="normals" type="PFloat" />
+      <parameter name="attribute" type="PInt" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonCollisionCalculateAABB" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="collision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="matrix" type="PFloat" paramflags="const" />
+      <parameter name="p0" type="PFloat" />
+      <parameter name="p1" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonGetEulerAngle" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="matrix" type="PFloat" paramflags="const" />
+      <parameter name="eulersAngles" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonSetEulerAngle" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="eulersAngles" type="PFloat" paramflags="const" />
+      <parameter name="matrix" type="PFloat" />
+    </parameters>
+  </procedure>
+  <function name="NewtonCreateBody" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="collision" type="PNewtonCollision" paramflags="const" />
+      <retval type="PNewtonBody" />
+    </parameters>
+  </function>
+  <procedure name="NewtonDestroyBody" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyAddForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="force" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyAddTorque" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="torque" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="matrix" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetMatrixRecursive" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="matrix" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetMassMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="mass" type="Single" />
+      <parameter name="Ixx" type="Single" />
+      <parameter name="Iyy" type="Single" />
+      <parameter name="Izz" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetMaterialGroupID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="id" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetContinuousCollisionMode" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="state" type="Cardinal" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetJointRecursiveCollision" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="state" type="Cardinal" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetOmega" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="omega" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetVelocity" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="velocity" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="force" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetTorque" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="torque" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetCentreOfMass" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="com" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetLinearDamping" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="linearDamp" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetAngularDamping" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="angularDamp" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="userData" type="Pointer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyCoriolisForcesMode" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="mode" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetCollision" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="collision" type="PNewtonCollision" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetAutoFreeze" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="state" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetFreezeTreshold" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="freezeSpeed2" type="Single" />
+      <parameter name="freezeOmega2" type="Single" />
+      <parameter name="framesCount" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetTransformCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="callback" type="NewtonSetTransform" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetDestructorCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="callback" type="NewtonBodyDestructor" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetAutoactiveCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="callback" type="NewtonBodyActivationState" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodySetForceAndTorqueCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="callback" type="NewtonApplyForceAndTorque" />
+    </parameters>
+  </procedure>
+  <function name="NewtonBodyGetForceAndTorqueCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="NewtonApplyForceAndTorque" />
+    </parameters>
+  </function>
+  <function name="NewtonBodyGetWorld" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonWorld" />
+    </parameters>
+  </function>
+  <function name="NewtonBodyGetUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <function name="NewtonBodyGetCollision" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonCollision" />
+    </parameters>
+  </function>
+  <function name="NewtonBodyGetMaterialGroupID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonBodyGetContinuousCollisionMode" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonBodyGetJointRecursiveCollision" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <procedure name="NewtonBodyGetMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="matrix" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyGetMassMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="mass" type="PFloat" />
+      <parameter name="Ixx" type="PFloat" />
+      <parameter name="Iyy" type="PFloat" />
+      <parameter name="Izz" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyGetInvMass" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="invMass" type="PFloat" />
+      <parameter name="invIxx" type="PFloat" />
+      <parameter name="invIyy" type="PFloat" />
+      <parameter name="invIzz" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyGetOmega" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="vector" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyGetVelocity" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="vector" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyGetForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="vector" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyGetTorque" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="vector" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyGetCentreOfMass" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="com" type="PFloat" />
+    </parameters>
+  </procedure>
+  <function name="NewtonBodyGetSleepingState" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonBodyGetAutoFreeze" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonBodyGetLinearDamping" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonBodyGetAngularDamping" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="vector" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyGetAABB" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="p0" type="PFloat" />
+      <parameter name="p1" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyGetFreezeTreshold" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="freezeSpeed2" type="PFloat" />
+      <parameter name="freezeOmega2" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyAddBuoyancyForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="fluidDensity" type="Single" />
+      <parameter name="fluidLinearViscosity" type="Single" />
+      <parameter name="fluidAngularViscosity" type="Single" />
+      <parameter name="gravityVector" type="PFloat" paramflags="const" />
+      <parameter name="buoyancyPlane" type="NewtonGetBuoyancyPlane" />
+      <parameter name="context" type="Pointer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBodyForEachPolygonDo" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="callback" type="NewtonCollisionIterator" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonAddBodyImpulse" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <parameter name="pointDeltaVeloc" type="PFloat" paramflags="const" />
+      <parameter name="pointPosit" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <function name="NewtonJointGetUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="joint" type="PNewtonJoint" paramflags="const" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <procedure name="NewtonJointSetUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="userData" type="Pointer" />
+    </parameters>
+  </procedure>
+  <function name="NewtonJointGetCollisionState" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="joint" type="PNewtonJoint" paramflags="const" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <procedure name="NewtonJointSetCollisionState" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="state" type="Integer" />
+    </parameters>
+  </procedure>
+  <function name="NewtonJointGetStiffness" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="joint" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonJointSetStiffness" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="state" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonDestroyJoint" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="joint" type="PNewtonJoint" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonJointSetDestructor" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="_destructor" type="NewtonConstraintDestructor" />
+    </parameters>
+  </procedure>
+  <function name="NewtonConstraintCreateBall" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="pivotPoint" type="PFloat" paramflags="const" />
+      <parameter name="childBody" type="PNewtonBody" paramflags="const" />
+      <parameter name="parentBody" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonJoint" />
+    </parameters>
+  </function>
+  <procedure name="NewtonBallSetUserCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ball" type="PNewtonJoint" paramflags="const" />
+      <parameter name="callback" type="NewtonBallCallBack" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBallGetJointAngle" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ball" type="PNewtonJoint" paramflags="const" />
+      <parameter name="angle" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBallGetJointOmega" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ball" type="PNewtonJoint" paramflags="const" />
+      <parameter name="omega" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBallGetJointForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ball" type="PNewtonJoint" paramflags="const" />
+      <parameter name="force" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonBallSetConeLimits" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ball" type="PNewtonJoint" paramflags="const" />
+      <parameter name="pin" type="PFloat" paramflags="const" />
+      <parameter name="maxConeAngle" type="Single" />
+      <parameter name="maxTwistAngle" type="Single" />
+    </parameters>
+  </procedure>
+  <function name="NewtonConstraintCreateHinge" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="pivotPoint" type="PFloat" paramflags="const" />
+      <parameter name="pinDir" type="PFloat" paramflags="const" />
+      <parameter name="childBody" type="PNewtonBody" paramflags="const" />
+      <parameter name="parentBody" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonJoint" />
+    </parameters>
+  </function>
+  <procedure name="NewtonHingeSetUserCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="hinge" type="PNewtonJoint" paramflags="const" />
+      <parameter name="callback" type="NewtonHingeCallBack" />
+    </parameters>
+  </procedure>
+  <function name="NewtonHingeGetJointAngle" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="hinge" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonHingeGetJointOmega" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="hinge" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonHingeGetJointForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="hinge" type="PNewtonJoint" paramflags="const" />
+      <parameter name="force" type="PFloat" />
+    </parameters>
+  </procedure>
+  <function name="NewtonHingeCalculateStopAlpha" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="hinge" type="PNewtonJoint" paramflags="const" />
+      <parameter name="desc" type="PNewtonHingeSliderUpdateDesc" paramflags="const" />
+      <parameter name="angle" type="Single" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonConstraintCreateSlider" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="pivotPoint" type="PFloat" paramflags="const" />
+      <parameter name="pinDir" type="PFloat" paramflags="const" />
+      <parameter name="childBody" type="PNewtonBody" paramflags="const" />
+      <parameter name="parentBody" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonJoint" />
+    </parameters>
+  </function>
+  <procedure name="NewtonSliderSetUserCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="slider" type="PNewtonJoint" paramflags="const" />
+      <parameter name="callback" type="NewtonSliderCallBack" />
+    </parameters>
+  </procedure>
+  <function name="NewtonSliderGetJointPosit" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="slider" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonSliderGetJointVeloc" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="slider" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonSliderGetJointForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="slider" type="PNewtonJoint" paramflags="const" />
+      <parameter name="force" type="PFloat" />
+    </parameters>
+  </procedure>
+  <function name="NewtonSliderCalculateStopAccel" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="slider" type="PNewtonJoint" paramflags="const" />
+      <parameter name="desc" type="PNewtonHingeSliderUpdateDesc" paramflags="const" />
+      <parameter name="position" type="Single" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonConstraintCreateCorkscrew" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="pivotPoint" type="PFloat" paramflags="const" />
+      <parameter name="pinDir" type="PFloat" paramflags="const" />
+      <parameter name="childBody" type="PNewtonBody" paramflags="const" />
+      <parameter name="parentBody" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonJoint" />
+    </parameters>
+  </function>
+  <procedure name="NewtonCorkscrewSetUserCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="corkscrew" type="PNewtonJoint" paramflags="const" />
+      <parameter name="callback" type="NewtonCorkscrewCallBack" />
+    </parameters>
+  </procedure>
+  <function name="NewtonCorkscrewGetJointPosit" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="corkscrew" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonCorkscrewGetJointAngle" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="corkscrew" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonCorkscrewGetJointVeloc" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="corkscrew" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonCorkscrewGetJointOmega" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="corkscrew" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonCorkscrewGetJointForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="corkscrew" type="PNewtonJoint" paramflags="const" />
+      <parameter name="force" type="PFloat" />
+    </parameters>
+  </procedure>
+  <function name="NewtonCorkscrewCalculateStopAlpha" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="corkscrew" type="PNewtonJoint" paramflags="const" />
+      <parameter name="desc" type="PNewtonHingeSliderUpdateDesc" paramflags="const" />
+      <parameter name="angle" type="Single" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonCorkscrewCalculateStopAccel" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="corkscrew" type="PNewtonJoint" paramflags="const" />
+      <parameter name="desc" type="PNewtonHingeSliderUpdateDesc" paramflags="const" />
+      <parameter name="position" type="Single" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonConstraintCreateUniversal" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="pivotPoint" type="PFloat" paramflags="const" />
+      <parameter name="pinDir0" type="PFloat" paramflags="const" />
+      <parameter name="pinDir1" type="PFloat" paramflags="const" />
+      <parameter name="childBody" type="PNewtonBody" paramflags="const" />
+      <parameter name="parentBody" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonJoint" />
+    </parameters>
+  </function>
+  <procedure name="NewtonUniversalSetUserCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="universal" type="PNewtonJoint" paramflags="const" />
+      <parameter name="callback" type="NewtonUniversalCallBack" />
+    </parameters>
+  </procedure>
+  <function name="NewtonUniversalGetJointAngle0" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="universal" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonUniversalGetJointAngle1" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="universal" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonUniversalGetJointOmega0" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="universal" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonUniversalGetJointOmega1" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="universal" type="PNewtonJoint" paramflags="const" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonUniversalGetJointForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="universal" type="PNewtonJoint" paramflags="const" />
+      <parameter name="force" type="PFloat" />
+    </parameters>
+  </procedure>
+  <function name="NewtonUniversalCalculateStopAlpha0" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="universal" type="PNewtonJoint" paramflags="const" />
+      <parameter name="desc" type="PNewtonHingeSliderUpdateDesc" paramflags="const" />
+      <parameter name="angle" type="Single" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonUniversalCalculateStopAlpha1" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="universal" type="PNewtonJoint" paramflags="const" />
+      <parameter name="desc" type="PNewtonHingeSliderUpdateDesc" paramflags="const" />
+      <parameter name="angle" type="Single" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonConstraintCreateUpVector" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="pinDir" type="PFloat" paramflags="const" />
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonJoint" />
+    </parameters>
+  </function>
+  <procedure name="NewtonUpVectorGetPin" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="upVector" type="PNewtonJoint" paramflags="const" />
+      <parameter name="pin" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonUpVectorSetPin" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="upVector" type="PNewtonJoint" paramflags="const" />
+      <parameter name="pin" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <function name="NewtonConstraintCreateUserJoint" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="NewtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="MaxDOF" type="Integer" />
+      <parameter name="Callback" type="PNewtonUserBilateralCallBack" />
+      <parameter name="ChildBody" type="PNewtonBody" paramflags="const" />
+      <parameter name="parentBody" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonJoint" />
+    </parameters>
+  </function>
+  <procedure name="NewtonUserJointAddLinearRow" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="Joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="pivot0" type="PFloat" paramflags="const" />
+      <parameter name="pivot1" type="PFloat" paramflags="const" />
+      <parameter name="Dir" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonUserJointAddAngularRow" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="Joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="RelativeAngle" type="Single" />
+      <parameter name="Dir" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonUserJointAddGeneralRow" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="Joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="Jacobian0" type="PFloat" paramflags="const" />
+      <parameter name="Jacobian1" type="PFloat" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonUserJointSetRowMinimumFriction" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="Joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="Friction" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonUserJointSetRowMaximumFriction" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="Joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="Friction" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonUserJointSetRowAcceleration" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="Joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="Acceleration" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonUserJointSetRowStiffness" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="Joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="Stiffness" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonUserJointSetRowSpringDamperAcceleration" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="springK" type="Single" />
+      <parameter name="springD" type="Single" />
+    </parameters>
+  </procedure>
+  <function name="NewtonUserJointGetRowForce" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="Joint" type="PNewtonJoint" paramflags="const" />
+      <parameter name="Row" type="Integer" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonCreateRagDoll" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <retval type="PNewtonRagDoll" />
+    </parameters>
+  </function>
+  <procedure name="NewtonDestroyRagDoll" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="ragDoll" type="PNewtonRagDoll" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonRagDollBegin" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ragDoll" type="PNewtonRagDoll" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonRagDollEnd" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ragDoll" type="PNewtonRagDoll" paramflags="const" />
+    </parameters>
+  </procedure>
+  <function name="NewtonRagDollFindBone" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ragDoll" type="PNewtonRagDoll" paramflags="const" />
+      <parameter name="id" type="Integer" />
+      <retval type="PNewtonRagDollBone" />
+    </parameters>
+  </function>
+  <procedure name="NewtonRagDollSetForceAndTorqueCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ragDoll" type="PNewtonRagDoll" paramflags="const" />
+      <parameter name="callback" type="NewtonApplyForceAndTorque" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonRagDollSetTransformCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="ragDoll" type="PNewtonRagDoll" paramflags="const" />
+      <parameter name="callback" type="NewtonSetRagDollTransform" />
+    </parameters>
+  </procedure>
+  <function name="NewtonRagDollAddBone" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="RagDoll" type="PNewtonRagDoll" paramflags="const" />
+      <parameter name="Parent" type="PNewtonRagDollBone" paramflags="const" />
+      <parameter name="userData" type="Pointer" />
+      <parameter name="mass" type="Single" />
+      <parameter name="matrix" type="PFloat" paramflags="const" />
+      <parameter name="BoneCollision" type="PNewtonCollision" paramflags="const" />
+      <parameter name="Size" type="PFloat" paramflags="const" />
+      <retval type="PNewtonRagDollBone" />
+    </parameters>
+  </function>
+  <function name="NewtonRagDollBoneGetUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="bone" type="PNewtonRagDollBone" paramflags="const" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <function name="NewtonRagDollBoneGetBody" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="bone" type="PNewtonRagDollBone" paramflags="const" />
+      <retval type="PNewtonBody" />
+    </parameters>
+  </function>
+  <procedure name="NewtonRagDollBoneSetID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="bone" type="PNewtonRagDollBone" paramflags="const" />
+      <parameter name="id" type="Integer" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonRagDollBoneSetLimits" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="bone" type="PNewtonRagDollBone" paramflags="const" />
+      <parameter name="coneDir" type="PFloat" paramflags="const" />
+      <parameter name="minConeAngle" type="Single" />
+      <parameter name="maxConeAngle" type="Single" />
+      <parameter name="maxTwistAngle" type="Single" />
+      <parameter name="bilateralConeDir" type="PFloat" paramflags="const" />
+      <parameter name="negativeBilateralConeAngle" type="Single" />
+      <parameter name="positiveBilateralConeAngle" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonRagDollBoneGetLocalMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="bone" type="PNewtonRagDollBone" paramflags="const" />
+      <parameter name="matrix" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonRagDollBoneGetGlobalMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="bone" type="PNewtonRagDollBone" paramflags="const" />
+      <parameter name="matrix" type="PFloat" />
+    </parameters>
+  </procedure>
+  <function name="NewtonConstraintCreateVehicle" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="newtonWorld" type="PNewtonWorld" paramflags="const" />
+      <parameter name="upDir" type="PFloat" paramflags="const" />
+      <parameter name="body" type="PNewtonBody" paramflags="const" />
+      <retval type="PNewtonJoint" />
+    </parameters>
+  </function>
+  <procedure name="NewtonVehicleReset" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonVehicleSetTireCallback" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="update" type="PNewtonVehicleTireUpdate" />
+    </parameters>
+  </procedure>
+  <function name="NewtonVehicleAddTire" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="localMatrix" type="PFloat" paramflags="const" />
+      <parameter name="pin" type="PFloat" paramflags="const" />
+      <parameter name="mass" type="Single" />
+      <parameter name="width" type="Single" />
+      <parameter name="radius" type="Single" />
+      <parameter name="suspensionShock" type="Single" />
+      <parameter name="suspensionSpring" type="Single" />
+      <parameter name="suspensionLength" type="Single" />
+      <parameter name="userData" type="Pointer" />
+      <parameter name="collisionID" type="Integer" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <procedure name="NewtonVehicleRemoveTire" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireID" type="Pointer" />
+    </parameters>
+  </procedure>
+  <function name="NewtonVehicleGetFirstTireID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleGetNextTireID" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleTireIsAirBorne" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleTireLostSideGrip" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleTireLostTraction" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Integer" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleGetTireUserData" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Pointer" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleGetTireOmega" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleGetTireNormalLoad" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleGetTireSteerAngle" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleGetTireLateralSpeed" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <function name="NewtonVehicleGetTireLongitudinalSpeed" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonVehicleGetTireMatrix" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <parameter name="matrix" type="PFloat" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonVehicleSetTireTorque" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <parameter name="torque" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonVehicleSetTireSteerAngle" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <parameter name="angle" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonVehicleSetTireMaxSideSleepSpeed" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <parameter name="speed" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonVehicleSetTireSideSleepCoeficient" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <parameter name="coeficient" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonVehicleSetTireMaxLongitudinalSlideSpeed" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <parameter name="speed" type="Single" />
+    </parameters>
+  </procedure>
+  <procedure name="NewtonVehicleSetTireLongitudinalSlideCoeficient" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <parameter name="coeficient" type="Single" />
+    </parameters>
+  </procedure>
+  <function name="NewtonVehicleTireCalculateMaxBrakeAcceleration" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <retval type="Single" />
+    </parameters>
+  </function>
+  <procedure name="NewtonVehicleTireSetBrakeAcceleration" visibility="public" callconv="cdecl">
+    <parameters>
+      <parameter name="vehicle" type="PNewtonJoint" paramflags="const" />
+      <parameter name="tireId" type="Pointer" />
+      <parameter name="accelaration" type="Single" />
+      <parameter name="torqeLimit" type="Single" />
+    </parameters>
+  </procedure>
+</namespace>
