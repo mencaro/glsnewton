@@ -115,6 +115,7 @@ Type
     procedure SetDirection(const Direction: TVector);
 
   Protected
+    FOctreeBuilded: boolean;
     FBaseExtents: TExtents; //базовый Extents
     FMeshType: TMeshTypes; //тип объекта, совместно с именем только для информации    
   Public
@@ -213,13 +214,16 @@ Type
     Procedure PackMeshes(FreeOldBuffers:boolean=true; BuffSize:integer=-1);
     //Упаковывает меш в текстуру, x,y,z-координаты вершины, w-текстурная координата p
     Procedure PackMeshesToTexture(var vtex,ntex: TGLTexture);
-
+    //Извлекает все треугольники из меша и помещает в один буфер
+    Procedure GetTriMesh(var TriMesh: TAffinevectorList);
+    
     Function OctreeRayCastIntersect(const rayStart, rayVector: TVector; var iList:TList;
                          iPoint: PVector = nil;iNormal: PVector = nil): integer; overload;
     Function OctreeRayCastIntersect(const rayStart, rayVector: TVector;
                          iPoint: PVector = nil; iNormal: PVector = nil): boolean; overload;
     Function ExtentsIntersect(const rayStart,
                       rayVector: TVector; iPoint:PVector=nil): boolean;
+
   end;
 
   TVBOParticles = class (TVBOMeshObject)
@@ -643,6 +647,7 @@ begin
    end;
    FOctreeList.Add(Temp); TriList.Clear; TriList.Free;
   end;
+  FOctreeBuilded:=true;
 end;
 
 constructor TVBOMeshObject.Create;
@@ -665,6 +670,7 @@ begin
   MeshList:=TList.Create;
   Materials:=TStringList.Create;
   FOctreeList:=TList.Create;
+  FOctreeBuilded:=false;
   FProxyList:=TList.Create;
   FPosition:=vectormake(0,0,0,0);
   FScale:=vectormake(1,1,1,1);
@@ -1414,6 +1420,17 @@ begin
     ModelMatrix[2]:=Dir;
   end;
   UpdateWorldMatrix;
+end;
+
+procedure TVBOMeshObject.GetTriMesh(var TriMesh: TAffinevectorList);
+var i:integer;
+    p:PVBOBuffer;
+begin
+  if not assigned(TriMesh) then TriMesh:=TAffineVectorList.Create
+  else TriMesh.Clear;
+  for i:=0 to MeshList.Count-1 do begin
+     p:=MeshList[i]; ExtractTriangles(p^,TriMesh);
+  end;
 end;
 
 { TVBOMesh }

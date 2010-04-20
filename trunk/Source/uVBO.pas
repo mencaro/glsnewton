@@ -143,7 +143,7 @@ procedure AttachBufferInPos(var FromBuff, ToBuff: TVBOBuffer; vPos,iPos:integer)
 procedure PackListIntoBuffer(List:TList; var Buffs:TMultiBuffer; FreeRAM:boolean);overload;
 procedure ListToMultiBuffer(List:TList; var Buffs:TMultiPackBuff;
                             RenderList:TList; FreeRAM:boolean=false; size:integer=-1);
-Function  CreatePlane(Width, Height: single; TilesX, TilesY: integer;AsLine:boolean=false;GenBuff:Boolean=true): PVBOBuffer;
+function  CreatePlane(Width, Height: single; TilesX, TilesY: integer;AsLine:boolean=false;GenBuff:Boolean=true): PVBOBuffer;
 procedure SortListByMaterial(List:TList);
 
 function GetMaxIndicesCount: GLUInt;
@@ -158,7 +158,8 @@ function isVolumeClipped(emin, emax: TAffineVector): boolean; overload;
 function isVolumeClipped(const Extents: TExtents; const Frustum:TFrustum): boolean;overload;
 
 procedure Col2RowMatrix(mm: TMatrix; var m: TMatrix);
-Function GetViewMatrix:TMatrix;
+function GetViewMatrix:TMatrix;
+function GetProjectionMatrix:TMatrix;
 function GetModelViewMatrix(WorldMatrix, ViewMatrix: TMatrix): PGLFloat;
 function GetMinExtents(v1, v2: TAffineVector): TAffinevector;
 function GetMaxExtents(v1, v2: TAffineVector): TAffinevector;
@@ -1442,6 +1443,11 @@ end;
 Function GetViewMatrix:TMatrix;
 begin
   glGetFloatv(GL_MODELVIEW_MATRIX, @Result);
+end;
+
+Function GetProjectionMatrix:TMatrix;
+begin
+  glGetFloatv(GL_PROJECTION_MATRIX, @Result);
 end;
 
 function GetModelViewMatrix(WorldMatrix, ViewMatrix: TMatrix): PGLFloat;
