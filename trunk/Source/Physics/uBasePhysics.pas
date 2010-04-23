@@ -86,33 +86,46 @@ type
 // физический объект
   TBasePhysicObject = class(TBaseScreenObject)
   protected
-    procedure SetMass(const aMass: Single);  virtual; abstract;
-    procedure SetLinearVel(const aVelocity: TVector); virtual; abstract;
+    fGraphObject: TBaseGraphObject;
+  protected
+    procedure SetMass(const aMass: Single);            virtual; abstract;
+    procedure SetLinearVel(const aVelocity: TVector);  virtual; abstract;
     procedure SetAngularVel(const aVelocity: TVector); virtual; abstract;
-    procedure SetStatic(const aStatic: Boolean); virtual; abstract;
+    procedure SetStatic(const aStatic: Boolean);       virtual; abstract;
 
-    function GetMass    : Single;  virtual; abstract;
-    function GetLinearVel: TVector; virtual; abstract;
+    function GetMass    : Single;    virtual; abstract;
+    function GetLinearVel: TVector;  virtual; abstract;
     function GetAngularVel: TVector; virtual; abstract;
-    function GetStatic  : Boolean; virtual; abstract;
+    function GetStatic  : Boolean;   virtual; abstract;
   public
     property LinearVel: TVector read GetLinearVel write SetLinearVel;
     property AngularVel: TVector read GetLinearVel write SetAngularVel;
     property Mass: Single read GetMass write SetMass;
     property Static: boolean read GetStatic write SetStatic;
   public
-    Procedure AddForce(const aForce: TVector); virtual; abstract;
-    Procedure AddForceAtPos(const aPosition, aForce: TVector); virtual; abstract;
-    Procedure AddTorque     (const aTorque: Single);       virtual; abstract;
-    Procedure ApplyImpulse     (const aImpulse: TVector);       virtual; abstract;
-    Procedure ApplyImpulseAtPos(const aImpulse, aPos: TVector); virtual; abstract;
+    Procedure AddForce         (const aForce: TVector);            virtual; abstract;
+    Procedure AddForceAtPos    (const aPosition, aForce: TVector); virtual; abstract;
+    Procedure AddTorque        (const aTorque: TVector);           virtual; abstract;
+    Procedure ApplyImpulse     (const aImpulse: TVector);          virtual; abstract;
+    Procedure ApplyImpulseAtPos(const aImpulse, aPos: TVector);    virtual; abstract;
+  public
+    property GraphObject: TBaseGraphObject read fGraphObject;
+    Procedure AttachGraphObject(aGraphObject: TBaseGraphObject); virtual;
+    Procedure PositionGraphObject; virtual;
   end;
 //==============================================================================
 // физический мир
   TPhysicWorld = class(TBaseGameObject)
+  protected
+    fGlobalTime, fPhysicTime, fPhysicStep: Single;
+    
+    Procedure PhysicUpdate(const FixedDeltaTime: single); virtual; abstract;
   public
-//    Procedure DoProgress(const DeltaTime: Single); // Делаем шаг симуляции физики
-    Constructor Create;
+    Procedure DoProgress(const DeltaTime: Single); override; // Делаем шаг симуляции физики
+    Function  CreateSimplePhysicSphere(const aSizes: TVector): TBasePhysicObject; virtual; abstract;
+    Function  CreateSimplePhysicBox   (const aSizes: TVector): TBasePhysicObject; virtual; abstract;
+
+    Constructor Create(const aPhysicStep: Single);
     Destructor Destroy; override;
   end;
 //==============================================================================
@@ -158,11 +171,36 @@ begin
   inherited;
 end;
 
+{TBasePhysicObject}
+
+Procedure TBasePhysicObject.AttachGraphObject(aGraphObject: TBaseGraphObject);
+begin
+  fGraphObject := aGraphObject;
+end;
+
+Procedure TBasePhysicObject.PositionGraphObject;
+begin
+  fGraphObject.Matrix := Rotation; 
+end;
+
 {TPhysicWorld}
 
-Constructor TPhysicWorld.Create;
+Procedure TPhysicWorld.DoProgress(const DeltaTime: single);
 begin
-  inherited;
+  fGlobalTime := fGlobalTime + DeltaTime;
+  while fPhysicTime < fGlobalTime do
+  begin
+    fPhysicTime := fPhysicTime + fPhysicStep;
+    PhysicUpdate(fPhysicStep);
+  end;
+end;
+
+Constructor TPhysicWorld.Create(const aPhysicStep: Single);
+begin
+  inherited Create;
+  fPhysicStep := aPhysicStep;
+  fPhysicTime := 0;
+  fGlobalTime := 0;
 end;
 
 Destructor TPhysicWorld.Destroy;
