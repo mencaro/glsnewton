@@ -112,6 +112,7 @@ end;
 Destructor  TBaseGameList.Destroy;
 begin
   FreeAll;
+  FreeAndNil(fListItems);
   inherited;
 end;
 

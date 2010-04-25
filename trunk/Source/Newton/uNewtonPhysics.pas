@@ -14,9 +14,9 @@ type
     fNewtonCollision: PNewtonCollision;
   protected
   // от TBaseScreenObject
-    procedure SetPosition(aPosition: TVector); override;
-    procedure SetRotation(aRotation: TMatrix); override;
-    procedure SetSizes   (aSizes   : TVector); override;
+    procedure SetPosition(const aPosition: TVector); override;
+    procedure SetRotation(const aRotation: TMatrix); override;
+    procedure SetSizes   (const aSizes   : TVector); override;
 
     function GetPosition: TVector; override;
     function GetRotation: TMatrix; override;
@@ -46,15 +46,17 @@ type
     Procedure ApplyImpulseAtPos(const aImpulse, aPos: TVector);    override;
   public
   // своё
+    Procedure DoProgress(const DeltaTime: Single); override;
     Procedure InitNewtonBody(aNewtonWorld: TNewtonWorld; aNewtonCollision: PNewtonCollision); virtual;
 //    Constructor Create(aNewtonWorld: TNewtonWorld; aNewtonCollision: PNewtonCollision);
-    Destructor Destroy; override;  
+    Destructor Destroy; override;
   end;
 //==============================================================================
   TNewtonWorld = class(TPhysicWorld)
   protected
     fNewtonWorld: PNewtonWorld;
-
+    fGravity: TVector;
+    
     Procedure PhysicUpdate(const FixedDeltaTime: single); override;
 
     Function CreateNewtonObject(aNewtonCollision: PNewtonCollision): TNewtonPhysicObject;
@@ -63,7 +65,7 @@ type
     Function CreateSimplePhysicSphere(const aSizes: TVector): TBasePhysicObject; override;
     Function CreateSimplePhysicBox   (const aSizes: TVector): TBasePhysicObject; override;
 
-    Constructor Create(const aPhysicStep: Single);
+    Constructor Create(const aPhysicStep: Single; const aGravity: TVector);
     Destructor Destroy; override;
   end;
 //==============================================================================
@@ -73,7 +75,7 @@ implementation
 
 {TNewtonPhysicObject}
 
-procedure TNewtonPhysicObject.SetPosition(aPosition: TVector);
+procedure TNewtonPhysicObject.SetPosition(const aPosition: TVector);
 var
   BodyMatrix: TMatrix;
 begin
@@ -82,11 +84,12 @@ begin
   NewtonBodySetMatrix(fNewtonBody, @BodyMatrix);
 end;
 
-procedure TNewtonPhysicObject.SetRotation(aRotation: TMatrix);
+procedure TNewtonPhysicObject.SetRotation(const aRotation: TMatrix);
 begin
+  NewtonBodySetMatrix(fNewtonBody, @aRotation);
 end;
 
-procedure TNewtonPhysicObject.SetSizes   (aSizes   : TVector);
+procedure TNewtonPhysicObject.SetSizes   (const aSizes   : TVector);
 begin
 end;
 
@@ -111,7 +114,7 @@ end;
 
 procedure TNewtonPhysicObject.SetMass(const aMass: Single);
 begin
-  NewtonBodySetMassMatrix(fNewtonBody, aMass, 1, 1, 1); // <--надо бы посчитать тензор инерции
+  NewtonBodySetMassMatrix(fNewtonBody, aMass, 1, 1, 1); // <--todo: надо бы посчитать тензор инерции
 end;
 
 procedure TNewtonPhysicObject.SetLinearVel(const aVelocity: TVector);
@@ -188,19 +191,45 @@ end;
 
 Procedure TNewtonPhysicObject.ApplyImpulseAtPos(const aImpulse, aPos: TVector);
 begin
-//  NewtonBodyAddImpulse
+  NewtonBodyAddImpulse(fNewtonBody, @aImpulse[0], @aPos[0]);
+end;
+
+Procedure TNewtonPhysicObject.DoProgress(const DeltaTime: Single);
+begin
+  inherited;
+  PositionGraphObject;
 end;
 
 Procedure TNewtonPhysicObject.InitNewtonBody(aNewtonWorld: TNewtonWorld; aNewtonCollision: PNewtonCollision);
 begin
   fNewtonCollision := aNewtonCollision;
-  fNewtonBody := NewtonCreateBody(aNewtonWorld.NewtonWorld, aNewtonCollision); 
+  fNewtonBody := NewtonCreateBody(aNewtonWorld.NewtonWorld, aNewtonCollision);
+  NewtonBodySetUserData(fNewtonBody, Self);
 end;
 
 Destructor TNewtonPhysicObject.Destroy;
 begin
   NewtonDestroyBody(NewtonBodyGetWorld(fNewtonBody), fNewtonBody);
   inherited;
+end;
+
+//==============================================================================
+
+{CallBack's}
+
+Procedure CallBackAddForce(const aNewtonBody: PNewtonBody; aTimeStep: Float; aThreadIndex: int); cdecl; // <-- CallBack
+var
+  aForce: TVector;
+  Mass, I: Float;
+begin
+  //узнаем массу объекта
+  NewtonBodyGetMassMatrix(aNewtonBody, @Mass, @I, @I, @I);
+  // добираемся до класса мира
+  aForce := TNewtonWorld(NewtonWorldGetUserData(NewtonBodyGetWorld(aNewtonBody))).fGravity;
+  // масса * гравитацию
+  aForce := VectorScale(aForce, Mass);
+  // прикладываем силу
+  NewtonBodyAddForce(aNewtonBody, @aForce);
 end;
 
 //==============================================================================
@@ -216,6 +245,7 @@ Function TNewtonWorld.CreateNewtonObject(aNewtonCollision: PNewtonCollision): TN
 begin
   result := TNewtonPhysicObject.Create;
   result.InitNewtonBody(self, aNewtonCollision);
+  NewtonBodySetForceAndTorqueCallBack(Result.fNewtonBody, CallBackAddForce);
 end;
 
 Function TNewtonWorld.CreateSimplePhysicSphere(const aSizes: TVector): TBasePhysicObject;
@@ -228,15 +258,17 @@ begin
   result := CreateNewtonObject(NewtonCreateBox(fNewtonWorld, aSizes[0], aSizes[1], aSizes[2], 0, nil));
 end;
 
-Constructor TNewtonWorld.Create(const aPhysicStep: Single);
+Constructor TNewtonWorld.Create(const aPhysicStep: Single; const aGravity: TVector);
 begin
-  inherited Create(aPhysicStep);
+  inherited Create(aPhysicStep, aGravity);
   fNewtonWorld := NewtonCreate(nil, nil);
+  NewtonWorldSetUserData(fNewtonWorld, self);
+  fGravity := aGravity;
 end;
 
 Destructor TNewtonWorld.Destroy;
 begin
-  NewtonDestroy(nil);
+  NewtonDestroy(fNewtonWorld);
   inherited;
 end;
 

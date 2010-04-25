@@ -17,9 +17,9 @@ type
 // объект, отображаемый на экране, от него идет разделение на физику и графику
   TBaseScreenObject = class(TBaseGameObject)
   protected
-    procedure SetPosition(aPosition: TVector); virtual; abstract;
-    procedure SetRotation(aRotation: TMatrix); virtual; abstract;
-    procedure SetSizes   (aSizes   : TVector); virtual; abstract;
+    procedure SetPosition(const aPosition: TVector); virtual; abstract;
+    procedure SetRotation(const aRotation: TMatrix); virtual; abstract;
+    procedure SetSizes   (const aSizes   : TVector); virtual; abstract;
 
     function GetPosition: TVector; virtual; abstract;
     function GetRotation: TMatrix; virtual; abstract;
@@ -55,7 +55,7 @@ type
     property IsVisible: Boolean read GetVisible write SetVisible;
     property Extents: TExtents read GetExtents;
     property Matrix: TMatrix read GetMatrix write SetMatrix;
-    function WantGraphUpdate: boolean; virtual; abstract;
+//    function WantGraphUpdate: boolean; virtual; abstract;
 
     Procedure RenderObject(var aRenderInfo: TRenderContextInfo); virtual; abstract;
 
@@ -112,6 +112,17 @@ type
     property GraphObject: TBaseGraphObject read fGraphObject;
     Procedure AttachGraphObject(aGraphObject: TBaseGraphObject); virtual;
     Procedure PositionGraphObject; virtual;
+    Destructor Destroy; override;
+  end;
+//==============================================================================
+// графический мир
+  TGraphicWorld = class(TBaseGameObject)
+  protected
+    fGraphParent: TBaseGraphObject;
+  public
+    Function  CreateSimpleGraphSphere(const aSizes: TVector): TBaseGraphObject; virtual; abstract;
+    Function  CreateSimpleGraphBox   (const aSizes: TVector): TBaseGraphObject; virtual; abstract;
+    Constructor Create(const aGraphParent: TBaseGraphObject);
   end;
 //==============================================================================
 // физический мир
@@ -125,11 +136,16 @@ type
     Function  CreateSimplePhysicSphere(const aSizes: TVector): TBasePhysicObject; virtual; abstract;
     Function  CreateSimplePhysicBox   (const aSizes: TVector): TBasePhysicObject; virtual; abstract;
 
-    Constructor Create(const aPhysicStep: Single);
+    Constructor Create(const aPhysicStep: Single; const aGravity: TVector);
     Destructor Destroy; override;
   end;
 //==============================================================================
 implementation
+uses
+  SysUtils;
+//==============================================================================
+
+{TBaseGameObject}
 
 Function  TBaseGameObject.DoCommand(const aCommand: cardinal; const aData: array of Single): boolean;
 begin
@@ -145,6 +161,8 @@ Procedure TBaseGameObject.DoProgress(const DeltaTime: single);
 begin
 end;
 
+//==============================================================================
+
 { TBaseGraphObject }
 
 constructor TBaseGraphObject.Create(aParent: TBaseGraphObject);
@@ -159,6 +177,8 @@ begin
   inherited;
 end;
 
+//==============================================================================
+
 { TBaseJointObject }
 
 constructor TBaseJointObject.Create;
@@ -171,6 +191,8 @@ begin
   inherited;
 end;
 
+//==============================================================================
+
 {TBasePhysicObject}
 
 Procedure TBasePhysicObject.AttachGraphObject(aGraphObject: TBaseGraphObject);
@@ -179,9 +201,35 @@ begin
 end;
 
 Procedure TBasePhysicObject.PositionGraphObject;
+var
+  GrScale: TVector;
 begin
-  fGraphObject.Matrix := Rotation; 
+  if fGraphObject <> nil then
+  begin
+    GrScale := fGraphObject.Sizes;
+    fGraphObject.Matrix := Rotation;
+    fGraphObject.Position := Position;
+    fGraphObject.Sizes := GrScale;
+  end;
 end;
+
+Destructor TBasePhysicObject.Destroy;
+begin
+  if fGraphObject <> nil then
+    FreeAndNil(fGraphObject);
+  inherited;
+end;
+//==============================================================================
+
+{TGraphicWorld}
+
+Constructor TGraphicWorld.Create(const aGraphParent: TBaseGraphObject);
+begin
+  inherited Create;
+  fGraphParent := aGraphParent;
+end;
+
+//==============================================================================
 
 {TPhysicWorld}
 
@@ -195,7 +243,7 @@ begin
   end;
 end;
 
-Constructor TPhysicWorld.Create(const aPhysicStep: Single);
+Constructor TPhysicWorld.Create(const aPhysicStep: Single; const aGravity: TVector);
 begin
   inherited Create;
   fPhysicStep := aPhysicStep;
@@ -208,4 +256,5 @@ begin
   inherited;
 end;
 
+//==============================================================================
 end.

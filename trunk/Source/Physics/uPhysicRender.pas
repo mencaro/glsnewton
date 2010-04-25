@@ -18,7 +18,6 @@ type
     function GetExtents: TExtents;override;
     function GetMatrix: TMatrix;override;
     procedure SetMatrix(const aMatrix: TMatrix);override;
-
   public
     property Parent: TBaseGraphObject read fParent write SetParent;
     property IsVisible: Boolean read GetVisible write SetVisible;
@@ -40,14 +39,20 @@ type
   private
     fSceneObject: TGLBaseSceneObject;
   protected
-    function GetVisible: boolean; override;
-    procedure SetVisible(const aVisible: boolean);override;
     procedure SetParent(aNewParent: TBaseGraphObject);override;
-    function GetExtents: TExtents;override;
-    function GetMatrix: TMatrix;override;
-    procedure SetMatrix(const aMatrix: TMatrix);override;
+
+    procedure SetVisible (const aVisible: boolean);  override;
+    procedure SetPosition(const aPosition: TVector); override;
+    procedure SetMatrix  (const aMatrix: TMatrix);   override;
+    procedure SetSizes   (const aSizes   : TVector); override;
+
+    function GetVisible: boolean;  override;
+    function GetPosition: TVector; override;
+    function GetExtents: TExtents; override;
+    function GetMatrix: TMatrix;   override;
+    function GetSizes   : TVector; override;
   public
-//    property GlObject: TGlCustomSceneObject read fGlObject;
+    property GlObject: TGLBaseSceneObject read fSceneObject write fSceneObject;
     property Parent: TBaseGraphObject read fParent write SetParent;
     property IsVisible: Boolean read GetVisible write SetVisible;
     property Extents: TExtents read GetExtents;
@@ -63,8 +68,18 @@ type
     Destructor Destroy; override;
   end;
 //==============================================================================
+  TGlSceneGraphicWorld = class(TGraphicWorld)
+  protected
+    Function GetParentAsSceneObject: TSceneGraphObject;
+    property ParentAsSceneObject: TSceneGraphObject read GetParentAsSceneObject;
+  public
+    Function  CreateSimpleGraphSphere(const aSizes: TVector): TBaseGraphObject; override;
+    Function  CreateSimpleGraphBox   (const aSizes: TVector): TBaseGraphObject; override;
+  end;
+//==============================================================================
 implementation
 uses
+  GlObjects, 
   uUtils;
 { TVBOGraphObject }
 
@@ -176,6 +191,11 @@ begin
   result:=fSceneObject.Matrix;
 end;
 
+function TSceneGraphObject.GetSizes   : TVector;
+begin
+  result := fSceneObject.Scale.AsVector;
+end;
+
 function TSceneGraphObject.GetTriMesh: TAffineVectorList;
 begin
   //Возвращается пустой список, так как нет информации о геометрии
@@ -208,6 +228,21 @@ begin
   fSceneObject.Matrix:=aMatrix;
 end;
 
+procedure TSceneGraphObject.SetSizes   (const aSizes   : TVector); 
+begin
+  fSceneObject.Scale.SetVector(aSizes);
+end;
+
+procedure TSceneGraphObject.SetPosition(const aPosition: TVector);
+begin
+  fSceneObject.Position.SetPoint(aPosition);
+end;
+
+function TSceneGraphObject.GetPosition: TVector;
+begin
+  result := fSceneObject.Position.AsVector;
+end;
+
 procedure TSceneGraphObject.SetParent(aNewParent: TBaseGraphObject);
 begin
   fParent:=aNewParent;
@@ -225,4 +260,35 @@ begin
   result:=PointInAABB(aPoint,aabb);
 end;
 
+//==============================================================================
+
+{TGlSceneGraphicWorld}
+
+Function TGlSceneGraphicWorld.GetParentAsSceneObject: TSceneGraphObject;
+begin
+  result := TSceneGraphObject(fGraphParent);
+end;
+
+Function  TGlSceneGraphicWorld.CreateSimpleGraphSphere(const aSizes: TVector): TBaseGraphObject;
+var
+  Obj: TSceneGraphObject;
+begin
+  Obj := TSceneGraphObject.Create(fGraphParent);
+  Obj.GlObject := TGlSphere.CreateAsChild(GetParentAsSceneObject.GlObject);
+  TGlSphere(Obj.GlObject).Radius := 1;
+  Obj.Sizes := aSizes;
+  result := Obj;
+end;
+
+Function  TGlSceneGraphicWorld.CreateSimpleGraphBox   (const aSizes: TVector): TBaseGraphObject;
+var
+  Obj: TSceneGraphObject;
+begin
+  Obj := TSceneGraphObject.Create(fGraphParent);
+  Obj.GlObject := TGlCube.CreateAsChild(GetParentAsSceneObject.GlObject);
+  Obj.Sizes := aSizes;
+  result := Obj;
+end;
+
+//==============================================================================
 end.
