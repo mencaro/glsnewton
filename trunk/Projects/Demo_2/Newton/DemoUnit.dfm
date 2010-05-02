@@ -25,7 +25,7 @@ object frmMain: TfrmMain
     Height = 492
     Camera = glMainCamera
     Buffer.BackgroundColor = 8811833
-    FieldOfView = 157.022033691406200000
+    FieldOfView = 157.022033691406
     Align = alCustom
     OnMouseDown = ViewPortMouseDown
     OnMouseMove = ViewPortMouseMove
@@ -35,18 +35,18 @@ object frmMain: TfrmMain
     Left = 40
     Top = 8
     object glMainCamera: TGLCamera
-      DepthOfView = 100.000000000000000000
-      FocalLength = 50.000000000000000000
+      DepthOfView = 100
+      FocalLength = 50
       TargetObject = glWorldDummy
       Position.Coordinates = {0000000000008040000080400000803F}
       object glMainLight: TGLLightSource
-        ConstAttenuation = 1.000000000000000000
+        ConstAttenuation = 1
         Position.Coordinates = {000070410000A0400000A0C00000803F}
-        SpotCutOff = 180.000000000000000000
+        SpotCutOff = 180
       end
     end
     object glWorldDummy: TGLDummyCube
-      CubeSize = 1.000000000000000000
+      CubeSize = 1
     end
   end
   object glCadencer: TGLCadencer

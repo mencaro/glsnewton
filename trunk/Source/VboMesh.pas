@@ -1,6 +1,9 @@
 
 {: vboMesh
 	Historique:
+  20/04/10 - Fantom - Исправлена ошибка рассинхронизации рендеринга анимации 
+  20/04/10 - Fantom - Добавлен перегруженный метод TVBOMesh.AddSMDAnimation,
+                      позволяет импортировать уже загруженную анимацию.
         20/04/10 - Fantom - Добавлен метод TVBOMeshObject.LocalToAbsolute
         20/04/10 - Fantom - Добавлен метод TVBOMeshObject.GetTriMesh
   17/04/10 - Fantom - Исправлено вычисление FBaseExtents
@@ -422,7 +425,8 @@ Type
       procedure FCreatSMDShader;
     public
       Procedure RenderObject(ARCI: TRenderContextInfo;var ViewMatrix: TMatrix);override;
-
+      Procedure NextFrame(n:single=1);
+      
       Property FramePos: single read FramePosition write FSetFrame;
       Property FramesCount: integer read FFramesCount;
       Property AnimationNum: integer read FAnimationNum write FSetAnimationByNum;
@@ -474,7 +478,7 @@ Type
       Function AddSphere(Radius: single; VSegments, HSegments: integer;
                          TileS:single=1;TileT:single=1;NormalInside:boolean = false): TVBOMeshObject;
       Function AddHUDSprite(width, height:single):TVBOMeshObject;
-      Function AddScreenQuad:TVBOMeshObject;
+      Function AddScreenQuad(AddToMesh:boolean=true):TVBOMeshObject;
       Function AddSprite(s_type:TSpriteType;width, height:single):TVBOMeshObject;
       Function AddAnimatedSprite(s_type:TSpriteType;width, height:single):TVBOMeshObject;
       Function AddMeshFromFreeForm(FF: TGLFreeForm):TVBOMeshObject;
@@ -485,7 +489,8 @@ Type
       Function AddUserObject(Name:string; VBOMeshList:TList):TVBOMeshObject;overload;
       Function AddUserObject(Name:string; VBOBuffer:PVBOBuffer):TVBOMeshObject;overload;
       Function AddMeshObject(mo:TVBOMeshObject): integer;
-      Function AddSMDAnimation(MeshFile: string; const AnimFiles: array of string):TVBOMeshObject;
+      Function AddSMDAnimation(MeshFile: string; const AnimFiles: array of string):TVBOMeshObject;overload;
+      Function AddSMDAnimation(SMD: TSkeletalRender):TVBOMeshObject; overload;
       
       Function  GetObjectByName(Name:string):TVBOMeshObject;
       Procedure GetObjectListByType(ObjType: TMeshTypes; var List:TList);
@@ -1131,13 +1136,6 @@ begin
       Else glLoadMatrixf(PGLFloat(@m));
     end;
 
-    if assigned(onBeforeCheckVisibility) then onBeforeCheckVisibility(arci,self);
-    MVProj := MatrixMultiply(ViewMatrix, Matrices.ProjectionMatrix);
-    Frustum := ExtractFrustumFromModelViewProjection(MVProj);
-    if not ((FMeshType=mtHUDSprite) or (FMeshType=mtSphericalSprite) or
-    (FMeshType=mtCylindricalSprite)) then
-       FCulled:=IsVolumeClipped(Extents, Frustum) else FCulled:=False;
-    if not FCulled then begin
       if FUseRenderList then rcount:=FRenderList.Count else rcount:=MeshList.Count;
       if rcount>0 then begin
       singleMat:=false; Lm:=nil;
@@ -1181,7 +1179,6 @@ begin
         until not MultiPass;
       end else begin
       //MultiMaterial
-
         if FUseRenderList then begin
            PDescr:=FRenderList[0]; CMName:=PDescr.MaterialName;
         end else begin
@@ -1227,7 +1224,6 @@ begin
         until i=rcount;
       end;
       end;//RCount<=0
-    end else FCulled:=true;
     if NoZWrite then glDepthMask(true);
     case FMeshType of
       mtScreenQuad: begin
@@ -1663,23 +1659,19 @@ begin
 end;
 
 procedure TVBOMesh.RenderMeshObject(MeshObject: TVBOMeshObject; var ARci: TRenderContextInfo);
-var mvm,proj:TMatrix;
 begin
-  glGetFloatv(GL_MODELVIEW_MATRIX, @mvm);
-  glGetFloatv(GL_PROJECTION_MATRIX, @proj);
-  MeshObject.Matrices.ProjectionMatrix:=proj;
   MeshObject.FTime:=GetTime;
-  MeshObject.RenderObject(ARCI,mvm);
+  MeshObject.RenderObject(ARCI,FViewMatrix);
 end;
 
 procedure TVBOMesh.DoRender(var ARci: TRenderContextInfo; ARenderSelf,
   ARenderChildren: Boolean);
 var i:integer;
     mo:TVBOMeshObject;
-    //F:TFrustum;
+    F:TFrustum;
     time:Double;
 begin
-FPolyCount:=0; //F := GetFrustum;
+FPolyCount:=0; F := GetFrustum;
 if assigned(onBeforeRender) then onBeforeRender(arci);
    glGetFloatv(GL_MODELVIEW_MATRIX, @FViewMatrix);
    glGetFloatv(GL_PROJECTION_MATRIX, @FProjectionMatrix);
@@ -1691,10 +1683,17 @@ if assigned(onBeforeRender) then onBeforeRender(arci);
          mo:=FMeshList[i];
          if assigned(mo) then begin
            if (mo.Visible) then begin
-             mo.Matrices.ProjectionMatrix:=FProjectionMatrix;
-             mo.FTime:=time;
-             mo.RenderObject(ARCI,FViewMatrix);
-             if not mo.FCulled then FPolyCount:=FPolyCount+mo.PolygonsCount;
+             with mo do begin
+               Matrices.ProjectionMatrix:=FProjectionMatrix;
+               FTime:=time;
+               if assigned(onBeforeCheckVisibility) then onBeforeCheckVisibility(arci,self);
+               if not ((FMeshType=mtHUDSprite) or (FMeshType=mtScreenQuad)) then
+               FCulled:=IsVolumeClipped(Extents, F) else FCulled:=False;
+             end;
+             if not mo.FCulled then begin
+                mo.RenderObject(ARCI,FViewMatrix);
+                FPolyCount:=FPolyCount+mo.PolygonsCount;
+             end;
            end;
          end;
         end;
@@ -1784,7 +1783,7 @@ begin
 end;
 
 
-function TVBOMesh.AddScreenQuad: TVBOMeshObject;
+function TVBOMesh.AddScreenQuad(AddToMesh:boolean): TVBOMeshObject;
 var Temp: PVBOBuffer;
     mo: TVBOMeshObject;
 begin
@@ -1808,7 +1807,9 @@ begin
     MeshMaterialLibrary:=MaterialLibrary;
     UpdateWorldMatrix;
     Pickable:=false;
-  end; result:=mo; mo.FIndexInMesh:=FMeshList.Add(mo);
+  end; result:=mo;
+  if AddToMesh then mo.FIndexInMesh:=FMeshList.Add(mo)
+  else mo.FIndexInMesh:=-1;
 end;
 
 function TVBOMesh.AddHUDSprite(width, height: single): TVBOMeshObject;
@@ -2369,6 +2370,51 @@ begin
   mo.UpdateWorldMatrix;
 end;
 
+function TVBOMesh.AddSMDAnimation(SMD: TSkeletalRender): TVBOMeshObject;
+var mo:TSkeletalRender;
+    i:integer;
+begin
+  mo:=TSkeletalRender.Create;
+  mo.Name:='SMDAnimation'+inttostr(FMeshList.Add(mo));
+  result:=mo;
+  with mo do begin
+    FAnim.Mesh:=SMD.FAnim.Mesh;
+    FAnim.Animations:=TList.Create;
+    FAnim.Animations.Assign(SMD.FAnim.Animations);
+    GetMeshFormSMD(FAnim.Mesh,MeshList,true);
+    FBaseExtents:=SMD.FBaseExtents;
+    FAnim.TextureId:=SMD.FAnim.TextureId;
+    MeshMaterialLibrary:=MaterialLibrary;
+    UpdateWorldMatrix;
+    //Pack Mesh to Texture
+    PackMeshesToTexture(vtex,ntex);
+    glDeleteBuffers(1,@FMultiBuffer[0].Buff.vid);
+    glDeleteBuffers(1,@FMultiBuffer[0].Buff.nid);
+    RotateAroundX(-pi/2); //visible:=false;
+    rvtex:=TGLTexture.Create; //Vertex readback Texture
+    rvtex.CreateRGBA32FTexture2D(vtex.Width,vtex.Height);
+    rntex:=TGLTexture.Create; //Vertex readback Texture
+    rntex.CreateRGBA32FTexture2D(vtex.Width,vtex.Height);
+
+    //Setup FBO
+    mo.FScreenQuad:=AddScreenQuad(false);
+    //FMeshList.Delete(FScreenQuad.FIndexInMesh);
+    with FScreenQuad do begin
+       with FBO do begin
+         AttachTexture(rvtex);
+         AttachTexture(rntex);
+         SetReadBackBuffer([0,1]);
+         InitFBO(vtex.Width,vtex.Height);
+         Active:=true;
+       end;
+      onBeforeRender:=FApplyShader;
+      onAfterRender:=FUnApplyShader;
+    end;
+    FScreenQuad.visible:=true;
+    FCreatSMDShader;
+  end;
+end;
+
 function TVBOMesh.AddSMDAnimation(MeshFile: string;
   const AnimFiles: array of string): TVBOMeshObject;
 var mo:TSkeletalRender;
@@ -2387,7 +2433,6 @@ begin
     for i:=0 to high(AnimFiles) do AddAnimation(FAnim,AnimFiles[i]);
     //Create Mesh from SMD
     GetMeshFormSMD(FAnim.Mesh,MeshList,true);
-//TODO: Проверить почему падает фпс при отсечении невидимой геометрии
     FBaseExtents:=GetExtentsOfList(MeshList);
     //Pack Animations to Texture
     FAnim.TextureId:=GetTextureFromAnim(FAnim);
@@ -2412,10 +2457,10 @@ begin
     rntex.CreateRGBA32FTexture2D(vtex.Width,vtex.Height);
 
     //Setup FBO
-    mo.FScreenQuad:=AddScreenQuad;
+    mo.FScreenQuad:=AddScreenQuad(false);
 //TODO: Разобраться почему прямой рендеринг скринквада
-//оказывается медленее рендеринга квада как объекта  
-    //FMeshList.Delete(FScreenQuad.FIndexInMesh);
+//оказывается медленее рендеринга квада как объекта
+//    FMeshList.Delete(FScreenQuad.FIndexInMesh);
     with FScreenQuad do begin
        with FBO do begin
          AttachTexture(rvtex);
@@ -2426,8 +2471,8 @@ begin
        end;
       onBeforeRender:=FApplyShader;
       onAfterRender:=FUnApplyShader;
-      visible:=true;
     end;
+    FScreenQuad.visible:=true;
     //Create Shader
     FCreatSMDShader;
   end;
@@ -2907,9 +2952,9 @@ begin
   Frame[2]:=trunc(FramePosition+1)*2; Frame[3]:=0;
 //  if Frame[2]>=FFramesCount then Frame[2]:=0;
   Shaders.UseProgramObject(spid);
-  Shaders.SetUniforms(spid,'VertexTexture',0);
-  Shaders.SetUniforms(spid,'NormalTexture',1);
-  Shaders.SetUniforms(spid,'BoneTexture',2);
+//  Shaders.SetUniforms(spid,'VertexTexture',0);
+//  Shaders.SetUniforms(spid,'NormalTexture',1);
+//  Shaders.SetUniforms(spid,'BoneTexture',2);
   Shaders.SetUniforms(spid,'frame',Frame);
   Shaders.SetUniforms(spid,'alpha',pos);
 end;
@@ -2964,6 +3009,11 @@ begin
     AttachShaderObjectToProgram(vsId,spId);
     AttachShaderObjectToProgram(fsId,spId);
     LinkShaderProgram(spId);
+    UseProgramObject(spid);
+    SetUniforms(spid,'VertexTexture',0);
+    SetUniforms(spid,'NormalTexture',1);
+    SetUniforms(spid,'BoneTexture',2);
+    UseProgramObject(0);
   end;
 end;
 
@@ -3025,19 +3075,22 @@ begin
   end;
 end;
 
+procedure TSkeletalRender.NextFrame(n:single);
+begin
+  if FramePosition+n>=FFramesCount then FSetFrame(FramePosition+n-FFramesCount)
+  else FSetFrame(FramePosition+n);
+end;
+
 procedure TSkeletalRender.RenderObject(ARCI: TRenderContextInfo;
   var ViewMatrix: TMatrix);
 begin
   if FAnimationNum=-1 then exit;
-  if FramePosition<>FOldFrame then begin
-//     glGetFloatv(GL_PROJECTION_MATRIX, @FScreenQuad.Matrices.ProjectionMatrix);
-//     FScreenQuad.FTime:=FTime;
-//     if FScreenQuad.Visible then
-//        FScreenQuad.RenderObject(ARCI,ViewMatrix);
-//     FScreenQuad.Visible:=false;
-     FOldFrame:=FramePosition;
-  end;
+  
   inherited;
+
+  if FScreenQuad.Visible then
+     FScreenQuad.RenderObject(ARCI,ViewMatrix);
+  FScreenQuad.Visible:=false;
 end;
 
 end.

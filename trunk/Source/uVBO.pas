@@ -717,7 +717,8 @@ begin
          end;
       end;
   end;
-  if buffCount=0 then inc(buffCount);
+  //if buffCount=0 then
+  inc(buffCount);
   setlength(buffs,buffCount);
   buffidx:=-1;
   vCount:=0; iCount:=0;

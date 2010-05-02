@@ -6,8 +6,7 @@ interface
 
 uses
   Windows, Classes, GLScene, GLObjects, GLRenderContextInfo, OpenGL1X,
-  VectorGeometry, VectorTypes, VectorLists,
-  CalculatePhysics, uVBO, VBOMesh, NewtonImport;
+  VectorGeometry, VectorTypes, VectorLists, uVBO, VBOMesh, NewtonImport;
 
 type
   TCamMoveResult = record
@@ -15,7 +14,7 @@ type
     dX, dY: integer;
   end;
 
-type TIntBool=0..1;
+type TIntBool = 0..1;
 
 type TNewtonMaterial = record
    Softness, StaticFriction, KineticFriction, Elasticity: real;
@@ -36,24 +35,50 @@ function NewtonMaterialMake(isCollidable:TIntBool;Softness,StaticFriction,
       KineticFriction,Elasticity:real;CollisionCallBack:PNewtonContactsProcess=nil):TNewtonMaterial;
 procedure DefaultNewtonContactsProcess(const contact: PNewtonJoint;
   timestep: Float; threadIndex: int); cdecl;
+function CalculateVerticesMassVBO(Obj:TVBOMeshObject):TVector4f;
 //
+
+type TVBONewtonJoint = class
+  private
+   procedure SetJointCallback(CallBack:NewtonBallCallBack);
+  public
+   NewtonJoint : PNewtonJoint;
+   NewtonWorld : PNewtonWorld;
+   property NewtonJointCallback:NewtonBallCallBack write SetJointCallback;
+   destructor Destroy; override;
+end;
 
 type TVBONewtonMesh = class
    private
+    function GetBodyForce:TVector4f;
+    procedure SetBodyForce(Force:TVector4f);
+    function GetBodyState:VBONewton.TIntBool;
+    procedure SetBodyState(State:VBONewton.TIntBool);
+    function GetBodyInertion:TVector4f;
+    procedure SetBodyInertion(Inertion:TVector4f);
+    function GetBodySpeed:TVector4f;
+    procedure SetBodySpeed(Speed:TVector4f);
     function GetBodyMatrix:TMatrix;
     procedure SetBodyMatrix(Matrix:TMatrix);
     function GetBodyDirection:TVector4f;
     procedure SetBodyDirection(Direction:TVector4f);
     function GetBodyPosition:TVector4f;
     procedure SetBodyPosition(Position:TVector4f);
-    function GetBodyMass:Real;
-    procedure SetBodyMass(Mass:Real);
+    function GetBodyMass:Single;
+    procedure SetBodyMass(Mass:Single);
    public
     NewtonBody: PNewtonBody;
     NewtonWorld : PNewtonWorld;
     MeshObject : TVBOMeshObject;
     MaterialID : Integer;
-    property BodyMass:Real read GetBodyMass write SetBodyMass;
+    //  не рекомендуется использовать, т.к. при пользовании проявляются баги
+    //  по крайней мере лучше не читать, масса пишется нормально :)
+    property BodyMass:Single read GetBodyMass write SetBodyMass;
+    property BodyInertion:TVector4f read GetBodyInertion write SetBodyInertion;
+    //
+    property BodyFrizeed: TIntBool read GetBodyState write SetBodyState;
+    property BodySpeed:TVector4f read GetBodySpeed write SetBodySpeed;
+    property BodyForce:TVector4f read GetBodyForce write SetBodyForce;
     property BodyDirection:TVector4f read GetBodyDirection write SetBodyDirection;
     property BodyPosition:TVector4f read GetBodyPosition write SetBodyPosition;
     property BodyMatrix:TMatrix read GetBodyMatrix write SetBodyMatrix;
@@ -66,10 +91,16 @@ type TVBONewtonWorld = class
     FDummy : TGLDummyCube;
     DirectOpenGL: TGLDirectOpenGL;
     FMeshBodyList: TList;
+    FJoints : TList;
     SceneNewtonWorld: PNewtonWorld;
     function GetObjectsCount:Integer;
+    function GetLastObject : TVBONewtonMesh;
     function GetObject(Index: Integer):TVBONewtonMesh;
+    function GetJointsCount : Integer;
+    function GetLastJoint : TVBONewtonJoint;
+    function GetJointObject(Index: Integer) : TVBONewtonJoint;
     procedure DebugRender(Sender: TObject; var rci: TRenderContextInfo);
+    procedure CreatePlayer(VBOMeshObject:TVBOMeshObject);
   public
     Player : TVBONewtonMesh;
     Camera: TGLCamera;
@@ -79,35 +110,76 @@ type TVBONewtonWorld = class
     JumpSpeed, PlayerSpeed: real;
     DebugGeometry: boolean;
     DefaultWorldMaterialID : Integer;
-    property NewtonObjects[Index: Integer]:TVBONewtonMesh read GetObject;
+    // Objects
+    property LastObject : TVBONewtonMesh read GetLastObject;
+    property NewtonObjects[Index: Integer] : TVBONewtonMesh read GetObject;
     property NewtonObjectsCount:integer read GetObjectsCount;
+    // Joints
+    property LastJointObject : TVBONewtonJoint read GetLastJoint;
+    property NewtonJoints[Index: Integer] : TVBONewtonJoint read GetJointObject;
+    property NewtonJointsCount:integer read GetJointsCount;
     // Dynamic
-    function AddConvexBody(VBOMeshObject:TVBOMeshObject;Weight:real=1;
-             noUpdateRMatrix:boolean=false):TVBONewtonMesh;
+    function AddConvexBody(VBOMeshObject : TVBOMeshObject; Weight:real=1;
+             noUpdateRMatrix:boolean=false) : TVBONewtonMesh;
     // Static
     function AddTreeBody(VBOMeshObject:TVBOMeshObject):TVBONewtonMesh;
-    procedure CreatePlayer(VBOMeshObject:TVBOMeshObject);
+    // Joints
+    function AddHingeJoint(Mesh1,Mesh2:TVBONewtonMesh):TVBONewtonJoint; deprecated;
+    function AddBallSocketJoint(Parent,Child:TVBONewtonMesh;
+         PivotPoint:TVector4f;State:TINTBool=0):TVBONewtonJoint;
+    //
     function FPSApplyCamMove: TCamMoveResult;
     function FPSApplyKeyMove(KeyUP, KeyDOWN, KeyLEFT, KeyRIGHT: Byte;
       Jump: boolean): bool;
     procedure SetMaterialBetweenWorldAndPlayer(NewtonMaterial:TNewtonMaterial);
     procedure SetMaterialBetween2Meshes(Mesh1,Mesh2:TVBONewtonMesh;NewtonMaterial:TNewtonMaterial);
-    procedure UpdateWorld(time:real);
-    constructor Create(MeshPlayer:TVBOMeshObject; GLScene: TGLScene; Friction: integer; Solver: integer;
-      WorldSizeFrom, WorldSizeTo: TVector3f); overload;
+    procedure UpdateWorld(time:real;isApplyForce:boolean=true);
+    procedure NewtonObjectsClear;
+    constructor Create(MeshPlayer:TVBOMeshObject; GLScene: TGLScene;
+          Owner:TGLBaseSceneObject; Friction: integer; Solver: integer;
+          WorldSizeFrom, WorldSizeTo: TVector3f); overload;
     destructor Destroy; override;
   end;
 
 implementation
 
-function TVBONewtonMesh.GetBodyMass:Real;
+destructor TVBONewtonJoint.Destroy;
 begin
-  NewtonBodyGetMassMatrix(NewtonBody, @result, nil, nil, nil);
+  NewtonDestroyJoint(NewtonWorld, NewtonJoint);
+  inherited;
 end;
 
-procedure TVBONewtonMesh.SetBodyMass(Mass:Real);
+function TVBONewtonMesh.GetBodyForce:TVector4f;
 begin
-  NewtonBodySetMassMatrix(NewtonBody, Mass, 1, 1, 1);
+  NewtonBodyGetForce(NewtonBody,@result);
+end;
+
+procedure TVBONewtonMesh.SetBodyForce(Force:TVector4f);
+begin
+  NewtonBodySetForce(NewtonBody,@Force);
+end;
+
+function TVBONewtonMesh.GetBodyState:TIntBool;
+begin
+  result:=NewtonBodyGetFreezeState(NewtonBody);
+end;
+
+procedure TVBONewtonMesh.SetBodyState(State:TIntBool);
+begin
+  NewtonBodySetFreezeState(NewtonBody, State);
+end;
+
+function TVBONewtonMesh.GetBodyMass:Single;
+var I1, I2, I3:real;
+begin
+  NewtonBodyGetMassMatrix(NewtonBody, @result, @I1, @I2, @I3);
+end;
+
+procedure TVBONewtonMesh.SetBodyMass(Mass:Single);
+var I1, I2, I3 , Weight:real;
+begin
+  NewtonBodyGetMassMatrix(NewtonBody, @Weight, @I1, @I2, @I3);
+  NewtonBodySetMassMatrix(NewtonBody, Mass, I1, I2, I3);
 end;
 
 function TVBONewtonMesh.GetBodyMatrix:TMatrix;
@@ -272,19 +344,32 @@ procedure NewtonApplyForceAndTorque(const Body: PNewtonBody; timestep: Float;
 var
   m: single;
   F: TVector4f;
-  i: TVector4f;
 begin
-  NewtonBodyGetMassMatrix(Body, @m, @i[0], @i[1], @i[2]);
-  F := vectormake(0, NewtonGravity * m, 0);
-  NewtonBodyAddForce(Body, @F[0]);
+  NewtonBodyGetMassMatrix(Body, @m, @F[0], @F[1], @F[2]);
+  F := VectorMake(0, NewtonGravity * m, 0);
+  NewtonBodyAddForce(Body, @F);
+end;
+
+function CalculateVerticesMassVBO(Obj:TVBOMeshObject):TVector4f;
+var i:integer; tx,ty,tz:real; buff:PVBOBuffer;
+begin
+ buff:=Obj.MeshList[0]; result:=VectorMake(0,0,0); tx:=0; ty:=0; tz:=0;
+ for i:=0 to buff.VertexCount-1 do begin
+   tx:=tx+buff.Vertexes[i][0];
+   ty:=ty+buff.Vertexes[i][1];
+   tz:=tz+buff.Vertexes[i][2];
+ end;
+ result:=VectorMake(tx/buff.VertexCount,ty/buff.VertexCount,tz/buff.VertexCount)
 end;
 
 //
 
-constructor TVBONewtonWorld.Create(MeshPlayer:TVBOMeshObject; GLScene: TGLScene; Friction: integer; Solver: integer;
-      WorldSizeFrom, WorldSizeTo: TVector3f);
+constructor TVBONewtonWorld.Create(MeshPlayer:TVBOMeshObject; GLScene: TGLScene;
+          Owner:TGLBaseSceneObject; Friction: integer; Solver: integer;
+          WorldSizeFrom, WorldSizeTo: TVector3f);
 begin
-  FMeshBodyList:= TList.Create;
+  FMeshBodyList := TList.Create;
+  FJoints := TList.Create;
   SceneNewtonWorld := NewtonCreate(nil, nil);
   NewtonSetWorldSize(SceneNewtonWorld, @WorldSizeFrom, @WorldSizeTo);
   NewtonSetSolverModel(SceneNewtonWorld, Solver);
@@ -298,20 +383,18 @@ begin
   PlayerSpeed := 4;
   CreatePlayer(MeshPlayer);
   DefaultWorldMaterialID := NewtonMaterialGetDefaultGroupID(SceneNewtonWorld);
-  FDummy := TGLDummyCube.CreateAsChild(GLScene.Objects);
+  FDummy := TGLDummyCube.CreateAsChild(Owner);
   Camera := TGLCamera.CreateAsChild(FDummy);
 end;
 
 destructor TVBONewtonWorld.Destroy;
-var t: 0 .. maxBodes;
 begin
-  Player.Destroy;
-  for t:=0 to NewtonObjectsCount-1 do
-   NewtonObjects[t].Free;
-  NewtonDestroyAllBodies(SceneNewtonWorld);
-  NewtonMaterialDestroyAllGroupID(SceneNewtonWorld);
+  FreeAndNil(Player);
+  NewtonObjectsClear;
   NewtonDestroy(SceneNewtonWorld);
-  FMeshBodyList.Clear;
+  FreeAndNil(Camera);
+  FreeAndNil(FDummy);
+  FreeAndNil(FJoints);
   FreeAndNil(FMeshBodyList);
   FreeAndNil(DirectOpenGL);
   inherited;
@@ -349,6 +432,7 @@ label l1;
 var
   FI, F, FJ: TVector4f;
 begin
+  F := VectorMake(0, 0, 0);
   if (not isKeyDown(KeyUP)) and (not isKeyDown(KeyDOWN)) and
     (not isKeyDown(KeyLEFT)) and (not isKeyDown(KeyRIGHT)) and (not Jump) then
   begin
@@ -356,56 +440,48 @@ begin
     goto l1;
   end;
   result := true;
-  F := vectormake(0, 0, 0);
   if isKeyDown(KeyUP) then
   begin
-    FI := VectorTransform(vectormake(0,0,-PlayerSpeed),
+    FI := VectorTransform(VectorMake(0,0,-PlayerSpeed),
              FDummy.Matrix);
     AddVector(F, FI);
   end;
   if isKeyDown(KeyDOWN) then
   begin
-    FI := VectorTransform(vectormake(0,0,PlayerSpeed),
+    FI := VectorTransform(VectorMake(0,0,PlayerSpeed),
              FDummy.Matrix);
     AddVector(F, FI);
   end;
   if isKeyDown(KeyLEFT) then
   begin
-    FI := VectorTransform(vectormake(PlayerSpeed,0,0),
+    FI := VectorTransform(VectorMake(PlayerSpeed,0,0),
              FDummy.Matrix);
     AddVector(F, FI);
   end;
   if isKeyDown(KeyRIGHT) then
   begin
-    FI := VectorTransform(vectormake(-PlayerSpeed,0,0),
+    FI := VectorTransform(VectorMake(-PlayerSpeed,0,0),
              FDummy.Matrix);
     AddVector(F, FI);
   end;
   if Jump then
   begin
-    FI := Player.MeshObject.Position;
-    if (F[0] > 0) or (F[2] > 0) then
-      FJ := vectormake(0, PlayerSpeed * JumpSpeed * 2, 0)
+    FI := Player.BodyPosition;
+    if (F[0] <> 0) or (F[2] <> 0) then
+      FJ := VectorTransform(VectorMake(0, PlayerSpeed * JumpSpeed * 2, 0),
+            FDummy.Matrix)
     else
-      FJ := vectormake(0, JumpSpeed, 0);
+      FJ := VectorTransform(VectorMake(0, JumpSpeed, 0),
+            FDummy.Matrix);
     NewtonBodyAddImpulse(Player.NewtonBody, @FJ, @FI);
-  end; l1 :
-  if (not isKeyDown(KeyUP)) and (not isKeyDown(KeyDOWN)) and
-    (not isKeyDown(KeyLEFT)) and (not isKeyDown(KeyRIGHT)) then
-  begin
-    NewtonBodyGetVelocity(Player.NewtonBody, @FI);
-    F := vectormake(0, FI[1], 0);
-    NewtonBodySetVelocity(Player.NewtonBody, @F);
-  end
-  else
-  begin
-    NewtonBodyGetVelocity(Player.NewtonBody, @FI);
-    if FI[1] > JumpSpeed then
+  end;
+   l1 :
+    NewtonBodyGetVelocity(Player.NewtonBody, @FJ);
+    if FJ[1] > JumpSpeed then
       F[1] := JumpSpeed
     else
-      F[1] := FI[1];
+      F[1]:=FJ[1];
     NewtonBodySetVelocity(Player.NewtonBody, @F);
-  end;
 end;
 
 procedure TVBONewtonWorld.DebugRender(Sender: TObject;
@@ -462,6 +538,9 @@ begin
     NewtonObjects[FMeshBodyList.Count-1].MeshObject:=VBOMeshObject;
     NewtonReleaseCollision(SceneNewtonWorld, col);
     NewtonBodySetMatrix(NewtonObjects[FMeshBodyList.Count-1].NewtonBody, @matrix);
+    NewtonObjects[FMeshBodyList.Count-1].MaterialID:=NewtonMaterialCreateGroupID(SceneNewtonWorld);
+     NewtonBodySetMaterialGroupID(NewtonObjects[FMeshBodyList.Count-1].NewtonBody,
+         NewtonObjects[FMeshBodyList.Count-1].MaterialID);
     result:=NewtonObjects[FMeshBodyList.Count-1];
 end;
 
@@ -524,10 +603,16 @@ begin
      result:=NewtonObjects[FMeshBodyList.Count-1];
 end;
 
-procedure TVBONewtonWorld.UpdateWorld(time:real);
+procedure TVBONewtonWorld.UpdateWorld(time:real;isApplyForce:boolean=true);
 var M:TMatrix;
 begin
-  NewtonUpdate(SceneNewtonWorld,time);
+  if isApplyForce then
+   NewtonBodySetForceAndTorqueCallback(Player.NewtonBody,
+      NewtonApplyForceAndTorque)
+  else
+   NewtonBodySetForceAndTorqueCallback(Player.NewtonBody,
+      nil);
+  NewtonUpdate(SceneNewtonWorld, time);
   NewtonBodyGetMatrix(Player.NewtonBody, @M);
   M[0]:= FDummy.Matrix[0];
   M[1]:= FDummy.Matrix[1];
@@ -536,7 +621,7 @@ begin
   Player.MeshObject.Matrices.ModelMatrix:= M;
   Player.MeshObject.UpdateWorldMatrix;
   NewtonBodySetMatrix(Player.NewtonBody, @M);
-  FDummy.Matrix:=M;
+  FDummy.Matrix:= M;
 end;
 
 procedure TVBONewtonWorld.SetMaterialBetweenWorldAndPlayer(NewtonMaterial:TNewtonMaterial);
@@ -555,7 +640,6 @@ begin
   else
    NewtonMaterialSetCollisionCallback(SceneNewtonWorld, Player.MaterialID,
       DefaultWorldMaterialID, nil, nil, NewtonMaterial.CollisionCallBack);
-
 end;
 
 procedure TVBONewtonWorld.SetMaterialBetween2Meshes(Mesh1,Mesh2:TVBONewtonMesh;
@@ -611,8 +695,7 @@ begin
     Player.NewtonWorld:=SceneNewtonWorld;
     Player.MeshObject:=VBOMeshObject;
     NewtonReleaseCollision(SceneNewtonWorld, col);
-    NewtonBodySetMassMatrix(Player.NewtonBody, Weight,
-      1, 1, 1);
+    NewtonBodySetMassMatrix(Player.NewtonBody, Weight, 1, 1, 1);
     NewtonBodySetMatrix(Player.NewtonBody, @matrix);
     NewtonBodySetForceAndTorqueCallback(Player.NewtonBody,
       NewtonApplyForceAndTorque);
@@ -624,6 +707,88 @@ begin
     Player.MaterialID:=NewtonMaterialCreateGroupID(SceneNewtonWorld);
     NewtonBodySetMaterialGroupID(Player.NewtonBody,
          Player.MaterialID);
+end;
+
+procedure TVBONewtonWorld.NewtonObjectsClear;
+var t: 0 .. maxBodes;
+begin
+  if NewtonJointsCount>0 then
+   for t:=0 to NewtonJointsCount-1 do
+     NewtonJoints[t].Free;
+  if NewtonObjectsCount>0 then
+   for t:=0 to NewtonObjectsCount-1 do
+     NewtonObjects[t].Free;
+  NewtonMaterialDestroyAllGroupID(SceneNewtonWorld);
+  if Player<>nil then begin
+   DefaultWorldMaterialID:=NewtonMaterialGetDefaultGroupID(SceneNewtonWorld);
+   Player.MaterialID:=NewtonMaterialCreateGroupID(SceneNewtonWorld);
+  end;
+  FMeshBodyList.Clear;
+  FJoints.Clear;
+end;
+
+function TVBONewtonWorld.GetLastObject : TVBONewtonMesh;
+begin
+  result:=TVBONewtonMesh(FMeshBodyList.Last);
+end;
+
+function TVBONewtonMesh.GetBodySpeed:TVector4f;
+begin
+  NewtonBodyGetVelocity(NewtonBody, @result);
+end;
+
+procedure TVBONewtonMesh.SetBodySpeed(Speed:TVector4f);
+begin
+  NewtonBodySetVelocity(NewtonBody, @Speed)
+end;
+
+function TVBONewtonMesh.GetBodyInertion:TVector4f;
+var Weight:real;
+begin
+  NewtonBodyGetMassMatrix(NewtonBody, @Weight, @result[0], @result[1], @result[2]);
+end;
+
+procedure TVBONewtonMesh.SetBodyInertion(Inertion:TVector4f);
+var I1, I2, I3 , Weight : Real;
+begin
+  NewtonBodyGetMassMatrix(NewtonBody, @Weight, @I1, @I2, @I3);
+  NewtonBodySetMassMatrix(NewtonBody, Weight, Inertion[0], Inertion[1], Inertion[2]);
+end;
+
+function TVBONewtonWorld.GetJointsCount : Integer;
+begin
+  result:=FJoints.Count;
+end;
+
+function TVBONewtonWorld.GetLastJoint : TVBONewtonJoint;
+begin
+  result:=TVBONewtonJoint(FJoints.Last);
+end;
+
+function TVBONewtonWorld.GetJointObject(Index: Integer) : TVBONewtonJoint;
+begin
+  result:=FJoints[Index];
+end;
+
+function TVBONewtonWorld.AddHingeJoint(Mesh1: TVBONewtonMesh; Mesh2: TVBONewtonMesh):TVBONewtonJoint;
+begin
+ //
+end;
+
+function TVBONewtonWorld.AddBallSocketJoint(Parent: TVBONewtonMesh;
+      Child: TVBONewtonMesh; PivotPoint:TVector4f ; State:TINTBool=0):TVBONewtonJoint;
+begin
+  FJoints.Add(TVBONewtonJoint.Create);
+  LastJointObject.NewtonWorld:=SceneNewtonWorld;
+  LastJointObject.NewtonJoint:=NewtonConstraintCreateBall(SceneNewtonWorld,
+        @PivotPoint,Child.NewtonBody,Parent.NewtonBody);
+  NewtonJointSetCollisionState(LastJointObject.NewtonJoint,State);
+  result:=LastJointObject;
+end;
+
+procedure TVBONewtonJoint.SetJointCallback(CallBack:NewtonBallCallBack);
+begin
+  NewtonBallSetUserCallback(NewtonJoint,CallBack);
 end;
 
 end.

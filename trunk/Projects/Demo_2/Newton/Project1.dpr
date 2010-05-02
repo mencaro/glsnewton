@@ -1,7 +1,7 @@
 program Project1;
 
 uses
-  FastMM4, Forms,
+  Forms,
   DemoUnit in 'DemoUnit.pas' {frmMain};
 
 {$R *.res}
