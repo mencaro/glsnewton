@@ -1,5 +1,10 @@
 // VBONewton by For[)
-// updated 7.06.10
+// updated 8.06.10
+// added :
+// FCopy
+// SDK_Version
+// PlatformArchitecture ( 0 - default, 1 - medium, n - best)
+//
 
 unit VBONewton;
 
@@ -7,7 +12,8 @@ interface
 
 uses
   Windows, Classes, GLScene, GLObjects, GLRenderContextInfo, OpenGL1X,
-  VectorGeometry, VectorTypes, VectorLists, uVBO, VBOMesh, NewtonImport;
+  VectorGeometry, VectorTypes, VectorLists, uVBO, VBOMesh, NewtonImport,
+  Controls;
 
 type
   TCamMoveResult = record
@@ -31,6 +37,7 @@ const
 var
   NewtonGravity: real = -10;
 
+function FCopy(str: string; N, K: integer): string;
 function isKeyDown(Key: Byte): boolean;
 function Gr2Rad(Gr: single): single;
 procedure Debug_ShowBodyCollision(const Body: PNewtonBody); cdecl;
@@ -107,6 +114,7 @@ type
     function GetJointsCount: integer;
     function GetLastJoint: TVBONewtonJoint;
     function GetJointObject(Index: integer): TVBONewtonJoint;
+    function GetSDKVersion: String;
     procedure DebugRender(Sender: TObject; var rci: TRenderContextInfo);
   public
     DirectOpenGL: TGLDirectOpenGL;
@@ -122,6 +130,7 @@ type
     DebugColor: TVector4f;
     DefaultWorldMaterialID: integer;
     FDummy: TGLDummyCube;
+    property SDK_Version: String read GetSDKVersion;
     // Objects
     property LastObject: TVBONewtonMesh read GetLastObject;
     property NewtonObjects[Index: integer]: TVBONewtonMesh read GetObject;
@@ -155,7 +164,7 @@ type
     procedure NewtonObjectsClear;
     constructor Create(MeshPlayer: TVBOMeshObject; GLScene: TGLScene;
       Owner: TGLBaseSceneObject; Friction: integer; Solver: integer;
-      WorldSizeFrom, WorldSizeTo: TVector3f); overload;
+      WorldSizeFrom, WorldSizeTo: TVector3f;PlatformArchitecture:Byte=0); overload;
     destructor Destroy; override;
   end;
 
@@ -386,11 +395,13 @@ end;
 procedure NewtonApplyForceAndTorque(const Body: PNewtonBody; timestep: Float;
   threadIndex: int); cdecl;
 var
-  M: single;
+  //F_,
   F: TVector4f;
 begin
-  NewtonBodyGetMassMatrix(Body, @M, @F[0], @F[1], @F[2]);
-  F := VectorMake(0, NewtonGravity * M, 0);
+  NewtonBodyGetMassMatrix(Body, @F[3], @F[0], @F[1], @F[2]);
+  //NewtonBodyGetForce(Body, @F_);
+  F := VectorMake(0, NewtonGravity * F[3], 0);
+  //VectorAdd(F, F_);
   NewtonBodyAddForce(Body, @F);
 end;
 
@@ -401,7 +412,6 @@ var
   buff: PVBOBuffer;
 begin
   buff := Obj.MeshList[0];
-  result := VectorMake(0, 0, 0);
   tx := 0;
   ty := 0;
   tz := 0;
@@ -419,7 +429,8 @@ end;
 
 constructor TVBONewtonWorld.Create(MeshPlayer: TVBOMeshObject;
   GLScene: TGLScene; Owner: TGLBaseSceneObject; Friction: integer;
-  Solver: integer; WorldSizeFrom, WorldSizeTo: TVector3f);
+  Solver: integer; WorldSizeFrom, WorldSizeTo: TVector3f;
+  PlatformArchitecture: Byte);
 begin
   FMeshBodyList := TList.Create;
   FJoints := TList.Create;
@@ -442,6 +453,9 @@ begin
   DirectOpenGL.MoveLast;
   DebugMode := GL_LINES;
   DebugColor := VectorMake(1, 1, 1, 1);
+  NewtonSetPlatformArchitecture(SceneNewtonWorld, PlatformArchitecture);
+  NewtonSetMultiThreadSolverOnSingleIsland(SceneNewtonWorld, 1);
+  //NewtonSetMinimumFrameRate(SceneNewtonWorld, 1)
 end;
 
 destructor TVBONewtonWorld.Destroy;
@@ -464,17 +478,14 @@ begin
 end;
 
 function TVBONewtonWorld.FPSApplyCamMove: TCamMoveResult;
-var
-  cPos: TPoint;
 begin
-  GetCursorPos(cPos);
-  if (cPos.X = Px) and (cPos.Y = Py) then
+  if (Mouse.CursorPos.X = Px) and (Mouse.CursorPos.Y = Py) then
   begin
     result.isMove := false;
     exit;
   end;
-  result.dX := Px - cPos.X;
-  result.dY := Py - cPos.Y;
+  result.dX := Px - Mouse.CursorPos.X;
+  result.dY := Py - Mouse.CursorPos.Y;
   FDummy.TurnAngle := FDummy.TurnAngle + (result.dX * CamSpeed);
   Camera.PitchAngle := Camera.PitchAngle + (result.dY * CamSpeed);
   if Camera.PitchAngle > CamMaxAngle then
@@ -949,6 +960,21 @@ begin
   Player.MaterialID := NewtonMaterialCreateGroupID(SceneNewtonWorld);
   NewtonBodySetMaterialGroupID(Player.NewtonBody, Player.MaterialID);
   NewtonBodySetContinuousCollisionMode(Player.NewtonBody, 1);
+end;
+
+function TVBONewtonWorld.GetSDKVersion: String;
+begin
+  result := IntToStr(NewtonWorldGetVersion(SceneNewtonWorld));
+  result := result[1] + '.' + FCopy(result, 2, length(result));
+end;
+
+function FCopy(str: string; N, K: integer): string;
+var
+  i: integer;
+begin
+  result := '';
+  for i := N to K do
+    result := result + str[i];
 end;
 
 end.

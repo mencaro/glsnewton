@@ -1,9 +1,10 @@
 
 {: vboMesh
 	Historique:
-  20/04/10 - Fantom - Исправлена ошибка рассинхронизации рендеринга анимации 
-  20/04/10 - Fantom - Добавлен перегруженный метод TVBOMesh.AddSMDAnimation,
-                      позволяет импортировать уже загруженную анимацию.
+  16/06/10 - Fantom - Исправлен рейкаст для повернутых объектов
+  16/06/10 - Fantom - В рендер включено следование за сценовскими объектами
+  16/06/10 - Fantom - Доработан выбор объектов в прямоугольной болсти (фрастуме)
+  16/06/10 - Fantom - Добавлено к TVBOMeshObject свойство NoDepthTest
         20/04/10 - Fantom - Добавлен метод TVBOMeshObject.LocalToAbsolute
         20/04/10 - Fantom - Добавлен метод TVBOMeshObject.GetTriMesh
   17/04/10 - Fantom - Исправлено вычисление FBaseExtents
@@ -96,9 +97,7 @@ Type
     FUp: TVector; // OY
     FDirection: TVector; //OZ
     FLeft: TVector; //OX
-    FRollAngle: single;
-    FTurnAngle: single;
-    FPitchAngle: single;
+
     FExtents: TExtents; //модифицированный текущей модельной матрицей
     FOctreeList: TList;
     FExtentsBuilded: boolean;
@@ -107,8 +106,8 @@ Type
     FonBeforeRender:TObjectRenderEvents;
     FonAfterRender:TObjectRenderEvents;
     FonObjectClick: TVBOObjectClickEvents;
-    FTime: Double;
     FCulled: boolean;
+//    FGetAsParticles: TVBOParticles;
 
     function  FGetAsParticles:TVBOParticles;
     procedure SetParent(const Value: TVBOMeshObject);
@@ -120,6 +119,13 @@ Type
     procedure SetDirection(const Direction: TVector);
 
   Protected
+    FRollAngle: single;
+    FTurnAngle: single;
+    FPitchAngle: single;
+    FXRotationAngle: single;
+    FYRotationAngle: single;
+    FZRotationAngle: single;
+    FTime: Double;
     FOctreeBuilded: boolean;
     FBaseExtents: TExtents; //базовый Extents
     FMeshType: TMeshTypes; //тип объекта, совместно с именем только для информации    
@@ -141,6 +147,7 @@ Type
     ToFollowObject: TGLBaseSceneObject;
     Pickable: boolean; //будет ли объект выбираться через PickObject
     NoZWrite: boolean; //отключение режима записи в буфер глубины
+    NoDepthTest: boolean; //отключение режима записи в буфер глубины
 
     property AsVBOParticles: TVBOParticles read FGetAsParticles;
     //-------Events--------
@@ -175,7 +182,7 @@ Type
     //Читает мультибуфер
     Property MultiBuffer: TMultiPackBuff read FMultiBuffer;
 
-    //Вращение кватерниона
+    //Вращение относительно локальных осей
     Procedure TurnObject(Angle:single);  //Вокруг локальной оси Y
     Procedure RollObject(Angle:single);  //Вокруг локальной оси Z
     Procedure PitchObject(Angle:single); //Вокруг локальной оси X
@@ -190,6 +197,11 @@ Type
     Procedure RotateAroundX(Angle:single;AbsoluteRotation:boolean=true);
     Procedure RotateAroundY(Angle:single;AbsoluteRotation:boolean=true);
     Procedure RotateAroundZ(Angle:single;AbsoluteRotation:boolean=true);
+    //Накопленные углы при абсолютном повороте
+    property XRotationAngle: single read FXRotationAngle;
+    property YRotationAngle: single read FYRotationAngle;
+    property ZRotationAngle: single read FZRotationAngle;
+
     //формирует матрицу масштабирования, при AbsoluteScale=false модифицируется существующая
     Procedure ScaleObject(Scale:TVector;AbsoluteScale:boolean=true);overload;
     Procedure ScaleObject(ScaleX,ScaleY,ScaleZ: single;AbsoluteScale:boolean=true);overload;
@@ -221,6 +233,9 @@ Type
     Procedure PackMeshes(FreeOldBuffers:boolean=true; BuffSize:integer=-1);
     //Упаковывает меш в текстуру, x,y,z-координаты вершины, w-текстурная координата p
     Procedure PackMeshesToTexture(var vtex,ntex: TGLTexture);
+    //Упаковывает tri-list в текстуру, 3 последовательных пикселя задают вершины
+    //треугольника, координата w=0 - вершина не используется
+    Procedure PackTriListToTexture(var vtex: TGLTexture);
     //Извлекает все треугольники из меша и помещает в один буфер
     Procedure GetTriMesh(var TriMesh: TAffinevectorList);
     
@@ -425,8 +440,7 @@ Type
       procedure FCreatSMDShader;
     public
       Procedure RenderObject(ARCI: TRenderContextInfo;var ViewMatrix: TMatrix);override;
-      Procedure NextFrame(n:single=1);
-      
+
       Property FramePos: single read FramePosition write FSetFrame;
       Property FramesCount: integer read FFramesCount;
       Property AnimationNum: integer read FAnimationNum write FSetAnimationByNum;
@@ -478,7 +492,7 @@ Type
       Function AddSphere(Radius: single; VSegments, HSegments: integer;
                          TileS:single=1;TileT:single=1;NormalInside:boolean = false): TVBOMeshObject;
       Function AddHUDSprite(width, height:single):TVBOMeshObject;
-      Function AddScreenQuad(AddToMesh:boolean=true):TVBOMeshObject;
+      Function AddScreenQuad:TVBOMeshObject;
       Function AddSprite(s_type:TSpriteType;width, height:single):TVBOMeshObject;
       Function AddAnimatedSprite(s_type:TSpriteType;width, height:single):TVBOMeshObject;
       Function AddMeshFromFreeForm(FF: TGLFreeForm):TVBOMeshObject;
@@ -489,8 +503,7 @@ Type
       Function AddUserObject(Name:string; VBOMeshList:TList):TVBOMeshObject;overload;
       Function AddUserObject(Name:string; VBOBuffer:PVBOBuffer):TVBOMeshObject;overload;
       Function AddMeshObject(mo:TVBOMeshObject): integer;
-      Function AddSMDAnimation(MeshFile: string; const AnimFiles: array of string):TVBOMeshObject;overload;
-      Function AddSMDAnimation(SMD: TSkeletalRender):TVBOMeshObject; overload;
+      Function AddSMDAnimation(MeshFile: string; const AnimFiles: array of string):TVBOMeshObject;
       
       Function  GetObjectByName(Name:string):TVBOMeshObject;
       Procedure GetObjectListByType(ObjType: TMeshTypes; var List:TList);
@@ -512,6 +525,7 @@ Type
       Function PickObject(X, Y: single; var List: TList; UseOctree:boolean=false): boolean;overload;
       Function PickObject(Rect:TRect):TVBOMeshObject;overload;
       Function PickObject(Rect: TRect; var List:TList): Boolean;overload;
+      Function PickObjectInFrustum(Rect: TRect; var List:TList): Boolean;
 
       //Сортирует список объектов по расстоянию до камеры, IgnoreBack - исключает из списка все меши сзади камеры
       Procedure SortByDistance(var SortedMeshList: TList; IgnoreBack:boolean=true);
@@ -532,7 +546,8 @@ Type
   procedure FreeAndNil(var Obj);
   function UpperCase(const S: string): string;
   function GetTime:double;
-  
+  function CreateBBMatrix (var View: TMatrix; const mat: TMatrixStack; angle: single;stype: TSpriteType):TMatrix;
+
 implementation
 
 function IntToStr(x: integer): string;
@@ -613,7 +628,7 @@ end;
 function TVBOMeshObject.VectorToLocal(V: TAffineVector; Norm: boolean=true): TAffineVector;
 begin
     if not WorldMatrixUpdated then UpdateWorldMatrix;
-    Result:=VectorTransform(V,Matrices.RotationMatrix);
+    Result:=affinevectormake(VectorTransform(vectormake(V,0),Matrices.InvWorldMatrix));
     if Norm then NormalizeVector(Result);
 end;
 
@@ -675,6 +690,9 @@ begin
   FRollAngle:=0;
   FTurnAngle:=0;
   FPitchAngle:=0;
+  FXRotationAngle:=0;
+  FYRotationAngle:=0;
+  FZRotationAngle:=0;
 
   MeshList:=TList.Create;
   Materials:=TStringList.Create;
@@ -691,6 +709,7 @@ begin
   FUseRenderList:=false;
   FRenderList:=TList.Create;
   NoZWrite:=false;
+  NoDepthTest:=false;
   FFBO:=TFrameBufferObject.Create;
 end;
 
@@ -836,14 +855,15 @@ begin
      wm:=Fparent.Matrices.WorldMatrix;
      wm:=MatrixMultiply(wm, ModelMatrix);
   end else wm := ModelMatrix;
+  if (assigned(ToFollowObject)) and ((ttFollow in UseMatrix) or (ttAll in UseMatrix))
+  then wm := ToFollowObject.AbsoluteMatrix;
+
   if (not (ttModel in UseMatrix)) and (not(ttAll in UseMatrix))
   then wm:=IdentityHmgMatrix;
  if (FMeshType <> mtSphericalSprite) and (FMeshType <> mtCylindricalSprite) then begin
   if (ttScale in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, ScaleMatrix);
   if (ttRotation in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, RotationMatrix);
   if (ttPosition in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, TranslationMatrix);
-  if (assigned(ToFollowObject)) and ((ttFollow in UseMatrix) or (ttAll in UseMatrix))
-  then wm := MatrixMultiply(wm, ToFollowObject.Matrix);
   WorldMatrix:=wm;
   FLeft:=WorldMatrix[0];NormalizeVector(FLeft);
   FUp:=WorldMatrix[1];  NormalizeVector(FUp);
@@ -1000,9 +1020,13 @@ begin
  with Matrices do begin
   //вокруг глобальной оси X
   if not WorldMatrixUpdated then UpdateWorldMatrix;
-  rm:=CreateRotationMatrixX(Angle);
-  if AbsoluteRotation then RotationMatrix:=rm
-  else RotationMatrix:=MatrixMultiply(RotationMatrix,rm);
+  if AbsoluteRotation then begin
+     RotationMatrix:=CreateRotationMatrixX(Angle);
+  end else begin
+     FXRotationAngle:=FXRotationAngle+Angle;
+     rm:=CreateRotationMatrixX(Angle);
+     RotationMatrix:=MatrixMultiply(RotationMatrix,rm);
+  end;
   UpdateWorldMatrix;
  end;
 end;
@@ -1014,9 +1038,13 @@ begin
  with Matrices do begin
   //вокруг глобальной оси Y
   if not WorldMatrixUpdated then UpdateWorldMatrix;
-  rm:=CreateRotationMatrixY(Angle);
-  if AbsoluteRotation then RotationMatrix:=rm
-  else RotationMatrix:=MatrixMultiply(RotationMatrix,rm);
+  if AbsoluteRotation then begin
+     RotationMatrix:=CreateRotationMatrixY(Angle);
+  end else begin
+     FYRotationAngle:=FYRotationAngle+Angle;
+     rm:=CreateRotationMatrixY(Angle);
+     RotationMatrix:=MatrixMultiply(RotationMatrix,rm);
+  end;
   UpdateWorldMatrix;
  end;
 end;
@@ -1029,8 +1057,13 @@ begin
   //вокруг глобальной оси Z
   if not WorldMatrixUpdated then UpdateWorldMatrix;
   rm:=CreateRotationMatrixZ(Angle);
-  if AbsoluteRotation then RotationMatrix:=rm
-  else RotationMatrix:=MatrixMultiply(RotationMatrix,rm);
+  if AbsoluteRotation then begin
+     RotationMatrix:=CreateRotationMatrixZ(Angle);
+  end else begin
+     FZRotationAngle:=FZRotationAngle+Angle;
+     rm:=CreateRotationMatrixZ(Angle);
+     RotationMatrix:=MatrixMultiply(RotationMatrix,rm);
+  end;
   UpdateWorldMatrix;
  end;
 end;
@@ -1057,12 +1090,14 @@ var m: TMatrix;
 begin
     arci.GLStates.ResetAll;
     arci.ignoreDepthRequests:=true;
+    if Assigned(ToFollowObject) then
+       if not MatrixEquals(ToFollowObject.AbsoluteMatrix, Matrices.ModelMatrix)
+       then UpdateWorldMatrix;
     if (not WorldMatrixUpdated) then UpdateWorldMatrix;
     mv:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
     m:=mv; glPushMatrix;
     if FFBO.Active then FFBO.Apply;
 
-    if NoZWrite then glDepthMask(False) else glDepthMask(True);
     case FMeshType of
       mtScreenQuad: begin
        glMatrixMode(GL_MODELVIEW);
@@ -1073,14 +1108,13 @@ begin
        glDisable(GL_LIGHTING);
       end;
       mtHudSprite: begin
-        glMatrixMode(GL_MODELVIEW); glPushMatrix;
-        m:=IdentityHmgMatrix;
-        m[3]:=Matrices.WorldMatrix[3];m[3][2]:=0;
-        glLoadMatrixf(PGLFloat(@m));
-        glMatrixMode(GL_PROJECTION); glPushMatrix;
-        glLoadIdentity;   glDisable(GL_DEPTH_TEST);
-        glDepthMask(false);
-        glLoadMatrixf(PGLFloat(@m));
+          glMatrixMode(GL_MODELVIEW); glPushMatrix;
+          m:=Matrices.WorldMatrix; m[3][2]:=0;
+          glLoadMatrixf(PGLFloat(@m));
+          glMatrixMode(GL_PROJECTION); glPushMatrix;
+          glLoadIdentity;
+          glDepthMask(false); glDisable(GL_LIGHTING);
+          glDisable(GL_DEPTH_TEST);
       end;
       mtSphericalSprite: begin
         m:=CreateBBMatrix(ViewMatrix,Matrices,FRollAngle,stSpherical);
@@ -1136,6 +1170,16 @@ begin
       Else glLoadMatrixf(PGLFloat(@m));
     end;
 
+    if NoZWrite then glDepthMask(False) else glDepthMask(True);
+    if NoDepthTest then glDisable(GL_DEPTH_TEST) else glEnable(GL_DEPTH_TEST);
+
+    if assigned(onBeforeCheckVisibility) then onBeforeCheckVisibility(arci,self);
+    MVProj := MatrixMultiply(ViewMatrix, Matrices.ProjectionMatrix);
+    Frustum := ExtractFrustumFromModelViewProjection(MVProj);
+    if not ((FMeshType=mtHUDSprite) or (FMeshType=mtSphericalSprite) or
+    (FMeshType=mtCylindricalSprite)) then
+       FCulled:=IsVolumeClipped(Extents, Frustum) else FCulled:=False;
+    if not FCulled then begin
       if FUseRenderList then rcount:=FRenderList.Count else rcount:=MeshList.Count;
       if rcount>0 then begin
       singleMat:=false; Lm:=nil;
@@ -1179,6 +1223,7 @@ begin
         until not MultiPass;
       end else begin
       //MultiMaterial
+
         if FUseRenderList then begin
            PDescr:=FRenderList[0]; CMName:=PDescr.MaterialName;
         end else begin
@@ -1224,7 +1269,9 @@ begin
         until i=rcount;
       end;
       end;//RCount<=0
+    end else FCulled:=true;
     if NoZWrite then glDepthMask(true);
+    if NoDepthTest then glEnable(GL_DEPTH_TEST);
     case FMeshType of
       mtScreenQuad: begin
        glPopMatrix; glMatrixMode(GL_MODELVIEW);
@@ -1232,7 +1279,7 @@ begin
        glEnable(GL_LIGHTING);
       end;
       mtHUDSprite: begin
-        glDepthMask(True); glEnable(GL_DEPTH_TEST);
+        glDepthMask(True); glEnable(GL_DEPTH_TEST); glEnable(GL_LIGHTING);
         glPopMatrix; glMatrixMode(GL_MODELVIEW);glPopMatrix;
       end;
       mtPoints, mtParticles: begin
@@ -1261,7 +1308,7 @@ begin
   with Matrices do begin
     TranslationMatrix[3,0]:=TranslationMatrix[3,0]+FDirection[0]*Step;
     TranslationMatrix[3,1]:=TranslationMatrix[3,1]+FDirection[1]*Step;
-    TranslationMatrix[3,2]:=TranslationMatrix[3,0]+FDirection[2]*Step;
+    TranslationMatrix[3,2]:=TranslationMatrix[3,2]+FDirection[2]*Step;
   end; UpdateWorldMatrix;
 end;
 
@@ -1437,6 +1484,43 @@ function TVBOMeshObject.LocalToAbsolute(P: TVector): TVector;
 begin
   if not WorldMatrixUpdated then UpdateWorldMatrix;
   Result:=VectorTransform(P,Matrices.WorldMatrix);
+end;
+
+procedure TVBOMeshObject.PackTriListToTexture(var vtex: TGLTexture);
+var triMesh: TAffineVectorList;
+    count,size,w: integer;
+    i,j,n,k,a,b:integer;
+    data:PSingleArray;
+    v:TAffineVector;
+begin
+  {TODO: найти причину АВ}
+  triMesh:=TAffineVectorList.Create;
+  GetTriMesh(triMesh); count:=triMesh.Count*4;
+  QuadFromCount(count,size);
+  if (size-(size div 12)*12)*size+count>size*size then size:=size*2;
+  vtex.CreateRGBA32FTexture2D(size,size);
+  w:=size div 12; n:=0;k:=0;
+  GetMem(data,size*size);
+  for i:=0 to size-1 do begin
+     for j:=0 to w-1 do begin
+       for a:=0 to 2 do begin
+         if n<count then begin
+           v:=triMesh[n]; inc(n);
+           for b:=0 to 2 do begin
+             data[k]:=v[b]; inc(k);
+           end; data[k]:=n; inc(k);
+         end else begin
+           for b:=0 to 3 do begin
+             data[k]:=-1; inc(k);
+           end;
+         end;
+       end;
+     end;
+     for j:=w*12 to size-1 do begin
+            data[k]:=-1; inc(k); end;
+  end;
+  vtex.UploadData(data);
+  freemem(Data,size*size);
 end;
 
 { TVBOMesh }
@@ -1659,19 +1743,23 @@ begin
 end;
 
 procedure TVBOMesh.RenderMeshObject(MeshObject: TVBOMeshObject; var ARci: TRenderContextInfo);
+var mvm,proj:TMatrix;
 begin
+  glGetFloatv(GL_MODELVIEW_MATRIX, @mvm);
+  glGetFloatv(GL_PROJECTION_MATRIX, @proj);
+  MeshObject.Matrices.ProjectionMatrix:=proj;
   MeshObject.FTime:=GetTime;
-  MeshObject.RenderObject(ARCI,FViewMatrix);
+  MeshObject.RenderObject(ARCI,mvm);
 end;
 
 procedure TVBOMesh.DoRender(var ARci: TRenderContextInfo; ARenderSelf,
   ARenderChildren: Boolean);
 var i:integer;
     mo:TVBOMeshObject;
-    F:TFrustum;
+    //F:TFrustum;
     time:Double;
 begin
-FPolyCount:=0; F := GetFrustum;
+FPolyCount:=0; //F := GetFrustum;
 if assigned(onBeforeRender) then onBeforeRender(arci);
    glGetFloatv(GL_MODELVIEW_MATRIX, @FViewMatrix);
    glGetFloatv(GL_PROJECTION_MATRIX, @FProjectionMatrix);
@@ -1683,17 +1771,10 @@ if assigned(onBeforeRender) then onBeforeRender(arci);
          mo:=FMeshList[i];
          if assigned(mo) then begin
            if (mo.Visible) then begin
-             with mo do begin
-               Matrices.ProjectionMatrix:=FProjectionMatrix;
-               FTime:=time;
-               if assigned(onBeforeCheckVisibility) then onBeforeCheckVisibility(arci,self);
-               if not ((FMeshType=mtHUDSprite) or (FMeshType=mtScreenQuad)) then
-               FCulled:=IsVolumeClipped(Extents, F) else FCulled:=False;
-             end;
-             if not mo.FCulled then begin
-                mo.RenderObject(ARCI,FViewMatrix);
-                FPolyCount:=FPolyCount+mo.PolygonsCount;
-             end;
+             mo.Matrices.ProjectionMatrix:=FProjectionMatrix;
+             mo.FTime:=time;
+             mo.RenderObject(ARCI,FViewMatrix);
+             if not mo.FCulled then FPolyCount:=FPolyCount+mo.PolygonsCount;
            end;
          end;
         end;
@@ -1783,7 +1864,7 @@ begin
 end;
 
 
-function TVBOMesh.AddScreenQuad(AddToMesh:boolean): TVBOMeshObject;
+function TVBOMesh.AddScreenQuad: TVBOMeshObject;
 var Temp: PVBOBuffer;
     mo: TVBOMeshObject;
 begin
@@ -1807,9 +1888,7 @@ begin
     MeshMaterialLibrary:=MaterialLibrary;
     UpdateWorldMatrix;
     Pickable:=false;
-  end; result:=mo;
-  if AddToMesh then mo.FIndexInMesh:=FMeshList.Add(mo)
-  else mo.FIndexInMesh:=-1;
+  end; result:=mo; mo.FIndexInMesh:=FMeshList.Add(mo);
 end;
 
 function TVBOMesh.AddHUDSprite(width, height: single): TVBOMeshObject;
@@ -1927,7 +2006,7 @@ begin
   P:=VectorTransform(S,Inv);
   P[0]:=P[0]/P[3]; P[1]:=P[1]/P[3];
   P[2]:=P[2]/P[3]; P[3]:=1/P[3];
-  if pos<>nil then pos^:=p;
+  if pos<>nil then begin pos^:=p; pos^[3]:=1; end;
   setvector(S,nx,ny,-3,1);
   P:=VectorTransform(S,Inv);
   P[0]:=P[0]/P[3]; P[1]:=P[1]/P[3];
@@ -1961,6 +2040,54 @@ begin
       ri.Dir:=affinevectormake(d);
   end;
   result:=list.Count>0;
+end;
+
+Function TVBOMesh.PickObjectInFrustum(Rect: TRect; var List:TList): Boolean;
+var i, j, x : integer;
+    fDot: single;
+    D,Frustum:array[0..3] of TAffineVector;
+    P: array[0..7] of TAffineVector;
+    c: TAABBCorners;
+    cv: TAffineVector;
+    inside:boolean;
+    mo:TVBOMeshObject;
+begin
+  if not assigned(List) then List:=TList.Create else List.Clear;
+  with Rect do begin
+    ScreenToWorld( Left, Top, @P[0], @D[0]);
+    ScreenToWorld( Left, Bottom, @P[1], @D[1]);
+    ScreenToWorld( Right, Bottom, @P[2], @D[2]);
+    ScreenToWorld( Right, Top, @P[3], @D[3]);
+    NegateVector(D[0]);NegateVector(D[1]);
+    NegateVector(D[2]);NegateVector(D[3]);
+    Frustum[0] := VectorCrossProduct( D[0], D[1] );
+    Frustum[1] := VectorCrossProduct( D[1], D[2] );
+    Frustum[2] := VectorCrossProduct( D[2], D[3] );
+    Frustum[3] := VectorCrossProduct( D[3], D[0] );
+
+    for i := 0 to 3 do NormalizeVector(Frustum[i]);
+
+    for i := 0 to Count-1 do begin
+      mo:=FMeshList[i];
+      if mo.Pickable then begin
+        ConvertAABBToCorners(TAABB(mo.Extents),c); j:=0;
+        inside:=true;
+        repeat x:=0;
+          repeat
+             cv:=VectorSubtract(c[j],P[x]);
+             NormalizeVector(cv);
+             fDot := VectorDotProduct( cv, Frustum[x]);
+             if fDot>0 then begin inside:=false; end;
+             x:=x+1;
+          until (x=4) or (not inside);
+          j:=j+1;
+        until (j=8) or (not inside);
+        if inside then List.add(mo);
+      end;
+    end;
+  end;
+
+  if List.Count>0 then Result:=true else Result:=false;
 end;
 
 function TVBOMesh.PickObject(X, Y: single; UseOctree:boolean=false): TVBOMeshObject;
@@ -2071,41 +2198,50 @@ begin
    result:=AddBBox(Coners,Color);
 end;
 
-Function TVBOMesh.PickObject(Rect: TRect; var List:TList): Boolean;
-var i, j, x : integer;
-    fDot: single;
-    P,D,Frustum:array[0..3] of TAffineVector;
-    c: TAABBCorners;
-    inside:boolean;
-    mo:TVBOMeshObject;
+procedure MouseLoc3D(var ClickRayP1, ClickRayP2: TAffineVector; X,Y: double);
+var
+   mvmatrix: TMatrix4d;
+   projmatrix: TMatrix4d;
+   viewport: TVector4i;
+   dX, dY, dZ, dClickY: double;
 begin
-  if not assigned(List) then List:=TList.Create else List.Clear;
-  with Rect do begin
-    ScreenToWorld( Left, Top, @P[0], @D[0]);
-    ScreenToWorld( Left, Bottom, @P[1], @D[1]);
-    ScreenToWorld( Right, Bottom, @P[2], @D[2]);
-    ScreenToWorld( Right, Top, @P[3], @D[3]);
-    NegateVector(D[0]);NegateVector(D[1]);
-    NegateVector(D[2]);NegateVector(D[3]);
-    Frustum[0] := VectorCrossProduct( D[0], D[1] );
-    Frustum[1] := VectorCrossProduct( D[1], D[2] );
-    Frustum[2] := VectorCrossProduct( D[2], D[3] );
-    Frustum[3] := VectorCrossProduct( D[3], D[0] );
+   glGetIntegerv(GL_VIEWPORT, @viewport);
+   glGetDoublev (GL_MODELVIEW_MATRIX, @mvmatrix);
+   glGetDoublev (GL_PROJECTION_MATRIX, @projmatrix);
+   dClickY := (viewport[3] - y); // OpenGL renders with (0,0) on bottom, mouse reports with (0,0) on top
 
-    for i := 0 to 3 do NormalizeVector(Frustum[i]);
-    for i := 0 to Count do begin
-      mo:=FMeshList[i]; j:=0;
-      ConvertAABBToCorners(TAABB(mo.Extents),c);
-      repeat
-        inside := true;
-        for x := 0 to 3 do begin
-          fDot := VectorDotProduct( VectorSubtract(c[j],P[x]), Frustum[x]);
-          if ( fDot > 0) then inside:=false;
-        end; j:=j+1;
-      until (j=8) or (inside);
-      if inside then List.add(mo);
-    end;
+   gluUnProject (x, dClickY, 0.0, mvmatrix, projmatrix, viewport, @dX, @dY, @dZ);
+   ClickRayP1 := affinevectormake ( dX, dY, dZ );
+   gluUnProject (x, dClickY, 1.0, mvmatrix, projmatrix, viewport, @dX, @dY, @dZ);
+   ClickRayP2 := affinevectormake ( dX, dY, dZ );
+end;
+
+Function TVBOMesh.PickObject(Rect: TRect; var List:TList): Boolean;
+var i : integer;
+    cv: TVector;
+    mo:TVBOMeshObject;
+    ViewMatrix, ProjMatrix: TMatrix;
+    ViewPort: TVector4i;
+function PointInRect(const Rect:TRect; aPoint: TVector):boolean;
+begin
+  with Rect do begin
+     if  (aPoint[0]>=Left) and (aPoint[0]<=Right)
+     and (aPoint[1]<=bottom) and (aPoint[1]>=Top)
+     then result:=true else result:=false;
   end;
+end;
+begin
+    ViewMatrix:=GetViewMatrix;
+    ProjMatrix:=GetProjectionMatrix;
+    ViewPort:=GetViewPort;
+    for i := 0 to Count-1 do begin
+      mo:=FMeshList[i];
+      if mo.Pickable then begin
+         if ProjectPoint(mo.Position, ViewMatrix, ProjMatrix, ViewPort,cv)
+         then if PointInRect(Rect,cv)
+              then List.add(mo);
+      end;
+    end;
   if List.Count>0 then Result:=true else Result:=false;
 end;
 
@@ -2370,51 +2506,6 @@ begin
   mo.UpdateWorldMatrix;
 end;
 
-function TVBOMesh.AddSMDAnimation(SMD: TSkeletalRender): TVBOMeshObject;
-var mo:TSkeletalRender;
-    i:integer;
-begin
-  mo:=TSkeletalRender.Create;
-  mo.Name:='SMDAnimation'+inttostr(FMeshList.Add(mo));
-  result:=mo;
-  with mo do begin
-    FAnim.Mesh:=SMD.FAnim.Mesh;
-    FAnim.Animations:=TList.Create;
-    FAnim.Animations.Assign(SMD.FAnim.Animations);
-    GetMeshFormSMD(FAnim.Mesh,MeshList,true);
-    FBaseExtents:=SMD.FBaseExtents;
-    FAnim.TextureId:=SMD.FAnim.TextureId;
-    MeshMaterialLibrary:=MaterialLibrary;
-    UpdateWorldMatrix;
-    //Pack Mesh to Texture
-    PackMeshesToTexture(vtex,ntex);
-    glDeleteBuffers(1,@FMultiBuffer[0].Buff.vid);
-    glDeleteBuffers(1,@FMultiBuffer[0].Buff.nid);
-    RotateAroundX(-pi/2); //visible:=false;
-    rvtex:=TGLTexture.Create; //Vertex readback Texture
-    rvtex.CreateRGBA32FTexture2D(vtex.Width,vtex.Height);
-    rntex:=TGLTexture.Create; //Vertex readback Texture
-    rntex.CreateRGBA32FTexture2D(vtex.Width,vtex.Height);
-
-    //Setup FBO
-    mo.FScreenQuad:=AddScreenQuad(false);
-    //FMeshList.Delete(FScreenQuad.FIndexInMesh);
-    with FScreenQuad do begin
-       with FBO do begin
-         AttachTexture(rvtex);
-         AttachTexture(rntex);
-         SetReadBackBuffer([0,1]);
-         InitFBO(vtex.Width,vtex.Height);
-         Active:=true;
-       end;
-      onBeforeRender:=FApplyShader;
-      onAfterRender:=FUnApplyShader;
-    end;
-    FScreenQuad.visible:=true;
-    FCreatSMDShader;
-  end;
-end;
-
 function TVBOMesh.AddSMDAnimation(MeshFile: string;
   const AnimFiles: array of string): TVBOMeshObject;
 var mo:TSkeletalRender;
@@ -2433,6 +2524,7 @@ begin
     for i:=0 to high(AnimFiles) do AddAnimation(FAnim,AnimFiles[i]);
     //Create Mesh from SMD
     GetMeshFormSMD(FAnim.Mesh,MeshList,true);
+//TODO: Проверить почему падает фпс при отсечении невидимой геометрии
     FBaseExtents:=GetExtentsOfList(MeshList);
     //Pack Animations to Texture
     FAnim.TextureId:=GetTextureFromAnim(FAnim);
@@ -2457,10 +2549,10 @@ begin
     rntex.CreateRGBA32FTexture2D(vtex.Width,vtex.Height);
 
     //Setup FBO
-    mo.FScreenQuad:=AddScreenQuad(false);
+    mo.FScreenQuad:=AddScreenQuad;
 //TODO: Разобраться почему прямой рендеринг скринквада
-//оказывается медленее рендеринга квада как объекта
-//    FMeshList.Delete(FScreenQuad.FIndexInMesh);
+//оказывается медленее рендеринга квада как объекта  
+    //FMeshList.Delete(FScreenQuad.FIndexInMesh);
     with FScreenQuad do begin
        with FBO do begin
          AttachTexture(rvtex);
@@ -2471,8 +2563,8 @@ begin
        end;
       onBeforeRender:=FApplyShader;
       onAfterRender:=FUnApplyShader;
+      visible:=true;
     end;
-    FScreenQuad.visible:=true;
     //Create Shader
     FCreatSMDShader;
   end;
@@ -2952,9 +3044,9 @@ begin
   Frame[2]:=trunc(FramePosition+1)*2; Frame[3]:=0;
 //  if Frame[2]>=FFramesCount then Frame[2]:=0;
   Shaders.UseProgramObject(spid);
-//  Shaders.SetUniforms(spid,'VertexTexture',0);
-//  Shaders.SetUniforms(spid,'NormalTexture',1);
-//  Shaders.SetUniforms(spid,'BoneTexture',2);
+  Shaders.SetUniforms(spid,'VertexTexture',0);
+  Shaders.SetUniforms(spid,'NormalTexture',1);
+  Shaders.SetUniforms(spid,'BoneTexture',2);
   Shaders.SetUniforms(spid,'frame',Frame);
   Shaders.SetUniforms(spid,'alpha',pos);
 end;
@@ -3009,11 +3101,6 @@ begin
     AttachShaderObjectToProgram(vsId,spId);
     AttachShaderObjectToProgram(fsId,spId);
     LinkShaderProgram(spId);
-    UseProgramObject(spid);
-    SetUniforms(spid,'VertexTexture',0);
-    SetUniforms(spid,'NormalTexture',1);
-    SetUniforms(spid,'BoneTexture',2);
-    UseProgramObject(0);
   end;
 end;
 
@@ -3075,22 +3162,19 @@ begin
   end;
 end;
 
-procedure TSkeletalRender.NextFrame(n:single);
-begin
-  if FramePosition+n>=FFramesCount then FSetFrame(FramePosition+n-FFramesCount)
-  else FSetFrame(FramePosition+n);
-end;
-
 procedure TSkeletalRender.RenderObject(ARCI: TRenderContextInfo;
   var ViewMatrix: TMatrix);
 begin
   if FAnimationNum=-1 then exit;
-  
+  if FramePosition<>FOldFrame then begin
+//     glGetFloatv(GL_PROJECTION_MATRIX, @FScreenQuad.Matrices.ProjectionMatrix);
+//     FScreenQuad.FTime:=FTime;
+//     if FScreenQuad.Visible then
+//        FScreenQuad.RenderObject(ARCI,ViewMatrix);
+//     FScreenQuad.Visible:=false;
+     FOldFrame:=FramePosition;
+  end;
   inherited;
-
-  if FScreenQuad.Visible then
-     FScreenQuad.RenderObject(ARCI,ViewMatrix);
-  FScreenQuad.Visible:=false;
 end;
 
 end.

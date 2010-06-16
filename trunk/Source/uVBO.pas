@@ -5,7 +5,8 @@ uses VectorTypes, VectorGeometry, VectorLists, OpenGL1x, Classes, MeshUtils, Typ
 
 type
   TVBORenderType = (DrawArrays, DrawElements, DrawRangedElements, DrawMultiElements);
-  TRenderBuff = set of (uNormals, uTexCoords, uIndices, uSecondaryTexure, uColors);
+  TRenderBuff = set of (uNormals, uTexCoords, uIndices, uSecondaryTexure,
+                        uColors, uMultitexture, uExTexEnvMode);
   TBindState = set of (sActivate, sDeactivate, sUnchanged, sCheck);
   TUpdateBuff = set of (upVertex, upColor, upNormal, upTexCoord, upSecTexCoord);
 
@@ -19,6 +20,11 @@ type
     TexCoords: TAffineVectorList;
     Colors: TVectorList;
     Indices: TintegerList;
+    UseTwoTexturesCoord: boolean;
+    ExTexCoords: TList;
+    ExTexCoordsId: TIntegerList;
+    ExTexEnvMode: TIntegerList;
+
     VertexCount: integer;
     MaxElements: integer;
     ElementsCount: integer;
@@ -36,8 +42,6 @@ type
     TextureHandle: GLUInt;
     ShaderProg: GLUInt;
     Cleared: boolean;
-    UseTwoTexturesCoord: boolean;
-    ExTexCoords: TList;
     PrevLOD, NextLOD: PVBOBuffer;
     LODLevel:integer;
     AdditionalInfo:pointer;
@@ -141,7 +145,7 @@ procedure FreeVBOList(var List:TList;ClearBuffs: boolean = true);
 procedure AttachBuffer(var FromBuff, ToBuff: TVBOBuffer; AttachIndice: boolean = true);
 procedure AttachBufferInPos(var FromBuff, ToBuff: TVBOBuffer; vPos,iPos:integer);
 procedure PackListIntoBuffer(List:TList; var Buffs:TMultiBuffer; FreeRAM:boolean);overload;
-procedure ListToMultiBuffer(List:TList; var Buffs:TMultiPackBuff;
+procedure ListToMultiBuffer(var List:TList; var Buffs:TMultiPackBuff;
                             RenderList:TList; FreeRAM:boolean=false; size:integer=-1);
 function  CreatePlane(Width, Height: single; TilesX, TilesY: integer;AsLine:boolean=false;GenBuff:Boolean=true): PVBOBuffer;
 procedure SortListByMaterial(List:TList);
@@ -158,8 +162,15 @@ function isVolumeClipped(emin, emax: TAffineVector): boolean; overload;
 function isVolumeClipped(const Extents: TExtents; const Frustum:TFrustum): boolean;overload;
 
 procedure Col2RowMatrix(mm: TMatrix; var m: TMatrix);
+function CreateViewMatrix(const ModelMatrix: TMatrix): TMatrix;
+Function GetViewPort:TVector4i;
 function GetViewMatrix:TMatrix;
 function GetProjectionMatrix:TMatrix;
+function ProjectPoint(aPoint: TVector;
+	      const modelMatrix: TMatrix;
+	      const projMatrix:TMatrix;
+              const viewport: array of integer;
+              var ScreenPos:TVector): boolean;
 function GetModelViewMatrix(WorldMatrix, ViewMatrix: TMatrix): PGLFloat;
 function GetMinExtents(v1, v2: TAffineVector): TAffinevector;
 function GetMaxExtents(v1, v2: TAffineVector): TAffinevector;
@@ -336,6 +347,8 @@ begin
     ChildBuff := false;
     UseTwoTexturesCoord := True;
     ExTexCoords := TList.Create;
+    ExTexCoordsId := TIntegerList.Create;
+    ExTexEnvMode := TIntegerList.Create;
     Visible := true;
   end;
 end;
@@ -396,6 +409,8 @@ end;
 
 
 procedure GenVBOBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
+var i: integer;
+    temp: TAffineVectorList;
 begin
 {  if VBuff.Indices.count=0 then begin
      VBuff.Builded := false;
@@ -408,6 +423,14 @@ begin
     tId := GenSingleVBOBuffer(TexCoords);
     cId := GenSingleVBOBuffer(Colors);
     iId := GenIndices(Indices);
+    if ExTexCoords.Count>0 then begin
+      for i := 0 to ExTexCoords.Count - 1 do begin
+          temp:=ExTexCoords[i];
+          ExTexCoordsId.Add(GenSingleVBOBuffer(temp));
+      end;
+      stId:=ExTexCoordsId[0];
+    end;
+
     RenderBuffs:=[];
     if nId > 0 then RenderBuffs := RenderBuffs + [uNormals];
     if tId > 0 then RenderBuffs := RenderBuffs + [uTexCoords];
@@ -422,6 +445,9 @@ begin
     VertexCount := Vertexes.Count;
     if FreeBuffMem then begin
       Vertexes.Clear; Normals.Clear; TexCoords.Clear;Colors.Clear;
+      for i := 0 to ExTexCoords.Count - 1 do begin
+          temp:=ExTexCoords[i]; temp.Clear;
+      end;
       Cleared := true
     end else Cleared := false;
     Builded := true;
@@ -518,6 +544,8 @@ end;
 
 
 procedure FreeVBOBuffer(var VBuff: TVBOBuffer; ClearBuffs: boolean = true);
+var i:integer;
+    temp: TAffineVectorList;
 begin
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -529,20 +557,25 @@ begin
     if iId <> 0 then glDeleteBuffers(1, @iId);
     if cId <> 0 then glDeleteBuffers(1, @cId);
     if ClearBuffs then begin
-      Vertexes.Clear;  Normals.Clear;
-      TexCoords.Clear; Indices.Clear;
-      Colors.Clear;  Cleared:=true;
       FreeAndNil(Vertexes);
       FreeAndNil(Normals);
       FreeAndNil(TexCoords);
       FreeAndNil(Indices);
       FreeAndNil(Colors);
+      for i:= 0 to ExTexCoords.Count - 1 do begin
+        temp:=ExTexCoords[i]; FreeAndNil(temp);
+      end;
       FreeAndNil(ExTexCoords);
+      FreeAndNil(ExTexCoordsId);
+      FreeAndNil(ExTexEnvMode);
+      Cleared:=true;
     end;
   end;
 end;
 
 procedure FreeVBOMem(var VBuff: TVBOBuffer);
+var i:integer;
+    temp: TAffineVectorList;
 begin
   with VBuff do begin
      if assigned(Vertexes) then begin
@@ -561,9 +594,13 @@ begin
         Colors.Clear; Colors.Free;
      end;
      if assigned(ExTexCoords) then begin
-        ExTexCoords.Clear; ExTexCoords.Free;
+        for i:= 0 to ExTexCoords.Count - 1 do begin
+          temp:=ExTexCoords[i]; FreeAndNil(temp);
+        end;
      end;
-
+     FreeAndNil(ExTexCoords);
+     FreeAndNil(ExTexCoordsId);
+     FreeAndNil(ExTexEnvMode);
      Cleared:=true;
   end;
 end;
@@ -646,7 +683,7 @@ repeat
 until i=List.Count;
 end;
 
-procedure ListToMultiBuffer(List:TList; var Buffs:TMultiPackBuff;
+procedure ListToMultiBuffer(var List:TList; var Buffs:TMultiPackBuff;
                             RenderList:TList; FreeRAM:boolean; size:integer);
 var Lists:TList;
     MeshList:TList;
@@ -717,8 +754,7 @@ begin
          end;
       end;
   end;
-  //if buffCount=0 then
-  inc(buffCount);
+  if buffCount=0 then inc(buffCount);
   setlength(buffs,buffCount);
   buffidx:=-1;
   vCount:=0; iCount:=0;
@@ -888,14 +924,16 @@ var i:integer;
 begin
 if not assigned(List) then exit;
   for i:=0 to List.Count-1 do begin
-     P:=List[i]; FreeVBOBuffer(P^,ClearBuffs);
-     Dispose(P);
+     P:=List[i];
+     if P<>nil then begin
+        FreeVBOBuffer(P^,ClearBuffs); Dispose(P);
+     end;
   end;
   List.Clear;
 end;
 
 procedure RenderVBOBuffer(var VBuff: TVBOBuffer);
-Var RCount:integer;
+Var i,RCount:integer;
 begin
   with VBuff do begin
     if (not Builded) or (vId = 0) then exit;
@@ -915,12 +953,24 @@ begin
       else glTexCoordPointer(3, GL_FLOAT, SizeOf(TAffineVector), nil);
     end else glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
-    if (stId <> 0) and (uSecondaryTexure in RenderBuffs) then begin
+    if (stId <> 0) and (uSecondaryTexure in RenderBuffs) and (not (uMultitexture in RenderBuffs))
+    then begin
       glClientActiveTexture(GL_TEXTURE1);
       glEnableClientState(GL_TEXTURE_COORD_ARRAY);
       glBindBuffer(GL_ARRAY_BUFFER, stId);
       glTexCoordPointer(3, GL_FLOAT, 0, nil);
+    end else if (uMultitexture in RenderBuffs) then begin
+      for i:= 0 to ExTexCoordsId.Count - 1 do begin
+          glClientActiveTexture(GL_TEXTURE1+i);
+          glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+          glBindBuffer(GL_ARRAY_BUFFER, ExTexCoordsId[i]);
+          glTexCoordPointer(3, GL_FLOAT, SizeOf(TAffineVector), nil);
+          if ( uExTexEnvMode in RenderBuffs) then
+             if i<ExTexEnvMode.Count then
+                glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, ExTexEnvMode[i]);
+      end;
     end;
+
 
     if (cId<>0) and (uColors in RenderBuffs) then begin
       glEnableClientState(GL_COLOR_ARRAY);
@@ -954,6 +1004,13 @@ begin
        glDisableClientState(GL_COLOR_ARRAY);
        glDisable(GL_COLOR_MATERIAL);
     end;
+    if (uMultitexture in RenderBuffs) then begin
+      for i:= 0 to ExTexCoordsId.Count - 1 do begin
+          glClientActiveTexture(GL_TEXTURE1+i);
+          glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+      end;
+    end;
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     if (iId <> 0) and (not idxBindOnce) then glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   end;
 end;
@@ -1344,7 +1401,7 @@ begin
 end;
 
 procedure ExtractTriangles(var Buff: TVBOBuffer; var Triangles: TAffineVectorList);
-var i: integer;
+var i,n: integer;
   v, v1, v2, v3: TAffineVector;
 begin
   if not assigned(Triangles) then Triangles := TAffineVectorList.Create;
@@ -1354,9 +1411,11 @@ begin
     if Indices.Count=0 then exit;
     case FaceType of
       GL_TRIANGLES: begin
+          n:=Triangles.Count;
+          Triangles.Count:=n+(Indices.Count div 3);
           for i := 0 to Indices.Count - 1 do begin
             v := Vertexes[Indices[i]];
-            Triangles.Add(v);
+            Triangles[n+i]:=v;//.Add(v);
           end;
         end;
       GL_TRIANGLE_STRIP: begin
@@ -1441,6 +1500,11 @@ begin
   glEnd;
 end;
 
+Function GetViewPort:TVector4i;
+begin
+  glGetIntegerv(GL_VIEWPORT, @Result);
+end;
+
 Function GetViewMatrix:TMatrix;
 begin
   glGetFloatv(GL_MODELVIEW_MATRIX, @Result);
@@ -1450,6 +1514,33 @@ Function GetProjectionMatrix:TMatrix;
 begin
   glGetFloatv(GL_PROJECTION_MATRIX, @Result);
 end;
+
+function ProjectPoint(aPoint: TVector;
+	      const modelMatrix: TMatrix;
+	      const projMatrix:TMatrix;
+              const viewport: array of integer;
+              var ScreenPos:TVector): boolean;
+var iPos, oPos: TVector;
+begin
+    iPos:=aPoint; iPos[3]:=1;
+    oPos:=VectorTransform(iPos,ModelMatrix);
+    iPos:=VectorTransform(oPos,ProjMatrix);
+    if (iPos[3] = 0) then begin
+      Result:=false; exit; end;
+    ScaleVector(iPos,1/iPos[3]);
+
+    iPos[0] := iPos[0] * 0.5 + 0.5;
+    iPos[1] := iPos[1] * 0.5 + 0.5;
+    iPos[2] := iPos[2] * 0.5 + 0.5;
+
+
+    iPos[0] := iPos[0] * viewport[2] + viewport[0];
+    iPos[1] := viewport[3]-(iPos[1] * viewport[3] + viewport[1]);
+
+    ScreenPos:=iPos;
+    result:=true;
+end;
+
 
 function GetModelViewMatrix(WorldMatrix, ViewMatrix: TMatrix): PGLFloat;
 var mv:TMatrix;
@@ -1462,5 +1553,20 @@ begin
   for i:=0 to 3 do begin v^:=mv[i];inc(v);end;
   result:=PGLFloat(M);
 end;
+//|R d|-1  |Rt -Rt*d|
+//|0 1|  = |0     1 |
+function CreateViewMatrix(const ModelMatrix: TMatrix): TMatrix;
+var d: TVector;
+    mat3: TAffineMatrix;
+begin
+  d:=ModelMatrix[3];
+  Setmatrix(mat3,ModelMatrix);
+  TransposeMatrix(mat3);
+  SetMatrix(Result,mat3);
+  d:=VectorTransform(d,mat3);
+  NegateVector(d); d[3]:=1;
+  result[3]:=d;
+end;
+
 end.
 
