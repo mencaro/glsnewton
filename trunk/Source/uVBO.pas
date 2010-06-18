@@ -1412,7 +1412,7 @@ begin
     case FaceType of
       GL_TRIANGLES: begin
           n:=Triangles.Count;
-          Triangles.Count:=n+(Indices.Count div 3);
+          Triangles.Count:=n+Indices.Count;
           for i := 0 to Indices.Count - 1 do begin
             v := Vertexes[Indices[i]];
             Triangles[n+i]:=v;//.Add(v);

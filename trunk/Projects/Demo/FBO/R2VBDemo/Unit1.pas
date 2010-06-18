@@ -136,8 +136,8 @@ GLSceneViewer1.Buffer.RenderingContext.Activate;
     CreateBGRA8Texture2D(bmp.Width,bmp.Height,bm32.Data);
   end; bm32.Free; bmp.Free;
 
-  spId:=CreateMRTShader('..\Project\Demo\FBO\R2VBDemo\Shader.Vert',
-                        '..\Project\Demo\FBO\R2VBDemo\Shader.Frag');
+  spId:=CreateMRTShader('..\Projects\Demo\FBO\R2VBDemo\Shader.Vert',
+                        '..\Projects\Demo\FBO\R2VBDemo\Shader.Frag');
 
   for i:=0 to 2 do begin
     mrt[i]:=TGLTexture.Create;
