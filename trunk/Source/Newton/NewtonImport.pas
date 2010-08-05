@@ -1,12 +1,13 @@
 {*******************************************************************************}
 {                                                                               }
 {      Newton Game Dynamics Delphi-Headertranslation                            }
-{       Current SDK version 2.11 Beta                                           }
+{       Current SDK version 2.23                                                }
 {                                                                               }
-{      Copyright (c) 2004,05,06,09 Stuart "Stucuk" Carey                        }
-{                                  Sascha Willems                               }
-{                                  Jon Walton                                   }
-{                                  Dominique Louis                              }
+{      Copyright (c) 04,05,06,09,2010 Dmitriy "Executor" Bespalov		}
+{                                     Stuart "Stucuk" Carey                     }
+{                                     Sascha Willems                            }
+{                                     Jon Walton                                }
+{                                     Dominique Louis                           }
 {                                                                               }
 {      Initial Author : S.Spasov (Sury)                                         }
 {                                                                               }
@@ -198,6 +199,9 @@ type
   PNewtonCollision = ^Pointer;
   PNewtonSceneProxy = ^Pointer;
   PNewtonBreakableComponentMesh = ^Pointer;
+  PNewtonMeshVertex = ^Pointer;
+  PNewtonMeshEdge = ^Pointer;
+  PNewtonMeshFace = ^Pointer;
   // JointLibrary
   PNewtonUserJoint = ^Pointer;
 
@@ -214,6 +218,9 @@ type
   PNewtonCollision = Pointer;
   PNewtonSceneProxy = Pointer;
   PNewtonBreakableComponentMesh = Pointer;
+  PNewtonMeshVertex = Pointer;
+  PNewtonMeshEdge = Pointer;
+  PNewtonMeshFace = Pointer;
   // JointLibrary
   PNewtonUserJoint = Pointer;
 
@@ -232,29 +239,29 @@ type
        TNewtonSphereParam = packed record
              m_r0,
              m_r1,
-             m_r2: single;
+             m_r2: float;
       end;
 
       TNewtonCylinderParam = packed record
           m_r0,
           m_r1,
-        m_height: single;
+        m_height: float;
       end;
 
       TNewtonCapsuleParam = packed record
           m_r0,
           m_r1,
-        m_height: single;
+        m_height: float;
       end;
 
       TNewtonConeParam = packed record
           m_r,
-          m_height: single;
+          m_height: float;
       end;
 
       TNewtonChamferCylinderParam = packed record
              m_r,
-             m_height: single;
+             m_height: float;
       end;
 
       TNewtonConvexHullParam = packed record
@@ -283,7 +290,7 @@ type
              m_height,
              m_gridsDiagonals: integer;
              m_horizonalScale,
-             m_verticalScale: single;
+             m_verticalScale: float;
              m_elevation: pointer; //unsigned short *m_elevation;
              m_atributes: pchar;
       end;
@@ -297,7 +304,7 @@ type
       end;
 
       TNewtonCollisionInfoRecord = packed record
-    m_offsetMatrix: array[0..3,0..3] of single;
+    m_offsetMatrix: array[0..3,0..3] of float;
       m_collisionType,                 // tag id to identify the collision primitive
       m_referenceCount: integer;       // the current reference count for this collision
     m_collisionUserID: integer;
@@ -358,10 +365,10 @@ type
     m_faceCount           : int;                    // the application should set here how many polygons intersect the query box
     m_vertexStrideInBytes : int;                    // the application should set here the size of each vertex
     m_userData            : Pointer;                // user data passed to the collision geometry at creation time
-    m_vertex              : ^float;                 // the application should the pointer to the vertex array.
-    m_userAttribute       : ^int;                   // the application should set here the pointer to the user data, one for each face
-    m_faceIndexCount      : ^int;                   // the application should set here the pointer to the vertex count of each face.
-    m_faceVertexIndex     : ^int;                   // the application should set here the pointer index array for each vertex on a face.
+    m_vertex              : PFloat;                 // the application should the pointer to the vertex array.
+    m_userAttribute       : PInt;                   // the application should set here the pointer to the user data, one for each face
+    m_faceIndexCount      : PInt;                   // the application should set here the pointer to the vertex count of each face.
+    m_faceVertexIndex     : PInt;                   // the application should set here the pointer index array for each vertex on a face.
     m_objBody             : PNewtonBody;            // pointer to the colliding body
     m_polySoupBody        : PNewtonBody;            // pointer to the rigid body owner of this collision tree
   end;
@@ -558,9 +565,9 @@ procedure NewtonSetPlatformArchitecture (const newtonWorld : PNewtonWorld; mode 
 
 function NewtonGetPlatformArchitecture (const newtonWorld : PNewtonWorld; description : PCharArray) : int; cdecl; external{$IFDEF __GPC__}name 'NewtonGetPlatformArchitecture'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
-procedure NewtonSetMultiThreadSolverOnSingleIsland (const newtonWorld : PNewtonWorld; mode : Int); cdecl; external{$IFDEF __GPC__}name 'NewtonSetMultiThreadSolverOnSingleIsland'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+procedure NewtonSetMultiThreadSolverOnfloatIsland (const newtonWorld : PNewtonWorld; mode : Int); cdecl; external{$IFDEF __GPC__}name 'NewtonSetMultiThreadSolverOnfloatIsland'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
-function NewtonGetMultiThreadSolverOnSingleIsland (const newtonWorld : PNewtonWorld) : int; cdecl; external{$IFDEF __GPC__}name 'NewtonGetMultiThreadSolverOnSingleIsland'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function NewtonGetMultiThreadSolverOnfloatIsland (const newtonWorld : PNewtonWorld) : int; cdecl; external{$IFDEF __GPC__}name 'NewtonGetMultiThreadSolverOnfloatIsland'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
 
 procedure NewtonSetPerformanceClock (const newtonWorld : PNewtonWorld; NewtonGetTicksCountCallback : PNewtonGetTicksCountCallback); cdecl; external{$IFDEF __GPC__}name 'NewtonSetPerformanceClock'{$ELSE}NewtonDLL{$ENDIF __GPC__};
@@ -732,11 +739,9 @@ function  NewtonAddCollisionReference( const Collision : PNewtonCollision): int;
 // note: can only be used with static bodies (bodies with infinite mass)
 //
 // *****************************************************************************************************************************
-type
-  TCollisionPrimitiveArray = array of PNewtonCollision;
 
 function NewtonCreateCompoundCollision( const newtonWorld : PNewtonWorld; count : int;
-                                        const collisionPrimitiveArray : TcollisionPrimitiveArray; shapeID : Int ) : PNewtonCollision; cdecl; external{$IFDEF __GPC__}name 'NewtonCreateCompoundCollision'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+                                        const collisionPrimitiveArray : PNewtonCollision; shapeID : Int ) : PNewtonCollision; cdecl; external{$IFDEF __GPC__}name 'NewtonCreateCompoundCollision'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
 function NewtonCreateCompoundCollisionFromMesh( const newtonWorld : PNewtonWorld; const mesh : PNewtonMesh; concavity : Float; maxShapeCount : int; shapeID : Int ) : PNewtonCollision; cdecl; external{$IFDEF __GPC__}name 'NewtonCreateCompoundCollisionFromMesh'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
@@ -862,7 +867,7 @@ procedure NewtonCollisionSupportVertex( const collision : PNewtonCollision; cons
 function  NewtonCollisionRayCast(const collision : PNewtonCollision; const p0: PFloat; const p1: PFloat; normals: PFloat; attribute: pint): float; cdecl; external{$IFDEF __GPC__}name 'NewtonCollisionRayCast'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 procedure NewtonCollisionCalculateAABB( const collision : PNewtonCollision; const matrix : PFloat; p0 : PFloat; p1 : PFloat ); cdecl; external{$IFDEF __GPC__}name 'NewtonCollisionCalculateAABB'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
-procedure NewtonCollisionForEachPolygonDo (const collision : PNewtonCollision; const matrix : PFloat; callback : NewtonCollisionIterator; UserData : Pointer);cdecl; external{$IFDEF __GPC__}name 'NewtonReleaseCollision'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+procedure NewtonCollisionForEachPolygonDo (const collision : PNewtonCollision; const matrix : PFloat; callback : NewtonCollisionIterator; UserData : Pointer);cdecl; external{$IFDEF __GPC__}name 'NewtonCollisionForEachPolygonDo'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
 
 // *****************************************************************************************************************************
@@ -1109,9 +1114,11 @@ function  NewtonUserJointGetRowForce (const Joint : PNewtonJoint; Row : Int) : F
 
 // 2.15 - Added parameter "world" - SW
 function  NewtonMeshCreate (const World : PNewtonWorld) : PNewtonMesh; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshCreate'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshCreateFromMesh(const mesh : PNewtonMesh) : PNewtonMesh; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshCreateFromMesh'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 function  NewtonMeshCreateFromCollision (const collision : PNewtonCollision) : PNewtonMesh; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshCreateFromCollision'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 // 2.15 - Added parameter "world", renamed "textureMatrix" to "textureMatrix0" and added parameter "textureMatrix1" - SW
 function  NewtonMeshCreatePlane (const World : PNewtonWorld; const locationMatrix : PFloat; width : Float; breadth : Float; material : Int; const textureMatrix0 : PFloat; const textureMatrix1) : PNewtonMesh; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshCreatePlane'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshConvexApproximation (const mesh : PNewtonMesh; const world : PNewtonWorld; maxConvexity : Float; maxCount : int; convexArray : PNewtonCollision) : int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshConvexApproximation'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
 
 procedure NewtonMeshDestroy(const mesh : PNewtonMesh); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshDestroy'{$ELSE}NewtonDLL{$ENDIF __GPC__};
@@ -1140,10 +1147,15 @@ procedure NewtonMeshBeginFace(const mesh : PNewtonMesh); cdecl; external{$IFDEF 
 procedure NewtonMeshAddFace(const mesh : PNewtonMesh; vertexCount : int; const vertex : PFloat; strideInBytes,materialIndex : int ); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshAddFace'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 procedure NewtonMeshEndFace(const mesh : PNewtonMesh); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshEndFace'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
-function  NewtonMeshGetVertexCount (const mesh : PNewtonMesh) : int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetVertexCount'{$ELSE}NewtonDLL{$ENDIF __GPC__};
-procedure NewtonMeshGetVertexStreams(const mesh : PNewtonMesh; vertexStrideInByte : int; vertex : PFloat; normalStrideInByte : int; normal : PFloat; uvStrideInByte : int; uv : PFloat); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetVertexStreams'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+procedure NewtonMeshBuildFromVertexListIndexList(const mesh : PNewtonMesh; faceCount : int; const faceIndexCount : PInt; const faceMaterialIndex : PInt;
+                                                 const vertex : PFloat; vertexStrideInBytes : Int; const vertexIndex : PInt;
+                                                 const normal : PFloat; normalStrideInBytes : Int; const normalIndex : PInt;
+                                                 const uv0    : PFloat; uv0StrideInBytes    : Int; const uv0Index    : PInt;
+                                                 const uv1    : PFloat; uv1StrideInBytes    : Int; const uv1Index    : PInt); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshBuildFromVertexListIndexList'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
-procedure NewtonMeshGetIndirectVertexStreams(const mesh : PNewtonMesh; vertexStrideInByte : int; vertex : PFloat; vertexIndices : PInt; vertexCount : PInt; normalStrideInByte : int; normal : PFloat; normalIndices : PInt; normalCount : PInt; uvStrideInByte : int; uv : PFloat; uvIndices : PInt; uvCount : PInt); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetIndirectVertexStreams'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+procedure NewtonMeshGetVertexStreams(const mesh : PNewtonMesh; vertexStrideInByte : int; vertex : PFloat; normalStrideInByte : int; normal : PFloat; uvStrideInByte1 : int; uv1 : PFloat; uvStrideInByte2 : int; uv2 : PFloat); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetVertexStreams'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+
+procedure NewtonMeshGetIndirectVertexStreams(const mesh : PNewtonMesh; vertexStrideInByte : int; vertex : PFloat; vertexIndices : PInt; vertexCount : PInt; normalStrideInByte : int; normal : PFloat; normalIndices : PInt; normalCount : PInt; uvStrideInByte1 : int; uv1 : PFloat; uvIndices1 : PInt; uvCount1 : PInt; uvStrideInByte2 : int; uv2 : PFloat; uvIndices2 : PInt; uvCount2 : PInt); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetIndirectVertexStreams'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
 function  NewtonMeshBeginHandle (const mesh : PNewtonMesh) : Pointer; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshBeginHandle'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 procedure NewtonMeshEndHandle (const mesh : PNewtonMesh; Handle : Pointer); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshEndHandle'{$ELSE}NewtonDLL{$ENDIF __GPC__};
@@ -1155,12 +1167,40 @@ function  NewtonMeshMaterialGetIndexCount (const mesh : PNewtonMesh; Handle : Po
 procedure NewtonMeshMaterialGetIndexStream(const mesh : PNewtonMesh; Handle : Pointer; materialID : int; index : PInt); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshMaterialGetIndexStream'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 procedure NewtonMeshMaterialGetIndexStreamShort(const mesh : PNewtonMesh; Handle : Pointer; materialID : int; index : PShort); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshMaterialGetIndexStreamShort'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
-function  NewtonMeshCreateFirstSingleSegment (const mesh : PNewtonMesh) : PNewtonMesh; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshCreateFirstSingleSegment'{$ELSE}NewtonDLL{$ENDIF __GPC__};
-function  NewtonMeshCreateNextSingleSegment (const mesh : PNewtonMesh; Segment : PNewtonMesh) : PNewtonMesh; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshCreateNextSingleSegment'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshCreateFirstfloatSegment (const mesh : PNewtonMesh) : PNewtonMesh; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshCreateFirstfloatSegment'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshCreateNextfloatSegment (const mesh : PNewtonMesh; Segment : PNewtonMesh) : PNewtonMesh; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshCreateNextfloatSegment'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
 function  NewtonMeshGetTotalFaceCount (const mesh : PNewtonMesh) : Int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetTotalFaceCount'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 function  NewtonMeshGetTotalIndexCount (const mesh : PNewtonMesh) : Int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetTotalIndexCount'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 procedure NewtonMeshGetFaces (const mesh : PNewtonMesh; const faceIndexCount : PInt; faceMaterial : PInt; faceIndices : PInt); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetFaces'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+
+
+function  NewtonMeshGetPointCount (const mesh : PNewtonMesh) : Int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetPointCount'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshGetPointStrideInByte (const mesh : PNewtonMesh) : Int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetPointStrideInByte'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshGetPointArray (const mesh : PNewtonMesh) : PFloat; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetPointArray'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+
+function  NewtonMeshGetVertexCount (const mesh : PNewtonMesh) : int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetVertexCount'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+
+function  NewtonMeshGetVertexStrideInByte (const mesh : PNewtonMesh) : int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetVertexStrideInByte'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshGetVertexArray (const mesh : PNewtonMesh) : PFloat; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetVertexArray'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+
+function  NewtonMeshGetFirstVertex (const mesh : PNewtonMesh) : PNewtonMeshVertex; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetFirstVertex'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshGetNextVertex (const mesh : PNewtonMesh; vertex : PNewtonMeshVertex) : PNewtonMeshVertex; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetNextVertex'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshGetVertexIndex (const mesh : PNewtonMesh; vertex : PNewtonMeshVertex) : Int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetVertexIndex'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+//NEWTON_API int NewtonMeshGetVertexPointIndex (const NewtonMesh *mesh, const void* vertex);
+
+function  NewtonMeshGetFirstEdge (const mesh : PNewtonMesh) : PNewtonMeshEdge; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetFirstEdge'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshGetNextEdge (const mesh : PNewtonMesh; edge : PNewtonMeshEdge) : PNewtonMeshEdge; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetNextEdge'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+procedure NewtonMeshGetEdgeIndices (const mesh : PNewtonMesh; const edge : PNewtonMeshEdge; v0 : PInt; v1 : PInt); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetEdgeIndices'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+//NEWTON_API void NewtonMeshGetEdgePointIndices (const NewtonMesh *mesh, const void* edge, int* v0, int* v1);
+
+function  NewtonMeshGetFirstFace (const mesh : PNewtonMesh) : PNewtonMeshFace; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetFirstFace'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshGetNextFace (const mesh : PNewtonMesh; const face : PNewtonMeshFace) : PNewtonMeshFace; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetNextFace'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshIsFaceOpen (const mesh : PNewtonMesh; const face : PNewtonMeshFace) : Int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshIsFaceOpen'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshGetFaceMaterial (const mesh : PNewtonMesh; const face : PNewtonMeshFace) : Int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetFaceMaterial'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+function  NewtonMeshGetFaceIndexCount (const mesh : PNewtonMesh; const face : PNewtonMeshFace) : Int; cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetFaceIndexCount'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+procedure NewtonMeshGetFaceIndices (const mesh : PNewtonMesh; const face : PNewtonMeshFace; indices : PInt); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetFaceIndices'{$ELSE}NewtonDLL{$ENDIF __GPC__};
+procedure NewtonMeshGetFacePointIndices (const mesh : PNewtonMesh; const face : PNewtonMeshFace; indices : PInt); cdecl; external{$IFDEF __GPC__}name 'NewtonMeshGetFacePointIndices'{$ELSE}NewtonDLL{$ENDIF __GPC__};
 
 implementation
 

@@ -1,10 +1,5 @@
 // VBONewton by For[)
-// updated 8.06.10
-// added :
-// FCopy
-// SDK_Version
-// PlatformArchitecture ( 0 - default, 1 - medium, n - best)
-//
+// updated 28.07.10
 
 unit VBONewton;
 
@@ -21,24 +16,19 @@ type
     dX, dY: integer;
   end;
 
-type
   TIntBool = 0 .. 1;
 
-type
   TNewtonMaterial = record
     Softness, StaticFriction, KineticFriction, Elasticity, Thickness: real;
     isCollidable: TIntBool;
     CollisionCallBack: PNewtonContactsProcess;
   end;
 
-const
-  maxBodes = 10000;
-
-var
-  NewtonGravity: real = -10;
-
+function ScaleVector3f(V: TVector3f; Scale: Single): TVector3f;
 function FCopy(str: string; N, K: integer): string;
 function isKeyDown(Key: Byte): boolean;
+procedure SimulateKeyDown(Key: Byte);
+procedure SimulateKeyUP(Key: Byte);
 function Gr2Rad(Gr: single): single;
 procedure Debug_ShowBodyCollision(const Body: PNewtonBody); cdecl;
 procedure Debug_ShowGeometryCollision(const Body: PNewtonBody;
@@ -48,23 +38,24 @@ function NewtonMaterialMake(isCollidable: TIntBool; Softness, StaticFriction,
   CollisionCallBack: PNewtonContactsProcess = nil): TNewtonMaterial;
 procedure DefaultNewtonContactsProcess(const contact: PNewtonJoint;
   timestep: Float; threadIndex: int); cdecl;
+procedure dNewtonApplyForceAndTorque(const Body: PNewtonBody; timestep: Float;
+  threadIndex: int); cdecl;
 function CalculateVerticesMassVBO(Obj: TVBOMeshObject): TVector4f;
-//
 
 type
   TVBONewtonJoint = class
   private
-    procedure SetJointCallback(CallBack: NewtonBallCallBack);
+    //
   public
     NewtonJoint: PNewtonJoint;
     NewtonWorld: PNewtonWorld;
-    property NewtonJointCallback: NewtonBallCallBack write SetJointCallback;
     destructor Destroy; override;
   end;
 
 type
   TVBONewtonMesh = class
   private
+    procedure SetCallBack(C: NewtonApplyForceAndTorque);
     function GetBodyForce: TVector4f;
     procedure SetBodyForce(Force: TVector4f);
     function GetBodyState: VBONewton.TIntBool;
@@ -87,11 +78,9 @@ type
     MeshObject: TVBOMeshObject;
     MaterialID: integer;
     BBox: TVector3f;
-    // не рекомендуется использовать, т.к. при пользовании проявляются баги
-    // по крайней мере лучше не читать, масса пишется нормально :)
+    property CallBack: NewtonApplyForceAndTorque write SetCallBack;
     property BodyMass: single read GetBodyMass write SetBodyMass;
     property BodyInertion: TVector4f read GetBodyInertion write SetBodyInertion;
-    //
     property BodyFrizeed: TIntBool read GetBodyState write SetBodyState;
     property BodySpeed: TVector4f read GetBodySpeed write SetBodySpeed;
     property BodyForce: TVector4f read GetBodyForce write SetBodyForce;
@@ -103,11 +92,37 @@ type
     destructor Destroy; override;
   end;
 
+  TNewtonRagDoll = record
+    Body: TVBONewtonMesh;
+    Body2: TVBONewtonMesh;
+    Head: TVBONewtonMesh;
+    LHand: TVBONewtonMesh;
+    RHand: TVBONewtonMesh;
+    LHand2: TVBONewtonMesh;
+    RHand2: TVBONewtonMesh;
+    LFoot: TVBONewtonMesh;
+    RFoot: TVBONewtonMesh;
+    LFoot2: TVBONewtonMesh;
+    RFoot2: TVBONewtonMesh;
+  end;
+
+  TNewtonRagDollParams = record
+    BodySize: TVector3f;
+    Body2Size: TVector3f;
+    HandSize: TVector3f;
+    Hand2Size: TVector3f;
+    FootSize: TVector3f;
+    Foot2Size: TVector3f;
+    HeadSize: TVector3f;
+  end;
+
 type
   TVBONewtonWorld = class
   private
     FMeshBodyList: TList;
     FJoints: TList;
+    function AddSphere(RadX, RadY, RadZ, Weight : Single; Matrix:TMatrix):TVBONewtonMesh;
+    function AddBox(X, Y, Z, Weight : Single; Matrix:TMatrix):TVBONewtonMesh;
     function GetObjectsCount: integer;
     function GetLastObject: TVBONewtonMesh;
     function GetObject(Index: integer): TVBONewtonMesh;
@@ -145,11 +160,15 @@ type
     // Static
     function AddTreeBody(VBOMeshObject: TVBOMeshObject): TVBONewtonMesh;
     // Joints
-    function AddHingeJoint(Mesh1, Mesh2: TVBONewtonMesh): TVBONewtonJoint;
-    deprecated;
+    function AddVboRagDoll(BodyPosition: TVector4f; RagDollVBOMesh: TVBOMesh;
+      Params: TNewtonRagDollParams; Scale:Single = 1): TNewtonRagDoll;
+    function AddRagDoll(BodyPosition: TVector4f; Params: TNewtonRagDollParams): TNewtonRagDoll; deprecated;
+    function AddHingeJoint(Parent: TVBONewtonMesh; Child: TVBONewtonMesh;
+      PivotPoint: TVector4f; Pin: TVector4f;
+      CallBack: NewtonHingeCallBack = nil): TVBONewtonJoint;
     function AddBallSocketJoint(Parent, Child: TVBONewtonMesh;
       PivotPoint: TVector4f; Pin: TVector4f; maxCone, maxTwist: real;
-      State: TIntBool = 0): TVBONewtonJoint;
+      CallBack: NewtonBallCallBack = nil; State: TIntBool = 0): TVBONewtonJoint;
     //
     procedure CreatePlayer(VBOMeshObject: TVBOMeshObject);
     procedure CreatePlayerSphere(X, Y, Z: real; Matrix: TMatrix);
@@ -157,18 +176,46 @@ type
     function FPSApplyCamMove: TCamMoveResult;
     function FPSApplyKeyMove(KeyUP, KeyDOWN, KeyLEFT, KeyRIGHT: Byte;
       Jump: boolean; DistanceToGround: real): bool;
-    procedure SetMaterialBetweenWorldAndPlayer(NewtonMaterial: TNewtonMaterial);
     procedure SetMaterialBetween2Meshes(Mesh1, Mesh2: TVBONewtonMesh;
       NewtonMaterial: TNewtonMaterial);
-    procedure UpdateWorld(time: real; Distance2Ground: real = 0);
+    procedure UpdateWorld(time: real; Distance2Ground: real = 10);
     procedure NewtonObjectsClear;
     constructor Create(MeshPlayer: TVBOMeshObject; GLScene: TGLScene;
       Owner: TGLBaseSceneObject; Friction: integer; Solver: integer;
-      WorldSizeFrom, WorldSizeTo: TVector3f;PlatformArchitecture:Byte=0); overload;
+      WorldSizeFrom, WorldSizeTo: TVector3f; PlatformArchitecture: Byte = 1);
+      overload;
     destructor Destroy; override;
   end;
 
+const
+{$J+}
+  maxBodes = 10000;
+  NewtonGravity: real = -10;
+  PinUP: TVector4f = (0, 1.57, 0, 1);
+  PinDOWN: TVector4f = (0, -1.57, 0, 1);
+  PinLEFT: TVector4f = (-1.57, 0, 0, 1);
+  PinRIGHT: TVector4f = (1.57, 0, 0, 1);
+  DefaultRagDollParams: TNewtonRagDollParams = ();
+{$J-}
+
 implementation
+
+function ScaleVector3f(V: TVector3f; Scale: Single): TVector3f;
+begin
+  Result[0] := V[0] * Scale;
+  Result[1] := V[1] * Scale;
+  Result[2] := V[2] * Scale;
+end;
+
+procedure SimulateKeyDown(Key: Byte);
+begin
+  KeyBD_Event(Key, 0, 0, 0);
+end;
+
+procedure SimulateKeyUP(Key: Byte);
+begin
+  KeyBD_Event(Key, 0, KEYEVENTF_KEYUP, 0);
+end;
 
 destructor TVBONewtonJoint.Destroy;
 begin
@@ -189,6 +236,11 @@ end;
 function TVBONewtonMesh.GetBodyState: TIntBool;
 begin
   result := NewtonBodyGetFreezeState(NewtonBody);
+end;
+
+procedure TVBONewtonMesh.SetCallBack(C: NewtonApplyForceAndTorque);
+begin
+  NewtonBodySetForceAndTorqueCallback(NewtonBody, C);
 end;
 
 procedure TVBONewtonMesh.SetBodyState(State: TIntBool);
@@ -288,7 +340,7 @@ end;
 
 function isKeyDown(Key: Byte): boolean;
 begin
-  if GetAsyncKeyState(Key) < 0 then
+  if GetKeyState(Key) < 0 then
     result := true
   else
     result := false;
@@ -392,19 +444,6 @@ begin
   Mesh.UpdateWorldMatrix;
 end;
 
-procedure NewtonApplyForceAndTorque(const Body: PNewtonBody; timestep: Float;
-  threadIndex: int); cdecl;
-var
-  //F_,
-  F: TVector4f;
-begin
-  NewtonBodyGetMassMatrix(Body, @F[3], @F[0], @F[1], @F[2]);
-  //NewtonBodyGetForce(Body, @F_);
-  F := VectorMake(0, NewtonGravity * F[3], 0);
-  //VectorAdd(F, F_);
-  NewtonBodyAddForce(Body, @F);
-end;
-
 function CalculateVerticesMassVBO(Obj: TVBOMeshObject): TVector4f;
 var
   i: integer;
@@ -430,7 +469,7 @@ end;
 constructor TVBONewtonWorld.Create(MeshPlayer: TVBOMeshObject;
   GLScene: TGLScene; Owner: TGLBaseSceneObject; Friction: integer;
   Solver: integer; WorldSizeFrom, WorldSizeTo: TVector3f;
-  PlatformArchitecture: Byte);
+  PlatformArchitecture: Byte = 1);
 begin
   FMeshBodyList := TList.Create;
   FJoints := TList.Create;
@@ -443,7 +482,7 @@ begin
   DebugGeometry := false;
   CamSpeed := 0.2;
   CamMaxAngle := 70;
-  JumpSpeed := 7;
+  JumpSpeed := 4;
   PlayerSpeed := 7;
   if Assigned(MeshPlayer) then
     CreatePlayer(MeshPlayer);
@@ -454,8 +493,16 @@ begin
   DebugMode := GL_LINES;
   DebugColor := VectorMake(1, 1, 1, 1);
   NewtonSetPlatformArchitecture(SceneNewtonWorld, PlatformArchitecture);
-  NewtonSetMultiThreadSolverOnSingleIsland(SceneNewtonWorld, 1);
-  //NewtonSetMinimumFrameRate(SceneNewtonWorld, 1)
+  with DefaultRagDollParams do
+  begin
+    BodySize := AffineVectorMake(1, 1, 0.4);
+    Body2Size := AffineVectorMake(0.8, 0.8, 0.4);
+    HandSize := AffineVectorMake(1, 0.3, 0.25);
+    Hand2Size := AffineVectorMake(1.25, 0.3, 0.25);
+    FootSize := AffineVectorMake(0.3, 1.25, 0.3);
+    Foot2Size := AffineVectorMake(0.3, 1.2, 0.3);
+    HeadSize := AffineVectorMake(0.3, 0.3, 0.3);
+  end;
 end;
 
 destructor TVBONewtonWorld.Destroy;
@@ -556,7 +603,6 @@ var
 begin
   if not DebugGeometry then
     exit;
-  // DirectOpenGL.MoveLast;
   glDisable(GL_LIGHTING);
   glBegin(DebugMode);
   glColor4f(DebugColor[0], DebugColor[1], DebugColor[2], DebugColor[3]);
@@ -663,34 +709,31 @@ begin
     @Matrix);
   NewtonBodySetForceAndTorqueCallback
     (NewtonObjects[FMeshBodyList.Count - 1].NewtonBody,
-    NewtonApplyForceAndTorque);
-  NewtonBodySetLinearDamping(NewtonObjects[FMeshBodyList.Count - 1].NewtonBody,
-    1);
+    dNewtonApplyForceAndTorque);
   CM := CalculateVerticesMassVBO(VBOMeshObject);
   NewtonBodySetCentreOfMass(NewtonObjects[FMeshBodyList.Count - 1].NewtonBody,
     @CM);
   NewtonBodySetUserData(NewtonObjects[FMeshBodyList.Count - 1].NewtonBody,
     VBOMeshObject);
   NewtonBodySetAutoSleep(LastObject.NewtonBody, 1);
-  if noUpdateRMatrix then
-    NewtonBodySetTransformCallback
-      (NewtonObjects[FMeshBodyList.Count - 1].NewtonBody, ApplyMatrixes2BotVBO)
-  else
-    NewtonBodySetTransformCallback
-      (NewtonObjects[FMeshBodyList.Count - 1].NewtonBody, ApplyMatrixesVBO);
   NewtonObjects[FMeshBodyList.Count - 1].MaterialID :=
     NewtonMaterialCreateGroupID(SceneNewtonWorld);
   NewtonBodySetMaterialGroupID
     (NewtonObjects[FMeshBodyList.Count - 1].NewtonBody,
     NewtonObjects[FMeshBodyList.Count - 1].MaterialID);
   LastObject.BBox := BoBox;
+  if noUpdateRMatrix then
+    NewtonBodySetTransformCallback
+      (NewtonObjects[FMeshBodyList.Count - 1].NewtonBody, ApplyMatrixes2BotVBO)
+  else
+    NewtonBodySetTransformCallback
+      (NewtonObjects[FMeshBodyList.Count - 1].NewtonBody, ApplyMatrixesVBO);
   result := NewtonObjects[FMeshBodyList.Count - 1];
 end;
 
-procedure TVBONewtonWorld.UpdateWorld(time: real; Distance2Ground: real = 0);
+procedure TVBONewtonWorld.UpdateWorld(time: real; Distance2Ground: real = 10);
 var
   M: TMatrix;
-  V: TVector4f;
 begin
   NewtonUpdate(SceneNewtonWorld, time);
   if not Assigned(Player) then
@@ -704,7 +747,7 @@ begin
   end
   else
     NewtonBodySetForceAndTorqueCallback(Player.NewtonBody,
-      NewtonApplyForceAndTorque);
+      dNewtonApplyForceAndTorque);
   NewtonBodyGetMatrix(Player.NewtonBody, @M);
   M[0] := FDummy.Matrix[0];
   M[1] := FDummy.Matrix[1];
@@ -717,25 +760,6 @@ begin
   end;
   NewtonBodySetMatrix(Player.NewtonBody, @M);
   FDummy.Matrix := M;
-end;
-
-procedure TVBONewtonWorld.SetMaterialBetweenWorldAndPlayer
-  (NewtonMaterial: TNewtonMaterial);
-begin
-  NewtonMaterialSetDefaultCollidable(SceneNewtonWorld, Player.MaterialID, 0,
-    NewtonMaterial.isCollidable);
-  NewtonMaterialSetDefaultSoftness(SceneNewtonWorld, Player.MaterialID, 0,
-    NewtonMaterial.Softness);
-  NewtonMaterialSetDefaultFriction(SceneNewtonWorld, Player.MaterialID, 0,
-    NewtonMaterial.StaticFriction, NewtonMaterial.KineticFriction);
-  NewtonMaterialSetDefaultElasticity(SceneNewtonWorld, Player.MaterialID, 0,
-    NewtonMaterial.Elasticity);
-  if NewtonMaterial.CollisionCallBack = nil then
-    NewtonMaterialSetCollisionCallback(SceneNewtonWorld, Player.MaterialID, 0,
-      nil, nil, @DefaultNewtonContactsProcess)
-  else
-    NewtonMaterialSetCollisionCallback(SceneNewtonWorld, Player.MaterialID, 0,
-      nil, nil, NewtonMaterial.CollisionCallBack);
 end;
 
 procedure TVBONewtonWorld.SetMaterialBetween2Meshes
@@ -806,7 +830,7 @@ begin
     Inertia[2]);
   NewtonBodySetMatrix(Player.NewtonBody, @Matrix);
   NewtonBodySetForceAndTorqueCallback(Player.NewtonBody,
-    NewtonApplyForceAndTorque);
+    dNewtonApplyForceAndTorque);
   NewtonBodySetLinearDamping(Player.NewtonBody, 1);
   CM := CalculateVerticesMassVBO(VBOMeshObject);
   NewtonBodySetCentreOfMass(Player.NewtonBody, @CM);
@@ -825,9 +849,6 @@ begin
   if NewtonObjectsCount > 0 then
     for t := 0 to NewtonObjectsCount - 1 do
       NewtonObjects[t].Free;
-  NewtonMaterialDestroyAllGroupID(SceneNewtonWorld);
-  // DefaultWorldMaterialID:=NewtonMaterialGetDefaultGroupID(SceneNewtonWorld);
-  // Player.MaterialID:=NewtonMaterialCreateGroupID(SceneNewtonWorld);
   FMeshBodyList.Clear;
   FJoints.Clear;
 end;
@@ -879,16 +900,23 @@ begin
   result := FJoints[Index];
 end;
 
-function TVBONewtonWorld.AddHingeJoint(Mesh1: TVBONewtonMesh;
-  Mesh2: TVBONewtonMesh): TVBONewtonJoint;
-deprecated;
+function TVBONewtonWorld.AddHingeJoint(Parent: TVBONewtonMesh;
+  Child: TVBONewtonMesh; PivotPoint: TVector4f; Pin: TVector4f;
+  CallBack: NewtonHingeCallBack = nil): TVBONewtonJoint;
 begin
-  //
+  FJoints.Add(TVBONewtonJoint.Create);
+  LastJointObject.NewtonWorld := SceneNewtonWorld;
+  LastJointObject.NewtonJoint := NewtonConstraintCreateHinge
+    (SceneNewtonWorld, @PivotPoint, @Pin, Child.NewtonBody, Parent.NewtonBody);
+  NewtonHingeSetUserCallback(LastJointObject.NewtonJoint, CallBack);
+  NewtonJointSetStiffness(LastJointObject.NewtonJoint, 0);
+  result := LastJointObject;
 end;
 
 function TVBONewtonWorld.AddBallSocketJoint(Parent: TVBONewtonMesh;
   Child: TVBONewtonMesh; PivotPoint: TVector4f; Pin: TVector4f;
-  maxCone, maxTwist: real; State: TIntBool = 0): TVBONewtonJoint;
+  maxCone, maxTwist: real; CallBack: NewtonBallCallBack = nil;
+  State: TIntBool = 0): TVBONewtonJoint;
 begin
   FJoints.Add(TVBONewtonJoint.Create);
   LastJointObject.NewtonWorld := SceneNewtonWorld;
@@ -896,26 +924,23 @@ begin
     (SceneNewtonWorld, @PivotPoint, Child.NewtonBody, Parent.NewtonBody);
   NewtonJointSetCollisionState(LastJointObject.NewtonJoint, State);
   NewtonBallSetConeLimits(LastJointObject.NewtonJoint, @Pin, maxCone, maxTwist);
+  NewtonBallSetUserCallback(LastJointObject.NewtonJoint, CallBack);
+  NewtonJointSetStiffness(LastJointObject.NewtonJoint, 0);
   result := LastJointObject;
-end;
-
-procedure TVBONewtonJoint.SetJointCallback(CallBack: NewtonBallCallBack);
-begin
-  NewtonBallSetUserCallback(NewtonJoint, CallBack);
 end;
 
 procedure TVBONewtonWorld.CreatePlayerSphere(X: real; Y: real; Z: real;
   Matrix: TMatrix);
 var
-  Weight: real;
   col: pnewtoncollision;
   Inertia, BBox: TAffineVector;
+  Weight: real;
 begin
   BBox := AffineVectorMake(X, Y + 0.2, Z);
+  Weight := 1000;
   Inertia[0] := Weight * (BBox[1] * BBox[1] + BBox[2] * BBox[2]) / 12;
   Inertia[1] := Weight * (BBox[0] * BBox[0] + BBox[2] * BBox[2]) / 12;
   Inertia[2] := Weight * (BBox[0] * BBox[0] + BBox[1] * BBox[1]) / 12;
-  Weight := 1000;
   col := NewtonCreateSphere(SceneNewtonWorld, X, Y, Z, 0, nil);
   Player := TVBONewtonMesh.Create;
   Player.NewtonBody := NewtonCreateBody(SceneNewtonWorld, col);
@@ -926,8 +951,8 @@ begin
     Inertia[2]);
   NewtonBodySetMatrix(Player.NewtonBody, @Matrix);
   NewtonBodySetForceAndTorqueCallback(Player.NewtonBody,
-    NewtonApplyForceAndTorque);
-  NewtonBodySetLinearDamping(Player.NewtonBody, 1);
+    dNewtonApplyForceAndTorque);
+  NewtonBodySetLinearDamping(Player.NewtonBody, 0.5);
   Player.MaterialID := NewtonMaterialCreateGroupID(SceneNewtonWorld);
   NewtonBodySetMaterialGroupID(Player.NewtonBody, Player.MaterialID);
   NewtonBodySetContinuousCollisionMode(Player.NewtonBody, 1);
@@ -941,10 +966,10 @@ var
   Inertia, BBox: TAffineVector;
 begin
   BBox := AffineVectorMake(X, Y + 0.2, Z);
+  Weight := 1000;
   Inertia[0] := Weight * (BBox[1] * BBox[1] + BBox[2] * BBox[2]) / 12;
   Inertia[1] := Weight * (BBox[0] * BBox[0] + BBox[2] * BBox[2]) / 12;
   Inertia[2] := Weight * (BBox[0] * BBox[0] + BBox[1] * BBox[1]) / 12;
-  Weight := 1000;
   col := NewtonCreateBox(SceneNewtonWorld, X, Y, Z, 0, nil);
   Player := TVBONewtonMesh.Create;
   Player.NewtonBody := NewtonCreateBody(SceneNewtonWorld, col);
@@ -955,8 +980,8 @@ begin
     Inertia[2]);
   NewtonBodySetMatrix(Player.NewtonBody, @Matrix);
   NewtonBodySetForceAndTorqueCallback(Player.NewtonBody,
-    NewtonApplyForceAndTorque);
-  NewtonBodySetLinearDamping(Player.NewtonBody, 1);
+    dNewtonApplyForceAndTorque);
+  NewtonBodySetLinearDamping(Player.NewtonBody, 0.5);
   Player.MaterialID := NewtonMaterialCreateGroupID(SceneNewtonWorld);
   NewtonBodySetMaterialGroupID(Player.NewtonBody, Player.MaterialID);
   NewtonBodySetContinuousCollisionMode(Player.NewtonBody, 1);
@@ -968,13 +993,312 @@ begin
   result := result[1] + '.' + FCopy(result, 2, length(result));
 end;
 
+function TVBONewtonWorld.AddVboRagDoll(BodyPosition: TVector4f;
+  RagDollVBOMesh: TVBOMesh; Params: TNewtonRagDollParams; Scale:Single = 1): TNewtonRagDoll;
+var
+  HeadPos, LHandPos, RHandPos, LFootPos, RFootPos, LHandPos2, RHandPos2,
+    LFootPos2, RFootPos2, Body2Pos: TVector4f;
+begin
+  Params.BodySize := ScaleVector3f(Params.BodySize, Scale);
+  Params.Body2Size := ScaleVector3f(Params.Body2Size, Scale);
+  Params.HandSize := ScaleVector3f(Params.HandSize, Scale);
+  Params.Hand2Size := ScaleVector3f(Params.Hand2Size, Scale);
+  Params.FootSize := ScaleVector3f(Params.FootSize, Scale);
+  Params.Foot2Size := ScaleVector3f(Params.Foot2Size, Scale);
+  Params.HeadSize := ScaleVector3f(Params.HeadSize, Scale);
+
+  Body2Pos := VectorAdd(BodyPosition, VectorMake(0,
+    -0.5 * (Params.Body2Size[1] + Params.BodySize[1]), 0));
+  // голова
+  RagDollVBOMesh.AddSphere(Params.HeadSize[0], 16, 16);
+  HeadPos := VectorAdd(BodyPosition, VectorMake
+      (0, 0.5 * (Params.BodySize[1] + Params.HeadSize[0]), 0));
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := HeadPos;
+  // тело
+  RagDollVBOMesh.AddBox(Params.BodySize[0], Params.BodySize[1],
+    Params.BodySize[2], 4, 4, 4);
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := BodyPosition;
+  // л.рука
+  RagDollVBOMesh.AddBox(Params.HandSize[0], Params.HandSize[1],
+    Params.HandSize[2], 4, 4, 4);
+  LHandPos := VectorAdd(BodyPosition, VectorMake
+      (-0.5 * (Params.BodySize[0] + Params.HandSize[0]),
+      0.25 * Params.BodySize[1], 0));
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := LHandPos;
+  // п.рука
+  RagDollVBOMesh.AddBox(Params.HandSize[0], Params.HandSize[1],
+    Params.HandSize[2], 4, 4, 4);
+  RHandPos := VectorAdd(BodyPosition, VectorMake
+      (0.5 * (Params.BodySize[0] + Params.HandSize[0]),
+      0.25 * Params.BodySize[1], 0));
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := RHandPos;
+  // л.нога
+  RagDollVBOMesh.AddBox(Params.FootSize[0], Params.FootSize[1],
+    Params.FootSize[2], 4, 4, 4);
+  LFootPos := VectorAdd(Body2Pos, VectorMake(-0.25 * Params.Body2Size[0],
+      -0.5 * (Params.Body2Size[1] + Params.FootSize[1]), 0));
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := LFootPos;
+  // п.нога
+  RagDollVBOMesh.AddBox(Params.FootSize[0], Params.FootSize[1],
+    Params.FootSize[2], 4, 4, 4);
+  RFootPos := VectorAdd(Body2Pos, VectorMake(0.25 * Params.Body2Size[0],
+      -0.5 * (Params.Body2Size[1] + Params.FootSize[1]), 0));
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := RFootPos;
+  // л. рука2
+  RagDollVBOMesh.AddBox(Params.Hand2Size[0], Params.Hand2Size[1],
+    Params.Hand2Size[2], 4, 4, 4);
+  LHandPos2 := VectorAdd(LHandPos, VectorMake
+      (-0.5 * (Params.HandSize[0] + Params.Hand2Size[0]), 0, 0));
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := LHandPos2;
+  // п.рука 2
+  RagDollVBOMesh.AddBox(Params.Hand2Size[0], Params.Hand2Size[1],
+    Params.Hand2Size[2], 4, 4, 4);
+  RHandPos2 := VectorAdd
+    (RHandPos, VectorMake(0.5 * (Params.HandSize[0] + Params.Hand2Size[0]), 0,
+      0));
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := RHandPos2;
+  // л.нога 2
+  RagDollVBOMesh.AddBox(Params.Foot2Size[0], Params.Foot2Size[1],
+    Params.Foot2Size[2], 4, 4, 4);
+  LFootPos2 := VectorAdd(LFootPos, VectorMake
+      (0, -0.5 * (Params.Foot2Size[1] + Params.FootSize[1]), 0));
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := LFootPos2;
+  // п.нога 2
+  RagDollVBOMesh.AddBox(Params.Foot2Size[0], Params.Foot2Size[1],
+    Params.Foot2Size[2], 4, 4, 4);
+  RFootPos2 := VectorAdd(RFootPos, VectorMake
+      (0, -0.5 * (Params.Foot2Size[1] + Params.FootSize[1]), 0));
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := RFootPos2;
+  // тело 2
+  RagDollVBOMesh.AddBox(Params.Body2Size[0], Params.Body2Size[1],
+    Params.Body2Size[2], 4, 4, 4);
+  RagDollVBOMesh[RagDollVBOMesh.Count - 1].Position := Body2Pos;
+  // физика
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 1], 35 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 2], 100 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 3], 50 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 4], 50 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 5], 85 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 6], 85 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 7], 40 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 8], 40 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 9], 45 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 10], 45 * Scale);
+  AddConvexBody(RagDollVBOMesh[RagDollVBOMesh.Count - 11], 90 * Scale);
+  // джоинты
+  HeadPos := VectorAdd(BodyPosition, VectorMake(0, 0.5 * Params.BodySize[1], 0)
+    );
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 2],
+    NewtonObjects[NewtonObjectsCount - 1], HeadPos, PinUP, Gr2Rad(10), Gr2Rad
+      (45));
+  LHandPos := VectorAdd(BodyPosition, VectorMake(-0.5 * Params.BodySize[0],
+      0.25 * Params.BodySize[1], 0));
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 2],
+    NewtonObjects[NewtonObjectsCount - 3], LHandPos, PinLEFT, Gr2Rad(90), Gr2Rad
+      (10));
+  RHandPos := VectorAdd(BodyPosition, VectorMake(0.5 * Params.BodySize[0],
+      0.25 * Params.BodySize[1], 0));
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 2],
+    NewtonObjects[NewtonObjectsCount - 4], RHandPos, PinRIGHT, Gr2Rad(90),
+    Gr2Rad(10));
+  LFootPos := VectorAdd(Body2Pos, VectorMake(-0.25 * Params.Body2Size[0],
+      0.5 * -Params.Body2Size[1], 0));
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 11],
+    NewtonObjects[NewtonObjectsCount - 5], LFootPos, PinDOWN, Gr2Rad(45), Gr2Rad
+      (5));
+  RFootPos := VectorAdd(Body2Pos, VectorMake(0.25 * Params.Body2Size[0],
+      0.5 * -Params.Body2Size[1], 0));
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 11],
+    NewtonObjects[NewtonObjectsCount - 6], RFootPos, PinDOWN, Gr2Rad(45), Gr2Rad
+      (5));
+  LHandPos2 := VectorAdd(LHandPos, VectorMake(-Params.HandSize[0], 0, 0));
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 3],
+    NewtonObjects[NewtonObjectsCount - 7], LHandPos2, PinLEFT, Gr2Rad(90),
+    Gr2Rad(10));
+  RHandPos2 := VectorAdd(RHandPos, VectorMake(Params.HandSize[0], 0, 0));
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 4],
+    NewtonObjects[NewtonObjectsCount - 8], RHandPos2, PinRIGHT, Gr2Rad(90),
+    Gr2Rad(10));
+  LFootPos2 := VectorAdd(LFootPos, VectorMake(0, -Params.FootSize[1], 0));
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 5],
+    NewtonObjects[NewtonObjectsCount - 9], LFootPos2, PinDOWN, Gr2Rad(45),
+    Gr2Rad(10));
+  RFootPos2 := VectorAdd(RFootPos, VectorMake(0, -Params.FootSize[1], 0));
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 6],
+    NewtonObjects[NewtonObjectsCount - 10], RFootPos2, PinDOWN, Gr2Rad(45),
+    Gr2Rad(10));
+  Body2Pos := VectorAdd(BodyPosition, VectorMake(0,
+      -0.5 * Params.BodySize[1], 0));
+  AddBallSocketJoint(NewtonObjects[NewtonObjectsCount - 11],
+    NewtonObjects[NewtonObjectsCount - 1], Body2Pos, PinUP, Gr2Rad(10), Gr2Rad
+      (10));
+  result.Head := NewtonObjects[NewtonObjectsCount - 1];
+  result.Body := NewtonObjects[NewtonObjectsCount - 2];
+  result.LHand := NewtonObjects[NewtonObjectsCount - 3];
+  result.RHand := NewtonObjects[NewtonObjectsCount - 4];
+  result.LFoot := NewtonObjects[NewtonObjectsCount - 5];
+  result.RFoot := NewtonObjects[NewtonObjectsCount - 6];
+  result.LHand2 := NewtonObjects[NewtonObjectsCount - 7];
+  result.RHand2 := NewtonObjects[NewtonObjectsCount - 8];
+  result.LFoot2 := NewtonObjects[NewtonObjectsCount - 9];
+  result.RFoot2 := NewtonObjects[NewtonObjectsCount - 10];
+  result.Body2 := NewtonObjects[NewtonObjectsCount - 11];
+end;
+
+function TVBONewtonWorld.AddRagDoll(BodyPosition: TVector4f; Params: TNewtonRagDollParams):TNewtonRagDoll;
+var
+  M : TMatrix;
+  HeadPos, LHandPos, RHandPos, LFootPos, RFootPos, LHandPos2, RHandPos2, LFootPos2, RFootPos2: TVector4f;
+  Head, Body, LHand, RHand, LFoot, RFoot, LHand2, RHand2, LFoot2, RFoot2 :TVBONewtonMesh;
+begin
+  M[0] := VectorMake(1, 0, 0, 0);
+  M[1] := VectorMake(0, 1, 0, 0);
+  M[2] := VectorMake(0, 0, 1, 0);
+  HeadPos := VectorAdd(BodyPosition, VectorMake(0, 0.5 * (Params.BodySize[1] + Params.HeadSize[0]), 0));
+  M[3] := HeadPos;
+  Head := AddSphere(Params.HeadSize[0], Params.HeadSize[1], Params.HeadSize[2], 250, M);
+  M[3] := BodyPosition;
+  Body := AddBox(Params.BodySize[0], Params.BodySize[1], Params.BodySize[2], 500, M);
+  LHandPos := VectorAdd(BodyPosition,
+   VectorMake(-0.5 * (Params.BodySize[0] + Params.HandSize[0]), 0.25 * Params.BodySize[1], 0));
+  M[3] := LHandPos;
+  LHand := AddBox(Params.HandSize[0], Params.HandSize[1],
+    Params.HandSize[2], 150, M);
+  RHandPos := VectorAdd(BodyPosition, VectorMake
+      (0.5 * (Params.BodySize[0] + Params.HandSize[0]),
+       0.25 * Params.BodySize[1], 0));
+  M[3] := RHandPos;
+  RHand := AddBox(Params.HandSize[0], Params.HandSize[1], Params.HandSize[2], 150, M);
+  LFootPos := VectorAdd(BodyPosition, VectorMake(-0.25 * Params.BodySize[0],
+      -0.5 * (Params.BodySize[1] + Params.FootSize[1]), 0));
+  M[3] := LFootPos;
+  LFoot := AddBox(Params.FootSize[0], Params.FootSize[1], Params.FootSize[2], 300, M);
+  RFootPos := VectorAdd(BodyPosition, VectorMake(0.25 * Params.BodySize[0],
+      -0.5 * (Params.BodySize[1] + Params.FootSize[1]), 0));
+  M[3] := RFootPos;
+  RFoot := AddBox(Params.FootSize[0], Params.FootSize[1], Params.FootSize[2], 300, M);
+  LHandPos2 := VectorAdd(LHandPos, VectorMake
+      (-0.5 * (Params.HandSize[0] + Params.Hand2Size[0]), 0, 0));
+  M[3] := LHandPos2;
+  LHand2 := AddBox(Params.Hand2Size[0], Params.Hand2Size[1], Params.Hand2Size[2], 100, M);
+  RHandPos2 := VectorAdd
+    (RHandPos, VectorMake(0.5 * (Params.HandSize[0] + Params.Hand2Size[0]), 0, 0));
+  M[3] := RHandPos2;
+  RHand2 := AddBox(Params.Hand2Size[0], Params.Hand2Size[1],
+    Params.Hand2Size[2], 100, M);
+  LFootPos2 := VectorAdd(LFootPos, VectorMake
+      (0, -0.5 * (Params.Foot2Size[1] + Params.FootSize[1]), 0));
+  M[3] := LFootPos2;
+  LFoot2 := AddBox(Params.Foot2Size[0], Params.Foot2Size[1], Params.Foot2Size[2], 180, M);
+  RFootPos2 := VectorAdd(RFootPos, VectorMake
+      (0, -0.5 * (Params.Foot2Size[1] + Params.FootSize[1]), 0));
+  M[3] := RFootPos2;
+  RFoot2 := AddBox(Params.Foot2Size[0], Params.Foot2Size[1], Params.Foot2Size[2], 180, M);
+
+  HeadPos := VectorAdd(BodyPosition, VectorMake(0, 0.5 * Params.BodySize[1], 0));
+  AddBallSocketJoint(Body, Head, HeadPos, PinUP, Gr2Rad(10), Gr2Rad
+      (45));
+  LHandPos := VectorAdd(BodyPosition, VectorMake(-0.5 * Params.BodySize[0],
+      0.25 * Params.BodySize[1], 0));
+  AddBallSocketJoint(Body, LHand, LHandPos, PinLEFT, Gr2Rad(90), Gr2Rad(10));
+  RHandPos := VectorAdd(BodyPosition, VectorMake(0.5 * Params.BodySize[0],
+      0.25 * Params.BodySize[1], 0));
+  AddBallSocketJoint(Body, RHand, RHandPos, PinRIGHT, Gr2Rad(90),
+    Gr2Rad(10));
+  LFootPos := VectorAdd(BodyPosition, VectorMake(-0.25 * Params.BodySize[0],
+      0.5 * -Params.BodySize[1], 0));
+  AddBallSocketJoint(Body, LFoot, LFootPos, PinDOWN, Gr2Rad(45), Gr2Rad
+      (5));
+  RFootPos := VectorAdd(BodyPosition, VectorMake(0.25 * Params.BodySize[0],
+      0.5 * -Params.BodySize[1], 0));
+  AddBallSocketJoint(Body, RFoot, RFootPos, PinDOWN, Gr2Rad(45), Gr2Rad
+      (5));
+  LHandPos2 := VectorAdd(LHandPos, VectorMake(-Params.HandSize[0], 0, 0));
+  AddBallSocketJoint(Body, LHand2, LHandPos2, PinLEFT, Gr2Rad(90),
+    Gr2Rad(10));
+  RHandPos2 := VectorAdd(RHandPos, VectorMake(Params.HandSize[0], 0, 0));
+  AddBallSocketJoint(Body, RHand2, RHandPos2, PinRIGHT, Gr2Rad(90),
+    Gr2Rad(10));
+  LFootPos2 := VectorAdd(LFootPos, VectorMake(0, -Params.FootSize[1], 0));
+  AddBallSocketJoint(Body, LFoot2, LFootPos2, PinDOWN, Gr2Rad(45),
+    Gr2Rad(10));
+  RFootPos2 := VectorAdd(RFootPos, VectorMake(0, -Params.FootSize[1], 0));
+  AddBallSocketJoint(Body, RFoot2, RFootPos2, PinDOWN, Gr2Rad(45),
+    Gr2Rad(10));
+  result.Head := Head;
+  result.Body := Body;
+  result.LHand := LHand;
+  result.RHand := RHand;
+  result.LFoot := LFoot;
+  result.RFoot := RFoot;
+  result.LHand2 := LHand2;
+  result.RHand2 := RHand2;
+  result.LFoot2 := LFoot2;
+  result.RFoot2 := RFoot2;
+end;
+
+function TVBONewtonWorld.AddSphere(RadX, RadY, RadZ, Weight : Single; Matrix:TMatrix):TVBONewtonMesh;
+var
+  col: pnewtoncollision;
+  Inertia, BBox: TAffineVector;
+begin
+  BBox := AffineVectorMake(RadX, RadY, RadZ);
+  Inertia[0] := Weight * (BBox[1] * BBox[1] + BBox[2] * BBox[2]) / 12;
+  Inertia[1] := Weight * (BBox[0] * BBox[0] + BBox[2] * BBox[2]) / 12;
+  Inertia[2] := Weight * (BBox[0] * BBox[0] + BBox[1] * BBox[1]) / 12;
+  col := NewtonCreateSphere(SceneNewtonWorld, RadX, RadY, RadZ, 0, nil);
+  FMeshBodyList.Add(TVBONewtonMesh.Create);
+  LastObject.NewtonBody := NewtonCreateBody(SceneNewtonWorld, col);
+  LastObject.NewtonWorld := SceneNewtonWorld;
+  LastObject.MeshObject := nil;
+  LastObject.BBox := BBox;
+  NewtonReleaseCollision(SceneNewtonWorld, col);
+  NewtonBodySetMassMatrix(LastObject.NewtonBody, Weight, Inertia[0], Inertia[1], Inertia[2]);
+  NewtonBodySetMatrix(LastObject.NewtonBody, @Matrix);
+  NewtonBodySetForceAndTorqueCallback(LastObject.NewtonBody, dNewtonApplyForceAndTorque);
+  NewtonBodySetLinearDamping(LastObject.NewtonBody, 1);
+  result := LastObject;
+end;
+
+function TVBONewtonWorld.AddBox(X: Single; Y: Single; Z: Single; Weight: Single; Matrix: TMatrix4f):TVBONewtonMesh;
+var
+  col: pnewtoncollision;
+  Inertia, BBox: TAffineVector;
+begin
+  BBox := AffineVectorMake(X, Y, Z);
+  Inertia[0] := Weight * (BBox[1] * BBox[1] + BBox[2] * BBox[2]) / 12;
+  Inertia[1] := Weight * (BBox[0] * BBox[0] + BBox[2] * BBox[2]) / 12;
+  Inertia[2] := Weight * (BBox[0] * BBox[0] + BBox[1] * BBox[1]) / 12;
+  col := NewtonCreateBox(SceneNewtonWorld, X, Y, Z, 0, nil);
+  FMeshBodyList.Add(TVBONewtonMesh.Create);
+  LastObject.NewtonBody := NewtonCreateBody(SceneNewtonWorld, col);
+  LastObject.NewtonWorld := SceneNewtonWorld;
+  LastObject.MeshObject := nil;
+  LastObject.BBox := BBox;
+  NewtonReleaseCollision(SceneNewtonWorld, col);
+  NewtonBodySetMassMatrix(LastObject.NewtonBody, Weight, Inertia[0], Inertia[1], Inertia[2]);
+  NewtonBodySetMatrix(LastObject.NewtonBody, @Matrix);
+  NewtonBodySetForceAndTorqueCallback(LastObject.NewtonBody, dNewtonApplyForceAndTorque);
+  NewtonBodySetLinearDamping(LastObject.NewtonBody, 1);
+  result := LastObject;
+end;
+
 function FCopy(str: string; N, K: integer): string;
 var
   i: integer;
 begin
-  result := '';
   for i := N to K do
     result := result + str[i];
+end;
+
+procedure dNewtonApplyForceAndTorque(const Body: PNewtonBody; timestep: Float;
+  threadIndex: int); cdecl;
+var
+  F: TVector4f;
+begin
+  NewtonBodyGetMassMatrix(Body, @F[3], @F[0], @F[1], @F[2]);
+  F := VectorMake(0, NewtonGravity * F[3], 0);
+  NewtonBodyAddForce(Body, @F);
 end;
 
 end.
