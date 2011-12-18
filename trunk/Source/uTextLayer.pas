@@ -4,7 +4,7 @@ unit uTextLayer;
 interface
 
 uses OpenGL1x, uVBO, vboMesh, uTextures, uShaders,
-     VectorGeometry, VectorLists, Classes, Graphics,
+     VectorGeometry, VectorLists, Classes, Graphics, uMeshObjects,
      OGLStateEmul;
 
 Type
@@ -623,7 +623,10 @@ begin
   FCharSizeX:=Font.FCharSizeX;
   FCharSizeY:=Font.FCharSizeY;
   FBitmap.Assign(Font.FBitmap);
-  FTextureFile.Assign(Font.FTextureFile);
+  if assigned(Font.FTextureFile) then begin
+    FTextureFile:=TTexture.Create;
+    FTextureFile.Assign(Font.FTextureFile);
+  end;
   FCreationType:=Font.FCreationType;
 end;
 

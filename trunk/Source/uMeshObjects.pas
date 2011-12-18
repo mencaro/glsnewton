@@ -593,6 +593,7 @@ Type
   end;
 
 procedure QuadFromCount (count: integer; var size: integer);
+function CreateBBMatrix (const View: TMatrix; const mat: TMatrixStack; angle: single;stype: TSpriteType):TMatrix;
 
 implementation
 
