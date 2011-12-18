@@ -13,7 +13,7 @@ type
                         uColors, uMultitexture, uExTexEnvMode);
   TBindState = set of (sActivate, sDeactivate, sUnchanged, sCheck);
   TUpdateBuff = set of (upVertex, upColor, upNormal, upTexCoord, upSecTexCoord);
-  TFaceMode = (fmPoints, fmLines, fmFill);
+
 
   TQuadIndices = record
     v1,v2,v3,v4: integer;

@@ -663,8 +663,10 @@ begin
   if FTexture.Created then begin result:=false;exit;
   end else result:=true;
 
-  SetInternalFormat(tfRGB8);
+  SetOGLTextureFormat(GL_RGB8,GL_RGB,GL_UNSIGNED_BYTE);
+  FTexture.PixelSize:=3;
   SetDimensions(width, height);
+//  SetInternalFormat(tfRGB8);
   SetTarget(ttTexture2D);
   if not (stFilters in FSettedParams) then
     SetFilters(mnLinear, mgLinear);
@@ -916,6 +918,7 @@ begin
    with FTexture do begin
       Created:=False;
       UsePBO:=false;
+      FullSize:=-1;
       Width:=0; Height:=0;
       pboRBId:=0; pboWBId:=0;
       FSettedParams:=[];
