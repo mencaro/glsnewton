@@ -1,0 +1,119 @@
+object Form1: TForm1
+  Left = 0
+  Top = 0
+  BorderIcons = [biSystemMenu]
+  BorderStyle = bsSingle
+  Caption = 'OAL'
+  ClientHeight = 584
+  ClientWidth = 685
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poScreenCenter
+  OnClose = FormClose
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  object GLSceneViewer1: TGLSceneViewer
+    Left = 0
+    Top = 0
+    Width = 685
+    Height = 584
+    Camera = GLCamera1
+    FieldOfView = 170.212951660156
+    Align = alClient
+    TabOrder = 0
+  end
+  object Memo1: TMemo
+    Left = 8
+    Top = 8
+    Width = 241
+    Height = 89
+    Enabled = False
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+    ReadOnly = True
+    TabOrder = 1
+  end
+  object Memo2: TMemo
+    Left = 8
+    Top = 103
+    Width = 241
+    Height = 89
+    Enabled = False
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+    ReadOnly = True
+    TabOrder = 2
+  end
+  object GroupBox1: TGroupBox
+    Left = 8
+    Top = 198
+    Width = 241
+    Height = 73
+    Caption = 'Volume'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+    TabOrder = 3
+    object TrackBar1: TTrackBar
+      Left = 3
+      Top = 25
+      Width = 235
+      Height = 45
+      Min = 1
+      Orientation = trHorizontal
+      Frequency = 1
+      Position = 1
+      SelEnd = 0
+      SelStart = 0
+      TabOrder = 0
+      TickMarks = tmBottomRight
+      TickStyle = tsAuto
+      OnChange = TrackBar1Change
+    end
+  end
+  object GLScene1: TGLScene
+    Left = 376
+    Top = 232
+    object GLCamera1: TGLCamera
+      DepthOfView = 100
+      FocalLength = 25
+      Position.Coordinates = {000000000000803F000000410000803F}
+    end
+    object GLLightSource1: TGLLightSource
+      ConstAttenuation = 1
+      Position.Coordinates = {0000803F000020410000803F0000803F}
+      SpotCutOff = 180
+    end
+  end
+  object GLCadencer1: TGLCadencer
+    Scene = GLScene1
+    Enabled = False
+    OnProgress = GLCadencer1Progress
+    Left = 440
+    Top = 232
+  end
+  object Timer1: TTimer
+    Enabled = False
+    Interval = 500
+    OnTimer = Timer1Timer
+    Left = 408
+    Top = 232
+  end
+end

@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2010.07.17 21:48:39.953.pas,C:\Documents and Settings\Ford\Мои документы\RAD Studio\Projects\Unit1.pas=C:\Documents and Settings\Ford\Рабочий стол\Sound_3D\Unit1.pas</Transaction>
+    <Transaction>2010.07.17 21:48:39.953.dfm,C:\Documents and Settings\Ford\Мои документы\RAD Studio\Projects\Unit1.dfm=C:\Documents and Settings\Ford\Рабочий стол\Sound_3D\Unit1.dfm</Transaction>
+    <Transaction>2010.07.17 21:48:40.781.dproj,C:\Documents and Settings\Ford\Мои документы\RAD Studio\Projects\Project1.dproj=C:\Documents and Settings\Ford\Рабочий стол\Sound_3D\Project1.dproj</Transaction>
+    <Transaction>2010.07.17 21:49:30.875.pas,C:\Documents and Settings\Ford\Рабочий стол\Sound_3D\Unit2.pas=C:\Documents and Settings\Ford\Рабочий стол\Sound_3D\uOpenAL_Sound.pas</Transaction>
+  </Transactions>
+</BorlandProject>
