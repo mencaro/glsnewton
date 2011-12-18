@@ -1,0 +1,83 @@
+{: vboMesh
+	Historique:
+        28/10/11 - Fantom - Исправлено свойство Position, теперь оно возврашает локальные координаты объекта
+                            Добавлено своство AbsolutePosition
+                            Добавлен сброс матрицы поворота после установки Direction
+                            Исправлено вычисление количества полигонов меша
+                            К TUniformSMDRender добавлено событие onUserCulling
+  24/10/11 - Fantom - Добавил прокси актера к TUniformSMDRender
+  24/10/11 - Fantom - Добавил методы AttachMeshFromSMD (прикрепить меш из SMD)
+                      и AddAnimationFromSMD (добавить анимацию из SMD) к TUniformSMDRender
+  24/10/11 - Fantom - Добавил проверку видимости актера через видимость его костей.
+                      Радиус проверки видимости кости задается через TUniformSMDRender.BoneRadius
+        03/10/11 - Fantom - Добавил к TUniformSMDRender смешивание с текущим кадром
+                 - Ilya17 - Добавлены к TUniformSMDRender такие функции GetBoneMatrix,
+                            SetBoneMatrix, SetBoneGlobalMatrix, GetBoneGlobalMatrix.
+  31/08/11 - Fantom - Переделана система материалов на использование TMaterialObject,
+                    - Заменены загрузчики 3ds и obj на uAnimatedMesh uFileObj соответственно,
+                    - В связи с ненадобностью удалены модули сцены: GLVectorFileObjects, GLFile3ds, GLFileObj
+                    - Добавлена возможность при добавлении фриформы указать библиотеку материалов (mtl)
+        07/06/11 - Fantom - Оптимизировано построение Октри
+                          - Исправлена привязка объекта через Parent
+  09/05/11 - Fantom - Оптимизирована сортировка инстансов
+        07/05/11 - Fantom - Исправлена ошибка переключения анимаций в TSkeletalRender.
+                          - Добавлено свойство AnimationsCount в TSkeletalRender и
+                            TUniformSMDRender
+  03/05/11 - Fantom - Добавлена сортировка частиц TVBOParticles.Sorting: TSortDirection
+        02/05/11 - Fantom - Исправлена ошибка проверки видимости массива партиклов.
+                          - Добавлен метод TVBOMeshObject.UpdateExtents;
+  01/05/11 - Fantom - Свойства PointBlend, AlphaTest, BlendSFactor, BlendDFactor заменены
+                      свойством TVBOParticles.Blending: TBlendingModes;
+                      Свойства DepthTest и DepthMask заменены на NoDepthTest и NoZWrite
+        26/04/11 - Fantom - Создан класс TUniformSMDRender для рендеринга скелетной анимации
+                            при передаче скелета через юниформы.
+                            Добавлен метод TVBOMesh.AddUniformSMD для добавления TUniformSMDRender
+  25/04/11 - Fantom - Восстановлена работа скелетной анимации
+        15/02/11 - Fantom - Изменена работа с прокси - метод AddInstanceToObject создает
+                            низкоуровневый прокси(быстрый рендер, не действует окклюжин куллинг
+                            и смена материалов) и AddProxyObject - полноценный объект ссылающийся
+                            на геометрию мастера
+                          - Добавлена технология окклюжн куллинга, в связи с чем переработан TVBOMesh.DoRender.
+                            Активируется окклюжн куллинг через свойство TVBOMesh.OcclusionCulling
+                          - Восстановлена система уровней детализации геометрии(LOD), добавить ЛОД можно через
+                            TVBOMeshObject.AddLod
+  24/12/10 - Fantom - Добавлен режим отображения граней TVBOMesh.FaceMode
+        25/09/10 - Fantom - Внесены исправления в работу TVBOTerrain, исправлен возврат значений
+                            рейкаста для несгенерированного октри
+        25/09/10 - Fantom - Заменено прямое чтение матриц View, Proj, Viewport в функциях
+                            ScreenToWorld/WorldToScree на последние использованные при рендеринге
+  29/08/10 - Fantom - Исправлена ошибка текстурирования фриформ.
+        19/08/10 - Fantom - Произведена подмена сценовских материалов моими
+        19/08/10 - Fantom - Произведена некторая чистка модулей от остатков RCI, в следствии чего
+                            изменены конструктор VBOMesh, методы DoRender и события
+                            onBefore/AfterRender
+        19/08/10 - Fantom - Изменен принцип работы прокси
+        19/08/10 - Fantom - Добавлено кеширование стэйтов OGL
+  16/06/10 - Fantom - Исправлен рейкаст для повернутых объектов
+  16/06/10 - Fantom - В рендер включено следование за сценовскими объектами
+  16/06/10 - Fantom - Доработан выбор объектов в прямоугольной болсти (фрастуме)
+  16/06/10 - Fantom - Добавлено к TVBOMeshObject свойство NoDepthTest
+        20/04/10 - Fantom - Добавлен метод TVBOMeshObject.LocalToAbsolute
+        20/04/10 - Fantom - Добавлен метод TVBOMeshObject.GetTriMesh
+  17/04/10 - Fantom - Исправлено вычисление FBaseExtents
+  17/04/10 - Fantom - Добавлено свойство TVBOMeshObject.Direction
+        07/04/10 - Fantom - Добавлен класс TSkeletalRender
+        07/04/10 - Fantom - Добавлен метод AddSMDAnimation к TVBOMesh
+  27/03/10 - Fantom - Добавлены экспериментальные модули uFBO,uTextures,uShaders
+        22/03/10 - Fantom - Переработана система спрайтов, появилась возможность вращать
+                            спрайт в плоскости экрана (функция RollObject)
+        22/03/10 - Fantom - Исправлен FrustumCulling
+  19/03/10 - Fantom - Внесены незначительные исправления
+        12/12/09 - Fantom - Добавлен класс TVBOAnimatedSprite
+  25/11/09 - Fantom - Добавлен менеджер частиц, с связи с чем в класс TVBOParticles
+                      внесены соответствующие изменения
+        24/11/09 - Fantom - Добавлен класс TVBOParticles для работы с частицами
+        24/11/09 - Fantom - Проведена капитальная чистка Memory Leaks, иправлены мелкие ошибки
+  21/11/09 - Fantom - Добавлено свойство TVBOMeshObject.NoZWrite
+        20/11/09 - Fantom - Исправлена ошибка с освобождением видеопамяти при выходе
+        20/11/09 - Fantom - Произведена оптимизация методов DoRender, RenderObject
+        20/11/09 - Fantom - Добавлен метод TVBOMeshObject.PackMeshes
+	12/11/09 - YarUnderoaker - Добавлена поддержка многопроходных шейдеров
+	12/11/09 - Fantom - Исправлена автоцентровка
+	12/11/09 - Fantom - Добавлен учет отрендеренных полигонов прокси-объектов
+}
