@@ -419,9 +419,9 @@ begin
        n:=0; setlength(buffers,Textures.Count);
        for i:=0 to Textures.Count-1 do begin
          if assigned(Textures[i]) then begin
-           buffers[n]:=GL_COLOR_ATTACHMENT0_EXT+i; inc(n);
-         end; setlength(buffers,n);
-       end;
+           buffers[n]:=GL_COLOR_ATTACHMENT0_EXT+n; inc(n);
+         end;
+       end; setlength(buffers,n);
        glDrawBuffers(n,@buffers[0]);
     end else begin glDrawBuffer(GL_NONE);  glReadBuffer(GL_NONE); end;
     if ClearBuffers then begin

@@ -289,13 +289,13 @@ procedure TMaterialProperties.Apply;
 begin
 //exit;
    if not glIsEnabled(GL_LIGHTING) then begin
-      glColor4fv(DiffuseColor.ColorAsAddress); exit;
+      glColor4fv(FDiffuseColor.ColorAsAddress); exit;
    end;
-   glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,AmbientColor.ColorAsAddress);
-   glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,DiffuseColor.ColorAsAddress);
-   glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,SpecularColor.ColorAsAddress);
-   glMaterialfv(GL_FRONT_AND_BACK,GL_EMISSION,EmissionColor.ColorAsAddress);
-   glMaterialf (GL_FRONT_AND_BACK,GL_SHININESS,Shininess);
+   glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,FAmbientColor.ColorAsAddress);
+   glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,FDiffuseColor.ColorAsAddress);
+   glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,FSpecularColor.ColorAsAddress);
+   glMaterialfv(GL_FRONT_AND_BACK,GL_EMISSION,FEmissionColor.ColorAsAddress);
+   glMaterialf (GL_FRONT_AND_BACK,GL_SHININESS,FShininess);
 
 {   glMaterialfv(GL_FRONT,GL_AMBIENT,AmbientColor.ColorAsAddress);
    glMaterialfv(GL_FRONT,GL_DIFFUSE,DiffuseColor.ColorAsAddress);
