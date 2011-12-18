@@ -75,6 +75,7 @@ procedure FreeAndNil(var Obj);
 
 function StrToInt(s:string):integer;
 function StrToFloat(s:string):Single;
+function FloatToStr(x: double; width: byte=10; decimals: byte=6): string;
 function IntToStr(x:integer):string;
 
 implementation
@@ -155,6 +156,10 @@ function StrToFloat(s:string):Single;
 var code:integer;
 begin
   val(s,result,code);
+end;
+function FloatToStr(x: double; width: byte=10; decimals: byte=6): string;
+begin
+  str(x:width:decimals,result);
 end;
 function IntToStr(x:integer):string;
 var s: ansistring;
