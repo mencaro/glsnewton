@@ -221,7 +221,8 @@ procedure TFrameBufferObject.InitFBO(Width, Height: integer);
 var i:integer;
     FBTarget: GLEnum;
 begin
-  if (Width=FWidth) and (Height=FHeight) and FInit then exit else ResetFBO;
+  if (Width=FWidth) and (Height=FHeight) and FInit then exit else
+    if FInit then ResetFBO;
   FWidth:=width; FHeight:=height;
   FBTarget:=GL_FRAMEBUFFER_EXT;
 //  FBTarget:=GL_DRAW_FRAMEBUFFER_EXT;
@@ -384,7 +385,10 @@ var FBTarget: GLEnum;
     th: integer;
 begin
   FBTarget:=GL_FRAMEBUFFER_EXT;
-  if assigned(tex) then th:=tex.Handle else th:=0;
+  if assigned(tex) then th:=tex.Handle else begin
+    glFramebufferTexture2DEXT(FBTarget, attachement, GL_TEXTURE_2D, 0, 0);
+    exit;
+  end;
 //  FBTarget:=GL_DRAW_FRAMEBUFFER_EXT;
   case tex.TextureTarget of
     ttTexture1D: glFramebufferTexture1DEXT(FBTarget, attachement,

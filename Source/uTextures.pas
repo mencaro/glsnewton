@@ -474,10 +474,9 @@ begin
   FTexture.Height:=Height;
   FTexture.Depth:=Depth;
   FSettedParams:=FSettedParams+[stSizes];
-  FTexture.Created:=false;
   exclude(FSettedParams,stData);
   FTexture.Data:=nil;
-  result:=CreateTexture;
+  if FTexture.Created then result:=CreateTexture;
 end;
 
 function TTexture.SetInternalFormat(texFormat: TGLInternalFormat): boolean;

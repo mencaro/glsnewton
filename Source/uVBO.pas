@@ -1521,7 +1521,7 @@ begin
      for i:=0 to 5 do for j:=3 downto 0 do Indices.Add(BoxFaces[i,j]);
      RenderBuffs:=[uIndices];
   end;
-  GenVBOBuff(P^); result:=P;
+  if GenVBO then GenVBOBuff(P^); result:=P;
 end;
 
 
@@ -1771,14 +1771,8 @@ begin
       glBindBuffer(GL_ARRAY_BUFFER, vId);
       glVertexPointer(3, GL_FLOAT, 0, nil);
 
-      if idxBindOnce then begin
-        if (not idxBuffApply) and ((iId <> 0) and (uIndices in RenderBuffs)) then begin
-          glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iId);
-          idxBuffApply := true; end;
-      end else begin
-        if ((iId <> 0) and (uIndices in RenderBuffs)) then
-          glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iId);
-      end;
+      if ((iId <> 0) and (uIndices in RenderBuffs)) then
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iId);
     end;
     if ElementsCount>MaxElements then RCount:=MaxElements else
     RCount:=ElementsCount;
@@ -1803,7 +1797,7 @@ begin
         end;
       end;
       glBindBuffer(GL_ARRAY_BUFFER, 0);
-      if (iId <> 0) and (not idxBindOnce) then glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+      if (iId <> 0) then glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     end else glBindVertexArray(0);
   end;
 end;
