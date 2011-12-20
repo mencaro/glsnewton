@@ -422,8 +422,13 @@ begin
   if FBlendingMode<>tbmMesh then SetBlending;
   if FTexMatrixChanged then begin
     glGetIntegerv(GL_MATRIX_MODE,@MMode);
-    glMatrixMode(GL_TEXTURE); glPushMatrix;
+    glMatrixMode(GL_TEXTURE);
     glLoadMatrixf(PGLFloat(@FTextureMatrix));
+    glMatrixMode(MMode);
+  end else begin
+    glGetIntegerv(GL_MATRIX_MODE,@MMode);
+    glMatrixMode(GL_TEXTURE);
+    glLoadIdentity;
     glMatrixMode(MMode);
   end;
   if FTwoSides then glDisable(GL_CULL_FACE) else glEnable(GL_CULL_FACE);
@@ -437,10 +442,11 @@ begin
   glActiveTexture(GL_TEXTURE0+TextureUnit);
   glDisable(FTexture.Target);
   if TextureUnit<>0 then glActiveTexture(GL_TEXTURE0);
-  if FTexMatrixChanged then begin
+{  if FTexMatrixChanged then begin
     glGetIntegerv(GL_MATRIX_MODE,@MMode);
     glMatrixMode(GL_TEXTURE); glPopMatrix; glMatrixMode(MMode);
   end;
+}
   glEnable(GL_CULL_FACE);
   if FBlendingMode<>tbmMesh then ResetBlending;
 end;

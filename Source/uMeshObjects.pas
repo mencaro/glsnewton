@@ -1038,7 +1038,6 @@ var m: TMatrix;
     mat: TMaterialObject;
 begin
   if FMeshType = mtInstance then exit;
-  //if assigned(FParent) then UpdateWorldMatrix;
 
   if (not WorldMatrixUpdated) then UpdateWorldMatrix;
   mv:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
