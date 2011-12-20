@@ -2,7 +2,7 @@ unit uMaterials;
 
 interface
 
-Uses Classes, Contnrs, VectorGeometry, SysUtilsLite,
+Uses Classes, Contnrs, VectorTypes, VectorGeometry, SysUtilsLite,
      IniFiles, Vectorlists, uMiscUtils, OpenGL1x, OGLStateEmul;
 
 Const
@@ -83,13 +83,19 @@ Type
       function getVecAddr: Pointer;
       procedure SetColorVector(const Value: TVector);
       procedure SetColorRec(const Value: TColor);
+      function getIntColorVect: TVector4i;
+      procedure setIntColorVect(const Value: TVector4i);
     public
       constructor Create;
       destructor Destroy;override;
       procedure Assign(Color: TColorVectorClass);
 
+      procedure SetColor(r,g,b,a: byte); overload;
+      procedure SetColor(r,g,b,a: single); overload;
+
       property ColorRec: TColor read FColorRec write SetColorRec;
       property ColorVector: TVector read FColorVector write SetColorVector;
+      property ColorVector4i: TVector4i read getIntColorVect write setIntColorVect;
       property ColorAsAddress: Pointer read getVecAddr;
       property HasKey: integer read FColorKey;
 //    published
@@ -229,6 +235,14 @@ begin
   inherited;
 end;
 
+function TColorVectorClass.getIntColorVect: TVector4i;
+begin
+  result[0]:=trunc(FColorVector[0]*255);
+  result[1]:=trunc(FColorVector[1]*255);
+  result[2]:=trunc(FColorVector[2]*255);
+  result[3]:=trunc(FColorVector[3]*255);
+end;
+
 function TColorVectorClass.getVecAddr: Pointer;
 begin
   result:=@FColorVector[0];
@@ -263,6 +277,17 @@ begin
   RecalcHashKey;
 end;
 
+procedure TColorVectorClass.SetColor(r, g, b, a: byte);
+begin
+  setRed(r/255);  setGreen(g/255);
+  setBlue(b/255); setAlpha(a/255);
+end;
+
+procedure TColorVectorClass.SetColor(r, g, b, a: single);
+begin
+  setRed(r); setGreen(g); setBlue(b); setAlpha(a);
+end;
+
 procedure TColorVectorClass.SetColorRec(const Value: TColor);
 begin
   FColorRec := Value;
@@ -274,6 +299,12 @@ begin
   FColorVector[1] := Value;
   FColorRec.Green := Value;
   RecalcHashKey;
+end;
+
+procedure TColorVectorClass.setIntColorVect(const Value: TVector4i);
+begin
+  setRed(Value[0]/255);  setGreen(Value[1]/255);
+  setBlue(Value[2]/255); setAlpha(Value[3]/255);
 end;
 
 procedure TColorVectorClass.setRed(const Value: single);
@@ -565,12 +596,14 @@ end;
 function TLightLibrary.AddNewLight: TLightSource;
 begin
   result:=TLightSource.Create;
-  Add(result);
+  Add(result); //result.Enabled:=true;
   if assigned(FOnAdding) then FOnAdding(self);
 end;
 procedure TLightLibrary.Apply;
 var i: integer;
 begin
+  if Count>0 then glEnable(GL_LIGHTING);
+
   for i:=0 to Count-1 do Items[i].ApplyLight(i);
 end;
 

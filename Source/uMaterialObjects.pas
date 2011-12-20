@@ -271,6 +271,7 @@ begin
   FMaterial:=TMaterial.Create;
   FMaterial.Name:=aName;
   FMaterial.Owner:=self;
+  FUseMaterial:=true;
   result:=FMaterial;
   FActive:=true;
 end;
@@ -280,6 +281,7 @@ begin
   FTexture:=TTexture.Create;
   FTexture.Name:=aName;
   FTexture.Owner:=self;
+  FUseTExture:=true;
   result:=FTexture;
   FActive:=true;
 end;

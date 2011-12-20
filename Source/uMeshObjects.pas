@@ -190,7 +190,7 @@ Type
     Property GeomCenter: TAffineVector read FGeomCenter;
 
     //Установка родителя, из которого будет браться базовая матрица трансформаций
-    Property Parent: TVBOMeshObject read getParent write SetParent;
+//    Property Parent: TVBOMeshObject read getParent write SetParent;
     //Время начала рендеринга кадра
     Property Time: double read FTime write FTime;
     //количество полигонов
@@ -995,7 +995,7 @@ begin
   for i:=0 to FProxyList.Count-1 do begin
     ProxyObj:=FProxyList[i];
     if ProxyObj.Visible and (not ProxyObj.FCulled) then begin
-      if (not ProxyObj.WorldMatrixUpdated) then ProxyObj.UpdateWorldMatrix;
+      if (not ProxyObj.WorldMatrixUpdated) or assigned (ProxyObj.FParent) then ProxyObj.UpdateWorldMatrix;
       if (not IsVolumeClipped(ProxyObj.Extents, F))
       and(not ProxyObj.FCulled) then begin
          new(pm); pm^:=MatrixMultiply(ProxyObj.Matrices.WorldMatrix,ViewMatrix);
@@ -1038,7 +1038,7 @@ var m: TMatrix;
     mat: TMaterialObject;
 begin
   if FMeshType = mtInstance then exit;
-  if assigned(FParent) then UpdateWorldMatrix;
+  //if assigned(FParent) then UpdateWorldMatrix;
 
   if (not WorldMatrixUpdated) then UpdateWorldMatrix;
   mv:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
@@ -1264,9 +1264,10 @@ begin
     mtGrid,mtBBox: glEnable(GL_LIGHTING);
   end;
   if FFBO.Active then FFBO.UnApply;
-  if FProxyList.Count>0 then begin
+{  if FProxyList.Count>0 then begin
     ProxyObj:=FProxyList[i]; ProxyObj.FCulled:=false;
   end;
+}
   glPopMatrix;
 end;
 
