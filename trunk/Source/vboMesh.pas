@@ -300,6 +300,7 @@ Type
       constructor Create;
       constructor CreateAsChild(aParentOwner: TGLBaseSceneObject);
 
+      property GLSceneMeshAdapter: TGLSceneMeshAdapter read FGLSceneMeshAdapter;
       property PolygonsCount: integer read FPolyCount;
       property Materials: TMaterialLibrary read FMaterials write FMaterials;
       property Textures: TTextureLibrary read FTextures write FTextures;
@@ -1574,6 +1575,9 @@ var fext,tPath: string;
 begin
   fext:=Uppercase(ExtractFileExt(FileName)); tpath:='';
   assert((fext='.3DS') or (fext='.OBJ'),'Unsupported file type: "'+fext+'"');
+  if (aMatLib='') and (fext='.OBJ') then begin
+    aMatLib:=ChangeFileExt(FileName,'.MTL');
+  end;
   if aMatLib<>'' then begin
     if uppercase(ExtractFileExt(aMatLib))='.MTL' then begin
       mtl:=TGLMTLFile.Create;
