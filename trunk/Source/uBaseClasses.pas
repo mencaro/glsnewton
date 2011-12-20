@@ -10,6 +10,7 @@ Type
   TMeshCollectionItem = (mcMeshObject, mcContainer, mcCollection, mcEffect, mcCommands, mcRender, mcUnknown);
   TProcessChilds = (pcNone, pcBefore, pcAfter);
   TSortDirection = (sdFrontToBack, sdBackToFront, sdNone);
+  TNotification = (ntTransformationsChanged, ntRemoved, ntUnsibscribe);
 
   TViewerSettings = record
     ViewPort: THomogeneousIntVector;
@@ -39,6 +40,8 @@ Type
   TVBOVisibilityEvents = procedure (var Visible: boolean) of object;
 
   TVBOMeshItem = class
+  private
+    procedure setParent(const Value: TVBOMeshItem);
   protected
     FUseParentViewer: boolean;
     FParentViewer: PViewerSettings;
@@ -48,6 +51,10 @@ Type
     FName: string;
     FChilde: TVBOMeshItem;
     FProcessChilds: TProcessChilds;
+    FSubscribers: TList;
+    procedure Subscribe(aItem: TVBOMeshItem); virtual;
+    procedure Notification(Sender: TVBOMeshItem; aMessage: TNotification); virtual;
+    procedure DispatchNotification(aMessage: TNotification); virtual;
   public
     constructor Create;
     destructor Destroy;override;
@@ -58,6 +65,7 @@ Type
     property UseParentViewer: boolean read FUseParentViewer write FUseParentViewer;
     property ParentViewer: PViewerSettings read FParentViewer write FParentViewer;
     property Childe: TVBOMeshItem read FChilde write FChilde;
+    property Parent: TVBOMeshItem read FParent write setParent;
   end;
 
   TRenderEventItem = class (TVBOMeshItem)
@@ -70,7 +78,6 @@ Type
 
   TMovableObject = class (TVBOMeshItem)
   Private
-    FParent: TMovableObject;
     //координатный базис
     FAbsolutePosition: TVector;
     FPosition: TVector; //глобальные координаты объекта
@@ -78,7 +85,6 @@ Type
     FUp: TVector; // OY
     FDirection: TVector; //OZ
     FLeft: TVector;
-
   Protected
     FRollAngle: single;
     FTurnAngle: single;
@@ -86,11 +92,14 @@ Type
     FXRotationAngle: single;
     FYRotationAngle: single;
     FZRotationAngle: single;
+    function getParent: TMovableObject;
     procedure SetParent(const Value: TMovableObject);
     procedure SetPosition(const Value: TVector);
     procedure SetScale(const Value: TVector);
     //Ориентирует объект в заданном направлении
     procedure SetDirection(const Direction: TVector);
+
+    procedure Notification(Sender: TVBOMeshItem; aMessage: TNotification); override;
   Public
     FriendlyName: string; //храните любой текст или комментарии тут
     Tag: integer; //для нужд пользователя
@@ -105,7 +114,7 @@ Type
     Procedure Process; override;
 
     //установка родителя, из которого будет браться базовая матрица трансформаций
-    Property Parent: TMovableObject read FParent write SetParent;
+    Property Parent: TMovableObject read getParent write SetParent;
     //Установка/чтение локального положения
     Property Position: TVector read FPosition write SetPosition;
     //Чтение абсолютного положения
@@ -170,14 +179,51 @@ begin
   FParent:=nil; FOwner:=nil;
   FName:=''; FChilde:=nil;
   FProcessChilds:=pcAfter;
+  FSubscribers:=TList.Create;
 end;
 
 destructor TVBOMeshItem.Destroy;
 begin
+  if assigned(FParent) then FParent.Notification(self,ntRemoved);
   if assigned(FChilde) and (FChilde.FOwner=self) then FreeAndNil(FChilde);
+  FSubscribers.Free;
   inherited;
 end;
 
+
+procedure TVBOMeshItem.DispatchNotification(aMessage: TNotification);
+var mi: TVBOMeshItem;
+    i: integer;
+begin
+  for i:=0 to FSubscribers.Count-1 do begin
+    mi:=FSubscribers[i]; if assigned(mi) then mi.Notification(self,aMessage);
+  end;
+end;
+
+procedure TVBOMeshItem.Notification(Sender: TVBOMeshItem; aMessage: TNotification);
+var i: integer;
+begin
+  case aMessage of
+    ntUnsibscribe, ntRemoved: begin
+      i:=FSubscribers.IndexOf(Sender);
+      if i>=0 then FSubscribers.Delete(i);
+    end;
+  end;
+end;
+
+procedure TVBOMeshItem.setParent(const Value: TVBOMeshItem);
+begin
+  if assigned(FParent) and (FParent<>Value)
+  then FParent.Notification(self,ntUnsibscribe);
+  FParent := Value;
+  if assigned(FParent) then FParent.Subscribe(self);
+end;
+
+procedure TVBOMeshItem.Subscribe(aItem: TVBOMeshItem);
+begin
+  if assigned(aItem) and (FSubscribers.IndexOf(aItem)<0)
+  then FSubscribers.Add(aItem);
+end;
 
 { TRenderEventItem }
 
@@ -203,6 +249,7 @@ end;
 
 constructor TMovableObject.Create;
 begin
+  inherited Create;
   FItemType:=mcUnknown;
   with Matrices do begin
     ModelMatrix:=IdentityHmgMatrix;
@@ -230,6 +277,11 @@ end;
 destructor TMovableObject.Destroy;
 begin
   inherited;
+end;
+
+function TMovableObject.getParent: TMovableObject;
+begin
+  result:=inherited Parent as TMovableObject;
 end;
 
 procedure TMovableObject.MoveObject(Pos:TVector; AbsolutePos:boolean=true);
@@ -294,8 +346,8 @@ begin
  with Matrices do begin
   wm:=IdentityHmgMatrix;
   if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
-     if not FParent.WorldMatrixUpdated then Fparent.UpdateWorldMatrix;
-     wm:=Fparent.Matrices.WorldMatrix;
+     if not Parent.WorldMatrixUpdated then parent.UpdateWorldMatrix;
+     wm:=parent.Matrices.WorldMatrix;
      wm:=MatrixMultiply(wm, ModelMatrix);
   end else wm := ModelMatrix;
 
@@ -318,6 +370,7 @@ begin
   DirectingAxis:=vectormake(WorldMatrix[0,0],WorldMatrix[1,1],WorldMatrix[2,2]);
   NormalizeVector(DirectingAxis);
   WorldMatrixUpdated:=true;
+  DispatchNotification(ntTransformationsChanged);
  end;
 end;
 
@@ -346,11 +399,6 @@ begin
   with Matrices do RotationMatrix:=Turn(RotationMatrix,Angle);
   UpdateWorldMatrix;
   FTurnAngle:=FTurnAngle+Angle;
-end;
-
-procedure TMovableObject.SetParent(const Value: TMovableObject);
-begin
-  FParent := Value; UpdateWorldMatrix;
 end;
 
 procedure TMovableObject.StoreTransforms(ToStore: TTransforms);
@@ -427,6 +475,11 @@ begin
  end;
 end;
 
+procedure TMovableObject.SetParent(const Value: TMovableObject);
+begin
+  inherited Parent:=Value;
+end;
+
 procedure TMovableObject.SetPosition(const Value: TVector);
 begin
   MoveObject(Value);
@@ -462,6 +515,13 @@ begin
     TranslationMatrix[3,1]:=TranslationMatrix[3,1]+FUp[1]*Step;
     TranslationMatrix[3,2]:=TranslationMatrix[3,2]+FUp[2]*Step;
   end; UpdateWorldMatrix;
+end;
+
+procedure TMovableObject.Notification(Sender: TVBOMeshItem;
+  aMessage: TNotification);
+begin
+  inherited;
+  if aMessage=ntTransformationsChanged then WorldMatrixUpdated:=false;
 end;
 
 procedure TMovableObject.MoveObject(x, y, z: single; AbsolutePos: boolean);
