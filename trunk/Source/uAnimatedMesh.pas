@@ -436,8 +436,10 @@ begin
       for j:=0 to hash[h].Count-1 do begin
         p:=hash[h].List[j];
         if p.Summ=HashTable[i].Summ then
-          if (VectorEquals(p.Vertex.V,HashTable[i].Vertex.V))
-          and(VectorEquals(p.Vertex.T,HashTable[i].Vertex.T))
+          if  (p.Vertex.VHash=HashTable[i].Vertex.VHash)
+          and (p.Vertex.THash=HashTable[i].Vertex.THash)
+//          if (VectorEquals(p.Vertex.V,HashTable[i].Vertex.V))
+//          and(VectorEquals(p.Vertex.T,HashTable[i].Vertex.T))
           then begin
           Ind.List[n]:=p.NewIndex; f:=true; Break;
         end;
@@ -503,6 +505,11 @@ begin
   hBuff[7]:=HashTable[index].Vertex.N[1];
   hBuff[8]:=HashTable[index].Vertex.N[2];
   HashTable[index].Hash:=BufferHash(hBuff,36);
+  with HashTable[index] do begin
+    Vertex.VHash:=BufferHash(Vertex.V,sizeof(TAffineVector));
+    Vertex.THash:=BufferHash(Vertex.T,sizeof(TAffineVector));
+    Vertex.NHash:=0;
+  end;
   with HashTable[index].Vertex do begin
     x:=V[0]+V[1]+V[2]+T[0]+T[1]+T[2]+N[0]+N[1]+N[2]+SG;
     HashTable[index].Summ:=integer(@x);
@@ -646,7 +653,7 @@ begin
         VectorScale(Properties.SpecularColor.ColorVector, mat3ds.ShinStrength);
         Properties.Shininess:=trunc(mat3ds.Shininess);
      end;
-     if mat3ds.Transparency <> 0 then Blending := bmTransparency;
+     if mat3ds.Transparency <> 0 then matObj.Blending.SetByMode(bmTransparency);
      if Trim(mat3ds.Texture.Map.NameStr) <> '' then begin
        path:=ExtractFilePath(FileName);
        if pos(':',TexPath)>0 then path:=texPath else begin
@@ -772,6 +779,7 @@ var m,mv,ProjMatrix: TMatrix;
     CMName: string;
     P: PVBOBuffer;
     ActiveMaterial: string;
+    mat: TMaterialObject;
 begin
   if (not WorldMatrixUpdated) then UpdateWorldMatrix;
   glPushMatrix;
@@ -820,12 +828,10 @@ begin
                glBindTexture(GL_TEXTURE_2D, TextureId);
                singleMat:=true;
          end else begin
-           if assigned(FMaterial) or assigned(FTexture) then begin
-             if assigned(FMaterial) then FMaterial.Apply;
-             if assigned(FTexture) then FTexture.Apply
-             else glDisable(GL_TEXTURE_2D);
-             SetBlending; singleMat:=true;
-           end;
+           if FMaterialObject.Active then begin
+           FMaterialObject.Apply(nil);
+           singleMat:=true;
+           end else FMaterialObject.Blending.Apply;
          end;
       end else singleMat:=true;
       if singleMat then begin
@@ -836,18 +842,20 @@ begin
           else RenderAnimatedList(ViewMatrix);
 
           if assigned(onAfterRender) then onAfterRender(self);
-          if assigned(FMaterial) then FMaterial.UnApply;
-          if assigned(FTexture) then FTexture.UnApply;
+          FMaterialObject.UnApply(nil);
+//          if assigned(FMaterial) then FMaterial.UnApply;
+//          if assigned(FTexture) then FTexture.UnApply;
           ResetBlending;
           glDisable(GL_TEXTURE_2D);
       end else begin
       //MultiMaterial
         P := MeshList[0]; CMName:=P.MatName;
         ActiveMaterial:=''; i:=0;
-        SetMaterialName(CMName); ActiveMaterial:=CMName;
-        if assigned(FMaterial) then FMaterial.Apply;
-        if assigned(FTexture) then FTexture.Apply;
-        SetBlending;
+        mat:=SetMaterialName(CMName); ActiveMaterial:=CMName;
+        if assigned(mat) then begin
+          if mat.Active then mat.Apply;
+          end else mat.Blending.Apply;
+        end;
         repeat
            //Render+++++++++++++++++
            if assigned(onBeforeRender) then onBeforeRender(self);
@@ -864,22 +872,29 @@ begin
                P := MeshList[i]; CMName:=P.MatName;
            end else CMName:='';
            if ((i=rcount) or (CMName<>ActiveMaterial)) then
-           begin
-              if assigned(FMaterial) then FMaterial.UnApply;
-              if assigned(FTexture) then FTexture.UnApply;
-              FTexture:=nil; FMaterial:=nil; ResetBlending;
+           if assigned(mat) then begin
+             if FMaterialObject.Active then begin
+               FMaterialObject.UnApply;
+               ResetBlending;
+             end else ResetBlending;
            end;
            if CMName<>ActiveMaterial then begin
-             SetMaterialName(CMName); ActiveMaterial:=CMName;
-             if assigned(FMaterial) then FMaterial.Apply;
-             if assigned(FTexture) then FTexture.Apply
-             else glDisable(GL_TEXTURE_2D);
-             SetBlending;
+             if CMName<>'' then begin
+               mat:=SetMaterialName(CMName); ActiveMaterial:=CMName;
+               if assigned(mat) then begin
+                 if mat.Active then begin
+                   mat.Apply;
+                 end else mat.Blending.Apply;
+               end else glDisable(GL_TEXTURE_2D);
+             end else begin
+               mat:=nil; ResetBlending;
+               OGLStateEmul.GLStateCache.MaterialCache.Reset;
+               glDisable(GL_TEXTURE_2D);
+             end;
            end;
         until i=rcount;
-        FTexture:=nil; FMaterial:=nil; ResetBlending;
-      end;
-      end;//RCount<=0
+        ResetBlending;
+    end;//RCount<=0
     if NoZWrite then glDepthMask(true);
     if NoDepthTest then glEnable(GL_DEPTH_TEST);
 

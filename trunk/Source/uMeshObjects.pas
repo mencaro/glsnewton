@@ -71,9 +71,6 @@ Type
     FOccluded: boolean;
     FIgnoreOcclusion: boolean;
 
-    FBlendingMode: TBlendingModes;
-    FCustomBlending: TCustomBlending;
-
     FFaceMode: TFaceMode;
     FUseLods: boolean;
     FTwoSides: boolean;
@@ -115,7 +112,6 @@ Type
     FOccluder: PVBOBuffer;
 
     function SetMaterialName(const Name: string): TMaterialObject;
-    procedure SetBlending;
     procedure ResetBlending;
   Public
     MeshList: TList; //список VBO буферов
@@ -166,9 +162,6 @@ Type
     Property Texture: TTexture read getTexture write setTexture;
     Property Shader: TShaderProgram read getShader write setShader;
     Property MaterialObject: TMaterialObject read FMaterialObject;
-    //Настройки смешивания
-    Property Blending: TBlendingModes read FBlendingMode write FBlendingMode;
-    Property CustomBlending: TCustomBlending read FCustomBlending;
     Property TwoSides: boolean read FTwoSides write FTwoSides;
 
     //Указатель на самого себя
@@ -728,7 +721,6 @@ begin
   FUseLods:=true;
   FaceMode:=fmFill;
   FFBO:=TFrameBufferObject.Create;
-  FCustomBlending:=TCustomBlending.Create;
   FTwoSides:=false;
   FMaterialObject:= TMaterialObject.Create;
   FMatObjLib:=nil;
@@ -744,7 +736,6 @@ var i: integer;
     pl: PLODs;
 begin
   Visible:=false;
-  FCustomBlending.Free;
   if assigned(FParams) and (FMeshType<>mtPoints) then begin
     MeshList:=nil; FOctreeList:=nil; FLodList:=nil;
   end else begin
@@ -1487,68 +1478,13 @@ begin
   FMaterialObject.AttachMaterial(Value); FMaterial:=Value;
 end;
 
-procedure TVBOMeshObject.SetBlending;
-begin
-  case FBlendingMode of
-    bmOpaque:
-      begin
-        glDisable(GL_BLEND);
-        glDisable(GL_ALPHA_TEST);
-      end;
-    bmTransparency:
-      begin
-        glEnable(GL_BLEND); glEnable(GL_ALPHA_TEST);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glAlphaFunc(GL_GREATER,0);
-      end;
-    bmAdditive:
-      begin
-        glEnable(GL_BLEND);
-        glEnable(GL_ALPHA_TEST);
-        glBlendFunc(GL_SRC_ALPHA,GL_ONE);
-        glAlphaFunc(GL_GREATER,0);
-      end;
-    bmAlphaTest50:
-      begin
-        glDisable(GL_BLEND);
-        glEnable(GL_ALPHA_TEST);
-        glAlphaFunc(GL_GEQUAL,0.5);
-      end;
-    bmAlphaTest100:
-      begin
-        glDisable(GL_BLEND);
-        glEnable(GL_ALPHA_TEST);
-        glAlphaFunc(GL_GEQUAL,1);
-      end;
-    bmModulate:
-      begin
-        glEnable(GL_BLEND);
-        glEnable(GL_ALPHA_TEST);
-        glBlendFunc(GL_DST_COLOR,GL_ZERO);
-        glAlphaFunc(GL_GREATER,0);
-      end;
-    bmCustom:
-      begin
-        FCustomBlending.Apply;
-      end;
-  end;
-end;
-
 function TVBOMeshObject.SetMaterialName(const Name: string): TMaterialObject;
 var mat: TMaterial;
     tex: TTexture;
     matObj: TMaterialObject;
 begin
    matObj:=FMatObjLib.MaterialByName(Name); Result:=matObj;
-   if assigned(matObj) then begin
-     mat:=matObj.Material; tex:=matObj.Texture;
-     Blending:=matObj.Blending.BlendingMode;
-     FMaterial:=mat; FTexture:=tex; exit;
-   end else begin
-     mat:=FMaterialObject.Material; tex:=FMaterialObject.Texture;
-     Blending:=FMaterialObject.Blending.BlendingMode;
-     FMaterial:=mat; FTexture:=tex; exit;
-   end;
+   if not assigned(matObj) then result:=FMaterialObject else result:=matObj;
 end;
 
 procedure TVBOMeshObject.ResetBlending;
@@ -2214,13 +2150,15 @@ begin
 
   glPushMatrix;
 //  glLoadMatrixf(PGLFloat(@ViewMatrix));
+  MaterialObject.Apply;
   FShaders.UseProgramObject(FSId);
   FShaders.SetUniforms(FSId,'volumeLineTexure',0);
-  if FTexture<>nil then FTexture.Apply(0);
-  SetBlending;
+//  if FTexture<>nil then FTexture.Apply(0);
+//  SetBlending;
   RenderVBOBuffer(FVBOBuff^);
-  if FTexture<>nil then FTexture.UnApply(0);
+//  if FTexture<>nil then FTexture.UnApply(0);
   FShaders.UseProgramObject(0);
+  MaterialObject.UnApply;
   glPopMatrix;
   glEnable(GL_CULL_FACE);
 end;
@@ -3203,7 +3141,8 @@ begin
     mv:=MatrixMultiply(Matrices.WorldMatrix, ViewMatrix);
     glLoadMatrixf(PGLFloat(@mv));
     if assigned(FonBeforeRender) then FonBeforeRender(self);
-       if assigned(FTexture) then FTexture.Apply;
+       FMaterialObject.Apply(FonMaterialApply);
+//       if assigned(FTexture) then FTexture.Apply;
        glEnableClientState(GL_VERTEX_ARRAY);
        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
        glEnableClientState(GL_NORMAL_ARRAY);
@@ -3263,7 +3202,8 @@ begin
        glDisableClientState(GL_VERTEX_ARRAY);
        glBindBuffer(GL_ARRAY_BUFFER, 0);
        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-       if assigned(FTexture) then FTexture.UnApply;
+       FMaterialObject.UnApply(FonMaterialUnApply);
+//       if assigned(FTexture) then FTexture.UnApply;
     if assigned(FonAFterRender) then FonAfterRender(self);
   glPopMatrix;
 end;

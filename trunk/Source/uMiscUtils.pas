@@ -114,6 +114,7 @@ procedure FreeList(var List: TList);
 var i: integer;
     p: pointer;
 begin
+  if not assigned(List) then exit;
   for i:=0 to List.Count-1 do begin
     p:=List[i]; if assigned(p) then Dispose(p);
   end; List.Free; List:=nil;
