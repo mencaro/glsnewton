@@ -59,6 +59,7 @@ type
   TVertex = record
     V,T,N: TaffineVector;
     SG: integer;
+    VHash,THash,NHash: word;
   end;
 
   TVertexHashData = record
