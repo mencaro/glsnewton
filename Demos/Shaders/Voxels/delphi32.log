@@ -1,0 +1,14 @@
+0	 (I)  Log subsystem started in elapsed time mode.
+3218	 (i)  Temporary rendering context created
+3250	 (I)  Getting OpenGL entry points and extension
+3265	 (I)  
+3265	 (i)  OpenGL rendering context information:
+3265	 (i)  Renderer     : GeForce GT 520/PCI/SSE2/3DNOW!
+3265	 (i)  Vendor       : NVIDIA Corporation
+3265	 (i)  Version      : 4.1.0
+3265	 (i)  GLSL version : 4.10 NVIDIA via Cg compiler
+3265	 (I)  
+3437	 (i)  Temporary rendering context destroyed
+3453	 (I)  Getting OpenGL entry points and extension
+210484	 (i)  Logged fatal errors: 0, errors: 0, warnings: 0, titles: 4, infos: 7, debug info: 0
+210484	 (i)  Log session shutdown

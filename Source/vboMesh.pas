@@ -1,6 +1,5 @@
   { TODO 1 :
-
- - Переписать проверку трансформации родителя на систему оповещений
+ - Пересмотреть рендер 3ds
  - Источник света как MovableObject
  - Реализовать работу с группами мешей из 3ds/obj
  - Переписать загрузчики 3ds/obj на использование сабмешей
@@ -14,6 +13,7 @@
  - Сортировка сабмешей перед рендерингом по материалам
  - Создание/Установка проекционной матрицы у CameraController
  - FBO - реализовать рендеринг в слои/мип-уровни текстуры
+ + Переписать проверку трансформации родителя на систему оповещений
  + Добавить систему нотификаций к TVBOMeshItem (регистрация при
      установке парента, оповещение о трансформации и удалении)
  + FBO Реализовать замену аттачментов
@@ -290,7 +290,6 @@ Type
       procedure ConvertAABBToCorners(const AABB:TAABB; var Corners:TAABBCorners);
       procedure SetViewMatrix(const Value: TMatrix);
     public
-      OctreeBuilded: Boolean;
       Visible: boolean;
       property onBeforeRender: TVBOMeshRenderEvents read FonBeforeRender write FonBeforeRender;
       property onAfterRender: TVBOMeshRenderEvents read FonAfterRender write FonAfterRender;
@@ -751,7 +750,7 @@ begin
               NegateVector(iNormal);
               PickedObject:=mo; ObjectIndex:=i;
               ObjMeshIndexList:=TIntegerList.Create;
-              ObjMeshIndexList.Add(i);
+              ObjMeshIndexList.Add(0);
             end;
             List.Add(ri);
          end;

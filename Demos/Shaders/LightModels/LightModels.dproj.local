@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>1899.12.30 00:00:00.000.776,I:\GLScene\VBOMesh_RC1\Demos\Demo\Shaders\LightingModels\LightModels.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Shaders\LightingModels\MultipleShaderObjects.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.906,I:\GLScene\VBOMesh_RC1\Demos\Demo\Shaders\SimpleShader\Project2.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Shaders\SimpleShader\MultipleShaderObjects.dproj</Transaction>
+  </Transactions>
+</BorlandProject>

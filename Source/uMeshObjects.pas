@@ -89,6 +89,8 @@ Type
     procedure setShader(const Value: TShaderProgram);
     function getParent: TVBOMeshObject;
     procedure setParent(const Value: TVBOMeshObject);
+    function getBlending: TBlendingModes;
+    procedure SetBlending(const Value: TBlendingModes);
   Protected
     FUseRenderList: boolean;
     FRenderList:TList;
@@ -162,6 +164,7 @@ Type
     Property Texture: TTexture read getTexture write setTexture;
     Property Shader: TShaderProgram read getShader write setShader;
     Property MaterialObject: TMaterialObject read FMaterialObject;
+    Property Blending: TBlendingModes read getBlending write SetBlending;
     Property TwoSides: boolean read FTwoSides write FTwoSides;
 
     //”казатель на самого себ€
@@ -784,6 +787,11 @@ begin
      P:=MeshList[i]; FreeVBOMem(P^); end;
 end;
 
+function TVBOMeshObject.getBlending: TBlendingModes;
+begin
+  result:=MaterialObject.Blending.BlendingMode;
+end;
+
 function TVBOMeshObject.getMaterial: TMaterial;
 begin
   Result:=FMaterialObject.Material;
@@ -1393,6 +1401,11 @@ begin
   end;
   vtex.UploadData(@vert[0]);
   ntex.UploadData(@norm[0]);
+end;
+
+procedure TVBOMeshObject.SetBlending(const Value: TBlendingModes);
+begin
+  MaterialObject.Blending.SetByMode(Value);
 end;
 
 procedure TVBOMeshObject.SetFaceMode;
