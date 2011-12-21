@@ -17,7 +17,9 @@ Type
   public
     constructor Create;
     destructor Destroy;override;
-    function ImportMaterial(lm: TGLLibMaterial): TMaterialObject;
+    function ImportMaterial(lm: TGLLibMaterial): TMaterialObject; overload;
+    function ImportMaterial(glmat: TGLMaterial; MatName: string=''): TMaterial; overload;
+    function ImportTexture(lm: TGLLibMaterial): TTexture;
     function ImportLight(LightSource: TGLLightSource): TLightSource;
     procedure ImportFreeForm(ff: TGLFreeForm; var MeshList: TList);
 
@@ -120,6 +122,94 @@ begin
   result:=LS; FLightObjects.Add(LS); VBOMesh.Lights.Add(LS);
 end;
 
+function TGLSceneAdapter.ImportMaterial(glmat: TGLMaterial; MatName: string): TMaterial;
+var mat: TMaterial;
+begin
+  mat:=TMaterial.Create; result:=mat;
+
+  if not Assigned(glmat) then exit;
+  if MatName<>'' then mat.Name:=MatName
+  else mat.Name:='GLMaterial'+inttostr(integer(glmat));
+  with mat.Properties,glmat.FrontProperties do begin
+    AmbientColor.ColorVector:=Ambient.Color;
+    DiffuseColor.ColorVector:=Diffuse.Color;
+    SpecularColor.ColorVector:=Specular.Color;
+    EmissionColor.ColorVector:=Emission.Color;
+    Shininess:=glmat.FrontProperties.Shininess;
+  end;
+end;
+
+function TGLSceneAdapter.ImportTexture(lm: TGLLibMaterial): TTexture;
+var tex: TTexture;
+    ifmt: TGLInternalFormat;
+const CTexModes: array[0..4] of TTextureCombines =
+      (tcDecal, tcModulate, tcBlend, tcReplace, tcAdd);
+begin
+  if (lm.Material.Texture.Image.Width*lm.Material.Texture.Image.Height<=0)
+  or (lm.Material.Texture.Disabled) then tex:=nil else begin
+    tex:=TTexture.Create; tex.Name:=lm.Name+inttostr(integer(lm));
+    tex.SetTarget(ttTexture2D);
+     case ord(lm.Material.Texture.MagFilter) of
+       0: tex.magFilter:=mgNearest;
+       1: tex.magFilter:=mgLinear;
+     end;
+
+     case ord(lm.Material.Texture.MinFilter) of
+       0: tex.minFilter:=mnNearest;
+       1: tex.minFilter:=mnLinear;
+       2: tex.minFilter:=mnNearestMipmapNearest;
+       3: tex.minFilter:=mnLinearMipmapNearest;
+       4: begin tex.minFilter:=mnNearestMipmapLinear; tex.Mipmapping:=true; end;
+       5: begin tex.minFilter:=mnLinearMipmapLinear; tex.Mipmapping:=true; end;
+     end;
+
+     case ord(lm.Material.Texture.TextureWrap) of
+       0: begin tex.WrapS:=twRepeat; tex.WrapT:=twRepeat; end;
+       1: begin tex.WrapS:=twClamp; tex.WrapT:=twClamp; end;
+       2: tex.WrapT:=twRepeat;
+       3: tex.WrapS:=twRepeat;
+       4: begin
+            case ord(lm.Material.Texture.TextureWrapS) of
+              0: tex.WrapS:=twRepeat;
+              1: tex.WrapS:=twRepeat;
+              2: tex.WrapS:=twClamp;
+              3: tex.WrapS:=twClampToEdge;
+              4: tex.WrapS:=twClampToBorder;
+              5: tex.WrapS:=twMirrorRepeat;
+              else tex.WrapS:=twClamp;
+            end;
+            case ord(lm.Material.Texture.TextureWrapT) of
+              0: tex.WrapT:=twRepeat;
+              1: tex.WrapT:=twRepeat;
+              2: tex.WrapT:=twClamp;
+              3: tex.WrapT:=twClampToEdge;
+              4: tex.WrapT:=twClampToBorder;
+              5: tex.WrapT:=twMirrorRepeat;
+              else tex.WrapT:=twClamp;
+            end;
+          end;
+     end;
+     with lm.Material.Texture.Image do tex.SetDimensions(Width,Height,Depth);
+     ifmt:=lm.Material.Texture.TextureFormatEx;
+     tex.SetInternalFormat(ifmt);
+
+     tex.TextureMode:=CTexModes[ord(lm.Material.Texture.TextureMode)];
+     tex.FileName:=lm.Material.Texture.Image.ResorceName;
+     tex.Name:=ExtractFileName(tex.FileName);
+
+     case lm.Material.FaceCulling of
+       fcCull,fcBufferDefault: tex.TwoSides:=false;
+       fcNoCull: tex.TwoSides:=true;
+     end;
+     with tex.TexDesc^ do begin
+       Data:=nil; Id:=lm.Material.Texture.Handle;
+       UsePBO:=false; Created:=true;
+     end;
+     tex.ResourceHandler:=lm;
+  end;
+  result:=tex;
+end;
+
 function TGLSceneAdapter.ImportMaterial(lm: TGLLibMaterial): TMaterialObject;
 const cAlphaFunct: array [0..7] of cardinal =
         (GL_NEVER, GL_ALWAYS, GL_LESS, GL_LEQUAL, GL_EQUAL, GL_GREATER,
@@ -133,7 +223,7 @@ const CTexModes: array[0..4] of TTextureCombines =
       (tcDecal, tcModulate, tcBlend, tcReplace, tcAdd);
 var matObj: TMaterialObject;
     mat: TMaterial;
-    tex: TGLTexture;
+    tex: TTexture;
     MatName: string;
     ifmt: TGLInternalFormat;
 begin
@@ -170,7 +260,7 @@ begin
 
   if (lm.Material.Texture.TextureImageRequiredMemory<=0)
   or (lm.Material.Texture.Disabled) then tex:=nil else begin
-    tex:=TGLTexture.Create; tex.Name:=MatName+inttostr(integer(lm));
+    tex:=TTexture.Create; tex.Name:=MatName+inttostr(integer(lm));
     tex.SetTarget(ttTexture2D);
      case ord(lm.Material.Texture.MagFilter) of
        0: tex.magFilter:=mgNearest;

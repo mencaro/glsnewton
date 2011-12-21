@@ -309,6 +309,7 @@ begin
   FCache:=TIntegerBits.Create; FCache.Size:=65536;
   FKeyFrameList:= TList.Create;
   FStartTime:=-1;
+  FPlaying := false;
 end;
 
 destructor TAnimatedMesh.Destroy;
@@ -438,11 +439,12 @@ begin
         if p.Summ=HashTable[i].Summ then
           if  (p.Vertex.VHash=HashTable[i].Vertex.VHash)
           and (p.Vertex.THash=HashTable[i].Vertex.THash)
-//          if (VectorEquals(p.Vertex.V,HashTable[i].Vertex.V))
-//          and(VectorEquals(p.Vertex.T,HashTable[i].Vertex.T))
+          and (p.Vertex.SG=HashTable[i].Vertex.SG)
           then begin
-          Ind.List[n]:=p.NewIndex; f:=true; Break;
-        end;
+            if (VectorEquals(p.Vertex.V,HashTable[i].Vertex.V))
+            and(VectorEquals(p.Vertex.T,HashTable[i].Vertex.T))
+            then begin Ind.List[n]:=p.NewIndex; f:=true; Break; end;
+          end;
       end;
     end;
     if not f then begin
@@ -489,10 +491,10 @@ end;
 procedure AddVertexToHashList(var HashTable: TVertexHashArray; Index,SG: integer;
   const V: TPoint3DS; const T: TTexVert3DS);
 var hBuff: array[0..8] of single;
-    x: single;
+    x: double;
 begin
   HashTable[index].Vertex.V:=TAffineVector(V);
-  HashTable[index].Vertex.T:=AffineVectorMake(t.u,t.v,SG);
+  HashTable[index].Vertex.T:=AffineVectorMake(t.u,t.v,0);
   HashTable[index].Vertex.N:=NullVector;
   HashTable[index].Vertex.SG:=SG;
   hBuff[0]:=HashTable[index].Vertex.V[0];
@@ -512,7 +514,7 @@ begin
   end;
   with HashTable[index].Vertex do begin
     x:=V[0]+V[1]+V[2]+T[0]+T[1]+T[2]+N[0]+N[1]+N[2]+SG;
-    HashTable[index].Summ:=integer(@x);
+    HashTable[index].Summ:=x;
   end; HashTable[index].Index:=index;
 end;
 
@@ -675,11 +677,11 @@ begin
           TextureMode := tcModulate;
           TwoSides:=mat3ds.TwoSided;
           with mat3ds.Texture.Map do begin
-            if (UScale<>1) or (VScale<>1) or (UOffset<>0) or (VOffset<>0)then begin
-              TextureMatrix:=CreateScaleMatrix(AffineVectorMake(UScale, VScale, 0));
+            //if (UScale<>1) or (VScale<>1) or (UOffset<>0) or (VOffset<>0)then begin
+              TextureMatrix:=CreateScaleMatrix(AffineVectorMake(UScale, VScale, 1));
               TextureMatrix:=MatrixMultiply(TextureMatrix,
                 CreateTranslationMatrix(AffineVectorMake((1-frac(UOffset))*UScale, (frac(VOffset))*VScale, 0)));
-            end;
+            //end;
           end;
        end;
      end;
@@ -819,7 +821,7 @@ begin
     if NoDepthTest then glDisable(GL_DEPTH_TEST) else glEnable(GL_DEPTH_TEST);
       if FUseRenderList then rcount:=FRenderList.Count else rcount:=MeshList.Count;
       if rcount>0 then begin
-      singleMat:=false;
+      singleMat:=false; i:=0;
       if FMeshType<>mtParticles then begin
          if TextureId<>0 then begin
                ResetBlending;
@@ -835,18 +837,23 @@ begin
          end;
       end else singleMat:=true;
       if singleMat then begin
-          if assigned(onBeforeRender) then onBeforeRender(self);
-
+        if assigned(onBeforeRender) then onBeforeRender(self);
+        if FPlaying then begin
           if FProxyMatrixList.Count>0 then
              RenderAnimatedList(ViewMatrix,FProxyMatrixList)
           else RenderAnimatedList(ViewMatrix);
+        end else begin
+          if FProxyMatrixList.Count>0 then
+             RenderVBOList(MeshList,FProxyMatrixList)
+          else RenderVBOList(MeshList);
+        end;
 
-          if assigned(onAfterRender) then onAfterRender(self);
-          FMaterialObject.UnApply(nil);
+        if assigned(onAfterRender) then onAfterRender(self);
+        FMaterialObject.UnApply(nil);
 //          if assigned(FMaterial) then FMaterial.UnApply;
 //          if assigned(FTexture) then FTexture.UnApply;
-          ResetBlending;
-          glDisable(GL_TEXTURE_2D);
+        ResetBlending;
+        glDisable(GL_TEXTURE_2D);
       end else begin
       //MultiMaterial
         P := MeshList[0]; CMName:=P.MatName;
@@ -854,8 +861,7 @@ begin
         mat:=SetMaterialName(CMName); ActiveMaterial:=CMName;
         if assigned(mat) then begin
           if mat.Active then mat.Apply;
-          end else mat.Blending.Apply;
-        end;
+        end else mat.Blending.Apply;
         repeat
            //Render+++++++++++++++++
            if assigned(onBeforeRender) then onBeforeRender(self);
@@ -893,7 +899,8 @@ begin
              end;
            end;
         until i=rcount;
-        ResetBlending;
+      end;
+      ResetBlending;
     end;//RCount<=0
     if NoZWrite then glDepthMask(true);
     if NoDepthTest then glEnable(GL_DEPTH_TEST);
