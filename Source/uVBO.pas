@@ -1115,18 +1115,19 @@ procedure FreeVBOBuffer(var VBuff: TVBOBuffer; ClearBuffs: boolean = true);
 var i:integer;
     attr: PVBOAttribute;
 begin
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
   with VBuff do begin
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    if GL_ARB_vertex_array_object then begin
+      glBindVertexArray(0);
+      glDeleteVertexArrays(1,@vao);
+    end;
     Builded := false;idxBuffApply := false;
     if vId <> 0 then glDeleteBuffers(1, @vId);
     if nId <> 0 then glDeleteBuffers(1, @nId);
     if tId <> 0 then glDeleteBuffers(1, @tId);
     if iId <> 0 then glDeleteBuffers(1, @iId);
     if cId <> 0 then glDeleteBuffers(1, @cId);
-    if GL_ARB_vertex_array_object and (vao <> 0)
-    then glDeleteVertexArrays(1,@vao);
     vId := 0; nId := 0; tId := 0;
     iId := 0; cId := 0; vao := 0;
 
