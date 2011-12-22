@@ -32,10 +32,9 @@ Uses   OpenGL1x, VectorTypes, VectorGeometry, Classes, SysUtilsLite, uLogs;
 
 Type
    TEnStates = (sAlphaTest,sAutoNormal,sBlend,sColorLogicOp,sColorMaterial,sColorSum,
-                sConvolution1D,sConvolution2D,sCullFace,sDepthTest,sDither,
-                sFog,sHistogram,sIndexLogicOp,sLighting,sLineSmooth,sLineStipple,
-                sMinMax,sMultisample,sNormalize,sPointSmooth,sPointSprite,sRescaleNormal,
-                sSeparable2D,
+                sCullFace,sDepthTest,sDither,
+                sFog,sIndexLogicOp,sLighting,sLineSmooth,sLineStipple,
+                sMultisample,sNormalize,sPointSmooth,sPointSprite,sRescaleNormal,
                 sSampleAlphaToCoverage, sScissorTest,sStencilTest,sVertexProgramPointSize,
                 sVertexProgramTwoSide,sNone);
    TIntegerVector = array[0..3] of integer;
@@ -361,10 +360,9 @@ Type
 Const
    CEnStates: array[sAlphaTest..sNone] of GLEnum =
    (GL_Alpha_Test,GL_Auto_Normal,GL_Blend,GL_Color_Logic_Op,GL_Color_Material,GL_Color_Sum,
-    GL_Convolution_1D,GL_Convolution_2D,GL_Cull_Face,GL_Depth_Test,GL_Dither,
-    GL_Fog,GL_Histogram,GL_Index_Logic_Op,GL_Lighting,GL_Line_Smooth,GL_Line_Stipple,
-    GL_MinMax,GL_Multisample,GL_Normalize,GL_Point_Smooth,GL_Point_Sprite,GL_Rescale_Normal,
-    GL_Separable_2D,
+    GL_Cull_Face,GL_Depth_Test,GL_Dither,
+    GL_Fog,GL_Index_Logic_Op,GL_Lighting,GL_Line_Smooth,GL_Line_Stipple,
+    GL_Multisample,GL_Normalize,GL_Point_Smooth,GL_Point_Sprite,GL_Rescale_Normal,
     GL_Sample_Alpha_To_Coverage,GL_Scissor_Test,GL_Stencil_Test,GL_Vertex_Program_Point_Size,
     GL_Vertex_Program_Two_Side,0);
 
