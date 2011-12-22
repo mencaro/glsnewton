@@ -1125,7 +1125,8 @@ begin
     if tId <> 0 then glDeleteBuffers(1, @tId);
     if iId <> 0 then glDeleteBuffers(1, @iId);
     if cId <> 0 then glDeleteBuffers(1, @cId);
-    if vao <> 0 then glDeleteVertexArrays(1,@vao);
+    if GL_ARB_vertex_array_object and (vao <> 0)
+    then glDeleteVertexArrays(1,@vao);
 
     if ClearBuffs then begin
       FreeAndNil(Vertexes);
