@@ -340,9 +340,12 @@ begin
 end;
 
 function TMaterialObject.CheckTransparency: boolean;
+var alpha: single;
 begin
+  if assigned(FMaterial) then alpha:=Material.Properties.DiffuseColor.Alpha
+  else alpha:=1;
   if FBlending.FBlendEnable or FBlending.FAlphaTestEnable
-  then result:=true else result:=false;
+  or (alpha<1) then result:=true else result:=false;
 end;
 
 constructor TMaterialObject.Create;

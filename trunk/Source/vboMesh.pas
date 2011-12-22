@@ -495,6 +495,7 @@ begin
   FRenderPass:=0; FOldRender:=true;
   FGLSceneMeshAdapter:=nil;
   FRender:=TRenderShell.Create(self);
+  FStructureChanged:=true;
 end;
 
 constructor TVBOMesh.CreateAsChild(aParentOwner: TGLBaseSceneObject);
@@ -633,16 +634,24 @@ begin
   F := GetFrustum(FProjectionMatrix, FViewMatrix);
   FRender.FSceneViewer.Frustum:=F;
   FRender.FSceneViewer.CurrentTime:=time;
+  FRender.FSceneViewer.ViewMatrix:=FViewMatrix;
+  FRender.FSceneViewer.ProjectionMatrix:=FProjectionMatrix;
 
-  if not FOldRender then begin FRender.Process; exit; end;
+  glGetIntegerv(GL_VIEWPORT, @FViewPort);
+
+  if not FOldRender then begin
+    glEnable(GL_LIGHTING); glEnable(GL_LIGHT0); glDisable(GL_TEXTURE_2D);
+    Lights.Apply;
+    if assigned(onBeforeRender) then onBeforeRender;
+    FRender.Process;
+    if assigned(onAfterRender) then onAfterRender;
+    OGLStateEmul.GLStateCache.PopStates;
+    exit;
+  end;
 
   glEnable(GL_LIGHTING); glEnable(GL_LIGHT0); glDisable(GL_TEXTURE_2D);
   Lights.Apply;
 //  glEnable(GL_LIGHT0);
-
-  glGetIntegerv(GL_VIEWPORT, @FViewPort);
-
-  time:=GetTime;
 
   if assigned(onBeforeRender) then onBeforeRender;
   if FSceneOctree.Builded then begin
@@ -2305,6 +2314,7 @@ begin
   FContainers:=TList.Create;
   FOpaqueMeshObjects:=TList.Create;
   FTransparencyMeshObjects:=TList.Create;
+  FProxyObjects:=TList.Create;
   FLowPriorityIndex:=-1;
 end;
 
@@ -2314,6 +2324,7 @@ begin
   FContainers.Free;
   FOpaqueMeshObjects.Free;
   FTransparencyMeshObjects.Free;
+  FProxyObjects.Free;
   inherited;
 end;
 

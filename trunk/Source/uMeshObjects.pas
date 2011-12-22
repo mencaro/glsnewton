@@ -1579,7 +1579,9 @@ begin
     if FChilde.UseParentViewer then
         FChilde.ParentViewer:=FParentViewer;
     if FProcessChilds=pcBefore then FChilde.Process;
+  end;
     RenderObject(Matrices.ViewMatrix);
+  if assigned(FChilde) then begin
     if FProcessChilds=pcAfter then FChilde.Process;
   end;
 end;
