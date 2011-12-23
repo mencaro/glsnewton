@@ -38,7 +38,7 @@ Type
               tmDecal = GL_DECAL, tmBlend = GL_BLEND,
               tmReplace = GL_REPLACE, tmCombine = GL_COMBINE);}
   TTextureBlendingModes = (tbmOpaque, tbmTransparency, tbmAdditive, tbmAlphaTest50,
-                    tbmAlphaTest100, tbmModulate, tbmCustom, tbmMesh);
+                    tbmAlphaTest100, tbmModulate, tbmMesh);
 
 //  TCompositeTexFormat = ();
   TTextureDecription = record
