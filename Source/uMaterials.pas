@@ -396,7 +396,7 @@ begin
    if not glIsEnabled(GL_LIGHTING) then begin
       glColor4f(1,1,1,1); exit;
    end;
-exit;
+
   vDiffuseColor:=VectorMake(0.8,0.8,0.8,1);
   vAmbientColor:=VectorMake(0.2,0.2,0.2,1);
   vSpecularColor:=VectorMake(0,0,0,1);

@@ -1,4 +1,5 @@
   { TODO 1 :
+ - Добавить StrunctureChanged ко всем методам Add*
  - Пересмотреть рендер 3ds
  - Источник света как MovableObject
  - Реализовать работу с группами мешей из 3ds/obj
@@ -316,7 +317,6 @@ Type
       Procedure RenderMeshObject(MeshObject: TVBOMeshObject);
       Procedure DeleteMeshObject(MeshObject: TVBOMeshObject; FreeObject: boolean=true);overload;
       Procedure DeleteMeshObject(index: integer; FreeObject: boolean=true);overload;
-      Procedure Clear(FreeObjects: boolean=true);
       Function Last: TVBOMeshObject;
 
       Function  GetObjectByName(Name:string):TVBOMeshObject;
@@ -986,17 +986,6 @@ begin
     end;
 end;
 
-procedure TVBOMesh.Clear(FreeObjects: boolean);
-var i: integer;
-    mo: TVBOMeshObject;
-begin
-  if not FreeObjects then FMeshList.Clear else begin
-    for i:=0 to FMeshList.Count-1 do begin
-      mo:=FMeshList[i]; FreeAndNil(mo);
-    end; FMeshList.Clear;
-  end;
-end;
-
 procedure TVBOMesh.ConvertAABBToCorners(const AABB: TAABB;
   var Corners: TAABBCorners);
 begin
@@ -1048,6 +1037,7 @@ var i:integer;
 begin
   i:=FMeshList.IndexOf(MeshObject);
   DeleteMeshObject(i,FreeObject);
+  FStructureChanged:=true;
 end;
 
 procedure TVBOMesh.DeleteMeshObject(index: integer; FreeObject: boolean);
@@ -1056,6 +1046,7 @@ begin
    MeshObject:=FMeshList[index];
    if FreeObject then FreeAndNil(MeshObject);
    FMeshList.Delete(index);
+   FStructureChanged:=true;
 end;
 
 function TVBOMesh.WorldToPlane(P: TVector): TVector;
@@ -2128,13 +2119,14 @@ end;
 
 procedure TMeshCollection.Clear(FreeObjects: boolean);
 var i: integer;
-    mo: TVBOMeshObject;
+    mo: TVBOMeshItem;
 begin
   if not FreeObjects then FMeshList.Clear else begin
     for i:=0 to FMeshList.Count-1 do begin
       mo:=FMeshList[i]; FreeAndNil(mo);
     end; FMeshList.Clear;
   end;
+  FStructureChanged:=true;
 end;
 
 procedure TMeshCollection.SortByDistance(const ViewMatrix: TMatrix; List: TList;

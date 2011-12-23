@@ -344,6 +344,10 @@ var alpha: single;
 begin
   if assigned(FMaterial) then alpha:=Material.Properties.DiffuseColor.Alpha
   else alpha:=1;
+  if assigned(FTexture) then begin
+    if (FTexture.BlendingMode = tbmTransparency)
+    or (FTexture.BlendingMode = tbmAdditive) then alpha:=0;
+  end;
   if FBlending.FBlendEnable or FBlending.FAlphaTestEnable
   or (alpha<1) then result:=true else result:=false;
 end;
@@ -433,7 +437,8 @@ begin
   if assigned(FShader) and FUseShader then
   FShader.UnApply;
   if assigned(FTexture) and FUseTexture then FTexture.UnApply(0);
-  if assigned(FMaterial) and FUseMaterial then FMaterial.UnApply;
+  if assigned(FMaterial) and FUseMaterial then
+    FMaterial.UnApply;
 end;
 
 { TMaterialCache }
