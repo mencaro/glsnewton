@@ -10,7 +10,8 @@ uses VectorTypes, VectorGeometry, VectorLists, uMiscUtils,
 type
   TVBORenderType = (DrawArrays, DrawElements, DrawRangedElements, DrawMultiElements);
   TRenderBuff = set of (uNormals, uTexCoords, uIndices, uSecondaryTexure,
-                        uColors, uMultitexture, uExTexEnvMode);
+                        uColors, uMultitexture, uExTexEnvMode, uVAO);
+  TBufferStruct = (bsSeparated, bsInterleaved, bsMultiBuffer);
   TBindState = set of (sActivate, sDeactivate, sUnchanged, sCheck);
   TUpdateBuff = set of (upVertex, upColor, upNormal, upTexCoord, upSecTexCoord);
 
@@ -38,8 +39,18 @@ type
   TVectorType = (vtSingle, vtDouble, vtVector, vtPoint, vtMat3, vtMat4);
   TSingleArray = array of single;
 
-  TAttribType = (atVertex,atNormal,atTexCoord,atColor,atUserAttrib,atIndices);
+  TAttribType = (atVertex,atNormal,atTexCoord,atColor,atUserAttrib,atInterleaved,
+    atTexCoord0,atTexCoord1,atTexCoord2,atTexCoord3,atTexCoord4,atTexCoord5,
+    atTexCoord6,atTexCoord7, atIndices);
   TAttribTypes = set of TAttribType;
+
+  TInterleavedAttrib = record
+    offset: cardinal;
+    size: cardinal;
+    stride: cardinal;
+    Name: string;
+    vaType: TAttribType;
+  end;
 
   TAttribListType = (ltVectorList, ltIntegerList);
 
@@ -284,6 +295,7 @@ type
   TVBOBuffer = packed record
     Visible: boolean;
     Name: string;
+    Struct: TBufferStruct;
     RenderBuffs: TRenderBuff;
     Vertexes: TAffineVectorList;
     Normals: TAffineVectorList;
@@ -395,6 +407,40 @@ type
   end;
   TGetHeightFunc = Function (X,Y: Integer):single;
 
+  TInterleavedBuffer = class
+  private
+    FDescriptors: array of TInterleavedAttrib;
+    FList: TSingleList;
+    FCount: integer;
+    FBaseIndex: integer;
+    FStructureLocked: boolean;
+    FRecordSize: integer;
+    FOffset: integer;
+    function GetAttribPos(DescrIndex: byte): integer;
+    function getBuffData: pointer;
+    function getDescr(Index: byte): TInterleavedAttrib;
+    procedure SetDescr(Index: byte; const Value: TInterleavedAttrib);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure BuildVBO(var VBO: TVBOBuffer);
+    procedure BindToVBO(var VBO: TVBOBuffer);
+    procedure UnBindVBO(var VBO: TVBOBuffer);
+
+    function CreateDescriptor(aSize: cardinal; aType: TAttribType;
+      aName: string=''): integer;
+    function AddVertex: integer;
+    procedure AttributeValue(DescrIndex: byte; x,y,z: single); overload;
+    procedure AttributeValue(DescrIndex: byte; s,t: single); overload;
+    procedure AttributeValue(DescrIndex: byte; r,g,b,a: single); overload;
+
+    property Count: integer read FCount;
+    property RecordSize: integer read FRecordSize;
+    property BufferData: pointer read getBuffData;
+    property Descriptors[Index: byte]: TInterleavedAttrib read getDescr write SetDescr;
+  end;
+
 procedure InitVBOBuff(var VBuff: TVBOBuffer; FType: GLUInt; RType: TVBORenderType);
 procedure GenVBOBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
 procedure GenVBOBuffers(List: TList; FreeBuffMem: boolean = true);
@@ -402,6 +448,9 @@ procedure GenVBOSolidBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
 procedure GenVBOPackBuff(var VBuff: TPackedVBO; FreeBuffMem: boolean = true);
 Procedure RebuildVBOBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
 Procedure UpdateVBOBuff(BuffId:integer; data: pointer; offset, size:integer; MapBuffer:Boolean=false);
+Procedure BindVBO(var Buff: TVBOBuffer);
+Procedure UnBindVBO(var Buff: TVBOBuffer);
+
 Procedure RebuildNormals(var vbo: PVBOBuffer);
 Function GenVAO(VBuff: PVBOBuffer): TVertexArrayObject;overload;
 Function GenVAO(var VBuff: TVBOBuffer): GLUInt; overload;
@@ -494,12 +543,16 @@ function RandomVector(Scale: single=1): TAffineVector; overload;
 //function RandomVector(Scale: single=1): TVector; overload;
 
 
+
+
 var
   vCubicOccluder: PVBOBuffer = nil;
 
 implementation
 
 const CVectorSize: array [vtSingle..vtMat4] of byte = (1,2,3,4,9,16);
+      CDefAttribName: array[atVertex..atColor] of string =
+                     ('Vertex','Normal','TexCoord','Color');
 
 function GetMinExtents(v1, v2: TAffineVector): TAffinevector;
 begin
@@ -722,6 +775,7 @@ begin
     solid:=false;
     Visible := true;
     MaterialFunc:=nil;
+    Struct:=bsSeparated;
   end;
 end;
 
@@ -847,16 +901,7 @@ procedure GenVBOBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
 var i: integer;
     attr: PVBOAttribute;
 begin
-{  if VBuff.Indices.count=0 then begin
-     VBuff.Builded := false;
-     exit;
-  end;}
   with VBuff do begin
-{    if GL_ARB_vertex_array_object then begin
-      glGenVertexArrays(1, @VBuff.vao);
-      glBindVertexArray(VBuff.vao);
-    end;
-}
     Vertexes.GetExtents(emin, emax);
     vId := GenSingleVBOBuffer(Vertexes);
     nId := GenSingleVBOBuffer(Normals);
@@ -899,62 +944,18 @@ begin
     Builded := true;
   end;
   //if GL_ARB_vertex_array_object then GenVAO(VBuff);
-  if (GL_ARB_vertex_array_object) and (VBuff.AttribList.Count=0) then GenVAO(VBuff);
+  if (GL_ARB_vertex_array_object) and (VBuff.AttribList.Count=0) then begin
+    GenVAO(VBuff); include(VBuff.RenderBuffs,uVAO);
+  end;
 end;
 
 procedure GenVBOBuffers(List: TList; FreeBuffMem: boolean = true);
 var i,j: integer;
-    //temp: TAffineVectorList;
     attr: PVBOAttribute;
     VBuff: PVBOBuffer;
 begin
-{  if VBuff.Indices.count=0 then begin
-     VBuff.Builded := false;
-     exit;
-  end;}
   for j:=0 to List.Count-1 do begin
-    VBuff:=List[j];
-    with VBuff^ do begin
-      Vertexes.GetExtents(emin, emax);
-      vId := GenSingleVBOBuffer(Vertexes);
-      nId := GenSingleVBOBuffer(Normals);
-      tId := GenSingleVBOBuffer(TexCoords);
-      cId := GenSingleVBOBuffer(Colors);
-      iId := GenIndices(Indices);
-      if ExTexCoords.Count>0 then begin
-        for i := 0 to ExTexCoords.Count - 1 do begin
-          attr:=ExTexCoords[i]; GenSingleVBOBuffer(attr);
-          if i=0 then stId:=attr.Id;
-        end;
-      end;
-
-      RenderBuffs:=[];
-      if nId > 0 then RenderBuffs := RenderBuffs + [uNormals];
-      if tId > 0 then RenderBuffs := RenderBuffs + [uTexCoords];
-      if iId > 0 then RenderBuffs := RenderBuffs + [uIndices];
-      if cId > 0 then RenderBuffs := RenderBuffs + [uColors];
-      if ExTexCoords.Count>0 then RenderBuffs := RenderBuffs + [uMultitexture];
-      //assert(iId>0,'Indices not found');
-      if iId > 0 then ElementsCount := Indices.Count
-      else ElementsCount := Vertexes.Count;
-      if iId=0 then RenderType:=DrawArrays;
-
-      MaxElements := ElementsCount;
-      VertexCount := Vertexes.Count;
-      if FreeBuffMem then begin
-        Vertexes.Clear; Normals.Clear; TexCoords.Clear;Colors.Clear;
-        for i := 0 to ExTexCoords.Count - 1 do begin
-          attr:=ExTexCoords[i];
-          if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
-          then attr.DataHandler.Free else dispose(attr.Data);
-          dispose(attr);
-        end; ExTexCoords.Clear;
-        Cleared := true
-      end else Cleared := false;
-      Builded := true;
-    end;
-//    if GL_ARB_vertex_array_object then GenVAO(VBuff);
-    if (GL_ARB_vertex_array_object) and (VBuff.AttribList.Count=0) then GenVAO(VBuff);
+    VBuff:=List[j]; GenVBOBuff(VBuff^);
   end;
 end;
 
@@ -1148,7 +1149,7 @@ begin
         attr:=AttribList[i];
         if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
         then attr.DataHandler.Free else dispose(attr.Data);
-        dispose(attr);
+        glDeleteBuffers(1, @attr.Id); dispose(attr);
       end; FreeAndNil(AttribList);
 
       FreeAndNil(ExTexCoords);
@@ -1560,6 +1561,135 @@ if not assigned(List) then exit;
   List.Clear;
 end;
 
+procedure BindVBO(var Buff: TVBOBuffer);
+var i: integer;
+    BaseTex: cardinal;
+    Attr: PVBOAttribute;
+    IB: TInterleavedBuffer;
+begin
+  with Buff do begin
+    if (vao<>0) and (uVAO in RenderBuffs) then glBindVertexArray(vao)
+    else begin
+      case Buff.Struct of
+      bsSeparated: begin
+          if (vId = 0) or (not Visible) then exit;
+          glEnableClientState(GL_VERTEX_ARRAY);
+          if (nId <> 0) and (uNormals in RenderBuffs) then begin
+            glEnableClientState(GL_NORMAL_ARRAY);
+            glBindBuffer(GL_ARRAY_BUFFER, nId);
+            glNormalPointer(GL_FLOAT, 0, nil);
+          end else glDisableClientState(GL_NORMAL_ARRAY);
+          BaseTex:=GL_TEXTURE0;
+          if (tId <> 0) and (uTexCoords in RenderBuffs) then begin
+            glClientActiveTexture(GL_TEXTURE0);
+            BaseTex:=GL_TEXTURE1;
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            glBindBuffer(GL_ARRAY_BUFFER, tId);
+            if UseTwoTexturesCoord then
+               glTexCoordPointer(2, GL_FLOAT, SizeOf(TAffineVector), nil)
+            else glTexCoordPointer(3, GL_FLOAT, SizeOf(TAffineVector), nil);
+          end else glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+
+          if (stId <> 0) and (uSecondaryTexure in RenderBuffs) and (not (uMultitexture in RenderBuffs))
+          then begin
+            glClientActiveTexture(GL_TEXTURE1);
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            glBindBuffer(GL_ARRAY_BUFFER, stId);
+            glTexCoordPointer(3, GL_FLOAT, 0, nil);
+          end else if (uMultitexture in RenderBuffs) then begin
+            for i:= 0 to ExTexCoords.Count - 1 do begin
+              glClientActiveTexture(BaseTex+i);
+              glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+              attr:=ExTexCoords[i];
+              glBindBuffer(GL_ARRAY_BUFFER, attr.Id);
+              glTexCoordPointer(attr.CCount, attr.CType, attr.CSize, nil);
+              if ( uExTexEnvMode in RenderBuffs) then
+                 if i<ExTexEnvMode.Count then
+                    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, ExTexEnvMode[i]);
+            end;
+          end;
+
+          if (cId<>0) and (uColors in RenderBuffs) then begin
+            glEnableClientState(GL_COLOR_ARRAY);
+            glBindBuffer(GL_ARRAY_BUFFER, cId);
+            glColorPointer(4,GL_FLOAT, 0, nil);
+            glEnable(GL_COLOR_MATERIAL);
+            glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+          end;
+
+          for i:=0 to AttribList.Count-1 do begin
+            attr:=AttribList[i];
+            if (attr.Location>0) and (attr.Id>0) then begin
+              glBindBuffer(GL_ARRAY_BUFFER, attr.Id);
+              glEnableVertexAttribArray(attr.Location);
+              glVertexAttribPointer(attr.Location, attr.CCount, attr.CType, false, 0, nil);
+            end;
+          end;
+
+          glBindBuffer(GL_ARRAY_BUFFER, vId);
+          glVertexPointer(3, GL_FLOAT, 0, nil);
+
+          if ((iId <> 0) and (uIndices in RenderBuffs)) then
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iId);
+        end;
+      bsInterleaved: begin
+          if (not Visible) then exit;
+          assert(AttribList.Count>0,'Interleaved attributes not found.');
+          attr:=AttribList[0];
+          assert(Attr.AttrType=atInterleaved,'Not interleaved attribute.');
+          assert(attr.DataHandler is TInterleavedBuffer,'Data handler is not TInterleavedBuffer.');
+          glBindBuffer(GL_ARRAY_BUFFER, attr.Id);
+          IB:=TInterleavedBuffer(attr.DataHandler);
+          IB.BindToVBO(Buff);
+          if ((iId <> 0) and (uIndices in RenderBuffs)) then
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iId);
+        end;
+      end;
+    end;
+  end;
+end;
+
+
+Procedure UnBindVBO(var Buff: TVBOBuffer);
+var i: integer;
+    Attr: PVBOAttribute;
+    IB: TInterleavedBuffer;
+begin
+  with Buff do begin
+    if (vao=0) or (not(uVAO in RenderBuffs)) then begin
+      case Buff.Struct of
+        bsSeparated: begin
+          glDisableClientState(GL_VERTEX_ARRAY);
+          if nId <> 0 then glDisableClientState(GL_NORMAL_ARRAY);
+          if tId <> 0 then glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+          if cId <> 0 then begin
+             glDisableClientState(GL_COLOR_ARRAY);
+             glDisable(GL_COLOR_MATERIAL);
+          end;
+          if (uMultitexture in RenderBuffs) then begin
+            for i:= 0 to ExTexCoords.Count - 1 do begin
+                glClientActiveTexture(GL_TEXTURE0+i);
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            end;
+          end;
+          glBindBuffer(GL_ARRAY_BUFFER, 0);
+          if (iId <> 0) then glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        end;
+        bsInterleaved: begin
+          assert(AttribList.Count>0,'Interleaved attributes not found.');
+          attr:=AttribList[0];
+          assert(Attr.AttrType=atInterleaved,'Not interleaved attribute.');
+          assert(attr.DataHandler is TInterleavedBuffer,'Data handler is not TInterleavedBuffer.');
+          glBindBuffer(GL_ARRAY_BUFFER, 0);
+          glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+          IB:=TInterleavedBuffer(attr.DataHandler);
+          IB.UnBindVBO(Buff);
+        end;
+      end;
+    end else glBindVertexArray(0);
+  end;
+end;
+
 function GenVAO(VBuff: PVBOBuffer): TVertexArrayObject;overload;
 var i: integer;
     attr: PVBOAttribute;
@@ -1623,50 +1753,11 @@ begin
   if (not VBuff.Builded) then exit;
   glGenVertexArrays(1, @vao);
   glBindVertexArray(vao);
-  with VBuff do begin
-
-    glEnableClientState( GL_VERTEX_ARRAY );
-    glBindBuffer(GL_ARRAY_BUFFER, vId );
-    glVertexPointer( 3, GL_FLOAT, 0, nil );
-
-    if (cId<>0) and (uColors in RenderBuffs) then begin
-      glEnableClientState( GL_COLOR_ARRAY );
-      glBindBuffer(GL_ARRAY_BUFFER, cId );
-      glColorPointer(4,GL_FLOAT, 0, nil);
-    end;
-
-    if (nId <> 0) and (uNormals in RenderBuffs) then begin
-      glEnableClientState( GL_NORMAL_ARRAY );
-      glBindBuffer(GL_ARRAY_BUFFER, nId );
-      glNormalPointer(GL_FLOAT, 0, nil );
-    end;
-
-    if (tId <> 0) and (uTexCoords in RenderBuffs) then begin
-      glClientActiveTexture(GL_TEXTURE0);
-      glEnableClientState( GL_TEXTURE_COORD_ARRAY );
-      glBindBuffer(GL_ARRAY_BUFFER, tId );
-      if UseTwoTexturesCoord then
-        glTexCoordPointer(2, GL_FLOAT, SizeOf(TAffineVector), nil)
-      else glTexCoordPointer(3, GL_FLOAT, SizeOf(TAffineVector), nil);
-    end;
-
-    if ((iId <> 0) and (uIndices in RenderBuffs)) then
-      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iId);
-
-    for i:=0 to AttribList.Count-1 do begin
-      attr:=AttribList[i];
-      if (attr.Location>0) and (attr.Id>0) then begin
-        glBindBuffer(GL_ARRAY_BUFFER, attr.Id);
-        glEnableVertexAttribArray(attr.Location);
-        glVertexAttribPointer(attr.Location, attr.CCount, attr.CType, false, 0, nil);
-      end;
-    end;
-  end;
+  BindVBO(VBuff);
   VBuff.VAO:=vao; result:=vao;
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
 end;
 
 procedure RenderMeshes(const VBuff: TVBOBuffer; SubMeshes: TList);
@@ -1716,69 +1807,8 @@ var i,RCount:integer;
     Attr: PVBOAttribute;
 begin
   if (not VBuff.Builded) then GenVBOBuff(VBuff,false);
+  BindVBO(VBuff);
   with VBuff do begin
-    if (vId = 0) or (not Visible) then exit;
-    if vao<>0 then glBindVertexArray(vao)
-    else begin
-      glEnableClientState(GL_VERTEX_ARRAY);
-      if (nId <> 0) and (uNormals in RenderBuffs) then begin
-        glEnableClientState(GL_NORMAL_ARRAY);
-        glBindBuffer(GL_ARRAY_BUFFER, nId);
-        glNormalPointer(GL_FLOAT, 0, nil);
-      end else glDisableClientState(GL_NORMAL_ARRAY);
-      BaseTex:=GL_TEXTURE0;
-      if (tId <> 0) and (uTexCoords in RenderBuffs) then begin
-        glClientActiveTexture(GL_TEXTURE0);
-        BaseTex:=GL_TEXTURE1;
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glBindBuffer(GL_ARRAY_BUFFER, tId);
-        if UseTwoTexturesCoord then
-           glTexCoordPointer(2, GL_FLOAT, SizeOf(TAffineVector), nil)
-        else glTexCoordPointer(3, GL_FLOAT, SizeOf(TAffineVector), nil);
-      end else glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
-      if (stId <> 0) and (uSecondaryTexure in RenderBuffs) and (not (uMultitexture in RenderBuffs))
-      then begin
-        glClientActiveTexture(GL_TEXTURE1);
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glBindBuffer(GL_ARRAY_BUFFER, stId);
-        glTexCoordPointer(3, GL_FLOAT, 0, nil);
-      end else if (uMultitexture in RenderBuffs) then begin
-        for i:= 0 to ExTexCoords.Count - 1 do begin
-            glClientActiveTexture(BaseTex+i);
-            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-            attr:=ExTexCoords[i];
-            glBindBuffer(GL_ARRAY_BUFFER, attr.Id);
-            glTexCoordPointer(attr.CCount, attr.CType, attr.CSize, nil);
-            if ( uExTexEnvMode in RenderBuffs) then
-               if i<ExTexEnvMode.Count then
-                  glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, ExTexEnvMode[i]);
-        end;
-      end;
-
-      if (cId<>0) and (uColors in RenderBuffs) then begin
-        glEnableClientState(GL_COLOR_ARRAY);
-        glBindBuffer(GL_ARRAY_BUFFER, cId);
-        glColorPointer(4,GL_FLOAT, 0, nil);
-        glEnable(GL_COLOR_MATERIAL);
-        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-      end;
-
-      for i:=0 to AttribList.Count-1 do begin
-        attr:=AttribList[i];
-        if (attr.Location>0) and (attr.Id>0) then begin
-          glBindBuffer(GL_ARRAY_BUFFER, attr.Id);
-          glEnableVertexAttribArray(attr.Location);
-          glVertexAttribPointer(attr.Location, attr.CCount, attr.CType, false, 0, nil);
-        end;
-      end;
-
-      glBindBuffer(GL_ARRAY_BUFFER, vId);
-      glVertexPointer(3, GL_FLOAT, 0, nil);
-
-      if ((iId <> 0) and (uIndices in RenderBuffs)) then
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iId);
-    end;
     if ElementsCount>MaxElements then RCount:=MaxElements else
     RCount:=ElementsCount;
     if SubMeshes.Count=0 then begin
@@ -1787,24 +1817,8 @@ begin
         DrawElements: glDrawElements(FaceType, RCount, GL_UNSIGNED_INT, nil);
       end;
     end else RenderMeshes(VBuff,VBuff.SubMeshes);
-    if vao=0 then begin
-      glDisableClientState(GL_VERTEX_ARRAY);
-      if nId <> 0 then glDisableClientState(GL_NORMAL_ARRAY);
-      if tId <> 0 then glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-      if cId <> 0 then begin
-         glDisableClientState(GL_COLOR_ARRAY);
-         glDisable(GL_COLOR_MATERIAL);
-      end;
-      if (uMultitexture in RenderBuffs) then begin
-        for i:= 0 to ExTexCoords.Count - 1 do begin
-            glClientActiveTexture(BaseTex+i);
-            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        end;
-      end;
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      if (iId <> 0) then glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-    end else glBindVertexArray(0);
   end;
+  UnBindVBO(VBuff);
 end;
 
 procedure RenderVBOBuffer(var VBuff: TVBOBuffer; MatList: TList);overload;
@@ -1813,55 +1827,8 @@ var i,RCount:integer;
     Attr: PVBOAttribute;
 begin
   if (not assigned(MatList)) or (MatList.Count=0) then exit;
+  BindVBO(VBuff);
   with VBuff do begin
-    if (not Builded) or (vId = 0) then exit;
-    glEnableClientState(GL_VERTEX_ARRAY);
-    if (nId <> 0) and (uNormals in RenderBuffs) then begin
-      glEnableClientState(GL_NORMAL_ARRAY);
-      glBindBuffer(GL_ARRAY_BUFFER, nId);
-      glNormalPointer(GL_FLOAT, 0, nil);
-    end else glDisableClientState(GL_NORMAL_ARRAY);
-
-    if (tId <> 0) and (uTexCoords in RenderBuffs) then begin
-      glClientActiveTexture(GL_TEXTURE0);
-      glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-      glBindBuffer(GL_ARRAY_BUFFER, tId);
-      if UseTwoTexturesCoord then
-         glTexCoordPointer(2, GL_FLOAT, SizeOf(TAffineVector), nil)
-      else glTexCoordPointer(3, GL_FLOAT, SizeOf(TAffineVector), nil);
-    end else glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-
-    if (stId <> 0) and (uSecondaryTexure in RenderBuffs) and (not (uMultitexture in RenderBuffs))
-    then begin
-      glClientActiveTexture(GL_TEXTURE1);
-      glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-      glBindBuffer(GL_ARRAY_BUFFER, stId);
-      glTexCoordPointer(3, GL_FLOAT, 0, nil);
-    end else if (uMultitexture in RenderBuffs) then begin
-      for i:= 0 to ExTexCoords.Count - 1 do begin
-          glClientActiveTexture(GL_TEXTURE1+i);
-          glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-          Attr:=ExTexCoords[i];
-          glBindBuffer(GL_ARRAY_BUFFER, attr.Id);
-          glTexCoordPointer(attr.CCount, attr.CType, attr.CSize, nil);
-          if ( uExTexEnvMode in RenderBuffs) then
-             if i<ExTexEnvMode.Count then
-                glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, ExTexEnvMode[i]);
-      end;
-    end;
-
-    if (cId<>0) and (uColors in RenderBuffs) then begin
-      glEnableClientState(GL_COLOR_ARRAY);
-      glBindBuffer(GL_ARRAY_BUFFER, cId);
-      glColorPointer(4,GL_FLOAT, 0, nil);
-      glEnable(GL_COLOR_MATERIAL);
-    end;
-
-    glBindBuffer(GL_ARRAY_BUFFER, vId);
-    glVertexPointer(3, GL_FLOAT, 0, nil);
-
-    if ((iId <> 0) and (uIndices in RenderBuffs)) then
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iId);
     if ElementsCount>MaxElements then RCount:=MaxElements
     else RCount:=ElementsCount;
     for i:=0 to MatList.Count-1 do begin
@@ -1871,22 +1838,8 @@ begin
           DrawElements: glDrawElements(FaceType, RCount, GL_UNSIGNED_INT, nil);
         end;
     end;
-    glDisableClientState(GL_VERTEX_ARRAY);
-    if nId <> 0 then glDisableClientState(GL_NORMAL_ARRAY);
-    if tId <> 0 then glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    if cId <> 0 then begin
-       glDisableClientState(GL_COLOR_ARRAY);
-       glDisable(GL_COLOR_MATERIAL);
-    end;
-    if (uMultitexture in RenderBuffs) then begin
-      for i:= 0 to ExTexCoords.Count - 1 do begin
-          glClientActiveTexture(GL_TEXTURE1+i);
-          glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-      end;
-    end;
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    if (iId <> 0) and (not idxBindOnce) then glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
   end;
+  UnBindVBO(VBuff);
 end;
 
 procedure RenderVBOMultiBuffer(var Buffs: TMultiBuffer; SingleCall:boolean=true);
@@ -3623,6 +3576,214 @@ function VectorToQuat(const Q: TVector): TQuaternion;
 begin
   result.ImagPart:=affineVectorMake(Q);
   result.RealPart:=Q[3];
+end;
+
+{ TInterleavedBuffer }
+
+function TInterleavedBuffer.AddVertex: integer;
+var i,n: integer;
+begin
+  if not FStructureLocked then begin
+    FRecordSize:=0;
+    for i:=0 to high(FDescriptors) do
+      FRecordSize:=FRecordSize+FDescriptors[i].size;
+    for i:=0 to high(FDescriptors) do
+      FDescriptors[i].stride:=FRecordSize*4;
+    FStructureLocked:=true;
+  end;
+  inc(FCount); FBaseIndex:=FList.Count;
+  FList.Count:=FList.Count+FRecordSize;
+  result:=FBaseIndex;
+end;
+
+procedure TInterleavedBuffer.AttributeValue(DescrIndex: byte; s,
+  t: single);
+var n: integer;
+begin
+  assert(DescrIndex<=high(FDescriptors),'Descriptor index out of range.');
+  n:=GetAttribPos(DescrIndex);
+  FList[n]:=s; FList[n+1]:=t;
+end;
+
+procedure TInterleavedBuffer.AttributeValue(DescrIndex: byte; x, y,
+  z: single);
+var n: integer;
+begin
+  assert(DescrIndex<=high(FDescriptors),'Descriptor index out of range.');
+  n:=GetAttribPos(DescrIndex);
+  FList[n]:=x; FList[n+1]:=y; FList[n+2]:=z;
+end;
+
+procedure TInterleavedBuffer.AttributeValue(DescrIndex: byte; r, g, b,
+  a: single);
+var n: integer;
+begin
+  assert(DescrIndex<=high(FDescriptors),'Descriptor index out of range.');
+  n:=GetAttribPos(DescrIndex);
+  FList[n]:=r; FList[n+1]:=g; FList[n+2]:=b; FList[n+3]:=a;
+end;
+
+procedure TInterleavedBuffer.BindToVBO(var VBO: TVBOBuffer);
+var i: integer;
+    texpos: cardinal;
+begin
+  for i:=0 to high(FDescriptors) do begin
+    with FDescriptors[i] do
+    case vaType of
+      atVertex: begin
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glVertexPointer( size, GL_FLOAT, stride, pointer(offset*4));
+      end;
+      atNormal: begin
+        if uNormals in VBO.RenderBuffs then begin
+          glEnableClientState(GL_NORMAL_ARRAY);
+          glNormalPointer( GL_FLOAT, stride, pointer(offset*4));
+        end;
+      end;
+      atColor: begin
+        if uColors in VBO.RenderBuffs then begin
+          glEnableClientState(GL_COLOR_ARRAY);
+          glEnable(GL_COLOR_MATERIAL);
+          glColorPointer( size, GL_FLOAT, stride, pointer(offset*4));
+        end;
+      end;
+      atTexCoord: begin
+        if uTexCoords in VBO.RenderBuffs then begin
+          glClientActiveTexture(GL_TEXTURE0);
+          glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+          glTexCoordPointer( size, GL_FLOAT, stride, pointer(offset*4));
+        end;
+      end;
+      atTexCoord0..atTexCoord7: begin
+        if uMultitexture in VBO.RenderBuffs then begin
+          texpos:=byte(vaType)-byte(atTexCoord0)+GL_TEXTURE0;
+          glClientActiveTexture(texpos);
+          glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+          glTexCoordPointer( size, GL_FLOAT, stride, pointer(offset*4));
+        end;
+      end;
+    end;
+  end;
+end;
+
+procedure TInterleavedBuffer.BuildVBO(var VBO: TVBOBuffer);
+var attr: PVBOAttribute;
+    i:integer;
+begin
+  vbo.Struct:=bsInterleaved;
+  new(attr); vbo.AttribList.Add(attr);
+  attr.Id:=0; attr.Data:=FList.List;
+  attr.Size:=FList.DataSize;
+  attr.CCount:=1;
+  attr.CSize:=FRecordSize;
+  attr.CType:=GL_FLOAT;
+  attr.Name:='Interleaved buffer';
+  attr.DataHandler:=self;
+  Attr.AttrType:=atInterleaved;
+  attr.Location:=-1;
+  attr.tag:='';
+  GenVBOBuff(VBO);
+  for i:=0 to high(FDescriptors) do begin
+    case FDescriptors[i].vaType of
+      atNormal: Include(VBO.RenderBuffs,uNormals);
+      atColor: Include(VBO.RenderBuffs,uColors);
+      atTexCoord: if not (uMultitexture in VBO.RenderBuffs)
+                  then Include(VBO.RenderBuffs,uTexCoords);
+      atTexCoord0..atTexCoord7: begin
+        exclude(VBO.RenderBuffs,uTexCoords);
+        Include(VBO.RenderBuffs,uMultitexture);
+      end;
+    end;
+  end;
+end;
+
+constructor TInterleavedBuffer.Create;
+begin
+  inherited;
+  FList:=TSingleList.Create;
+  FCount:=0; FBaseIndex:=0;
+  FOffset:=0;
+  FStructureLocked:=false;
+  FRecordSize:=-1;
+end;
+
+function TInterleavedBuffer.CreateDescriptor(aSize: cardinal;
+  aType: TAttribType; aName: string): integer;
+var i: integer;
+begin
+  assert(FStructureLocked=false,'You can''t add new Descriptor after adding records.');
+  setlength(FDescriptors,length(FDescriptors)+1);
+  i:=high(FDescriptors); result:=i;
+  with FDescriptors[i] do begin
+    Offset:=FOffset;
+    Size:=aSize; Stride:=0;
+    FOffset:=FOffset+size;
+    vaType:=aType;
+    if aName<>'' then Name:=aName else begin
+       if aType in [atVertex..atColor] then
+         Name:=CDefAttribName[aType]
+       else Name:='';
+    end;
+  end;
+end;
+
+destructor TInterleavedBuffer.Destroy;
+begin
+  FList.Free;
+  inherited;
+end;
+
+function TInterleavedBuffer.GetAttribPos(DescrIndex: byte): integer;
+begin
+  result:=FBaseIndex+FDescriptors[DescrIndex].offset;
+end;
+
+function TInterleavedBuffer.getBuffData: pointer;
+begin
+  result:=FList.List;
+end;
+
+function TInterleavedBuffer.getDescr(Index: byte): TInterleavedAttrib;
+begin
+  result:=FDescriptors[Index];
+end;
+
+procedure TInterleavedBuffer.SetDescr(Index: byte;
+  const Value: TInterleavedAttrib);
+begin
+  FDescriptors[Index]:=Value;
+end;
+
+procedure TInterleavedBuffer.UnBindVBO(var VBO: TVBOBuffer);
+var i: integer;
+    texpos: cardinal;
+begin
+  for i:=0 to high(FDescriptors) do begin
+    with FDescriptors[i] do
+    case vaType of
+      atVertex: glDisableClientState(GL_VERTEX_ARRAY);
+      atNormal: if uNormals in VBO.RenderBuffs then
+          glDisableClientState(GL_NORMAL_ARRAY);
+      atColor:
+        if uColors in VBO.RenderBuffs then begin
+          glDisableClientState(GL_COLOR_ARRAY);
+          glDisable(GL_COLOR_MATERIAL);
+        end;
+      atTexCoord: begin
+        if uTexCoords in VBO.RenderBuffs then begin
+          glClientActiveTexture(GL_TEXTURE0);
+          glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        end;
+      end;
+      atTexCoord0..atTexCoord7: begin
+        if uMultitexture in VBO.RenderBuffs then begin
+          texpos:=byte(vaType)-byte(atTexCoord0)+GL_TEXTURE0;
+          glClientActiveTexture(texpos);
+          glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        end;
+      end;
+    end;
+  end;
 end;
 
 initialization
