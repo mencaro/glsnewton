@@ -566,6 +566,7 @@ Type
     FSId: cardinal;
     FShaders: TShaders;
     FVBOBuff: PVBOBuffer;
+    FBreaks: TIntegerList;
     function GetNode(Index: Integer): TAffineVector;
     procedure SetNode(Index: Integer; const Value: TAffineVector);
     procedure CreateVLShader;
@@ -578,6 +579,7 @@ Type
 
     function AddNode(v: TAffineVector): integer; overload;
     function AddNode(x,y,z: single): integer; overload;
+    procedure BreakLine;
 
     property LineWidth: single read FLineWidth write FLineWidth;
     property Nodes[Index: Integer]: TAffineVector read GetNode write SetNode; default;
@@ -2021,6 +2023,7 @@ begin
   FNodes:=TAffineVectorList.Create;
   FNodes.Count:=MaxNodes;
   FMaxCapacity:=MaxNodes;
+  FBreaks:=TIntegerList.Create;
   //CreateVBOBuffer
   FUpdated:=false;
   FCount:=0; FSId:=0;
@@ -2135,6 +2138,7 @@ destructor TVolumetricLines.Destroy;
 begin
   FNodes.Free; FShaders.Free;
   FreeVBOBuffer(FVBOBuff^); Dispose(FVBOBuff);
+  FBreaks.Free;
   inherited;
 end;
 
@@ -2145,11 +2149,19 @@ begin
 end;
 
 procedure TVolumetricLines.RenderObject(const ViewMatrix: TMatrix);
-var i: integer;
+var i,br: integer;
     attr: PVBOAttribute;
+    mv: TMatrix;
 begin
   if FUpdated then with FVBOBuff^ do begin
-     for i:=0 to FCount-2 do AddLine(i,i+1);
+     FVBOBuff.ElementsCount:=0; br:=0; i:=0;
+     while i<FCount-1 do begin
+       if FBreaks.Count>br then begin
+         if i+1=FBreaks[br] then inc(br)
+         else AddLine(i,i+1);
+       end else AddLine(i,i+1);
+       inc(i);
+     end;
      UpdateVBOBuff(vId,Vertexes.List,0,(FCount-1)*48);
      attr:=ExTexCoords[0]; UpdateVBOBuff(attr.Id,attr.Data,0,(FCount-1)*48);
      attr:=ExTexCoords[1]; UpdateVBOBuff(attr.Id,attr.Data,0,(FCount-1)*48);
@@ -2164,7 +2176,9 @@ begin
   glEnable( GL_DEPTH_TEST );
 
   glPushMatrix;
-//  glLoadMatrixf(PGLFloat(@ViewMatrix));
+  mv:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
+  //glLoadMatrixf(PGLFloat(@ViewMatrix));
+  glLoadMatrixf(@mv);
   MaterialObject.Apply;
   FShaders.UseProgramObject(FSId);
   FShaders.SetUniforms(FSId,'volumeLineTexure',0);
@@ -2198,6 +2212,11 @@ begin
   FVBOBuff.ElementsCount:=4;
   FVBOBuff.VertexCount:=4;
   FVBOBuff.MaxElements:=4;
+end;
+
+procedure TVolumetricLines.BreakLine;
+begin
+  FBreaks.Add(FCount);
 end;
 
 { TVBOParticles }

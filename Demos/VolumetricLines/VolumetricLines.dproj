@@ -3,7 +3,7 @@
 			<ProjectGuid>{87870515-7E43-4A2A-9C9D-656D3B119ACB}</ProjectGuid>
 			<MainSource>VolumetricLines.dpr</MainSource>
 			<Base>True</Base>
-			<Config Condition="'$(Config)'==''">Release</Config>
+			<Config Condition="'$(Config)'==''">Debug</Config>
 			<Platform>Win32</Platform>
 			<AppType>Application</AppType>
 			<FrameworkType>VCL</FrameworkType>
@@ -77,7 +77,7 @@
 						<Source Name="MainSource">VolumetricLines.dpr</Source>
 					</Source>
 					<Language>
-						<Language Name="RootDir">..\..\..\..\VBOMesh2.0\RawDemos\VolumetricLines\</Language>
+						<Language Name="RootDir">I:\GLScene\VBOMesh2.0\RawDemos\VolumetricLines\</Language>
 					</Language>
 					<VersionInfo>
 						<VersionInfo Name="IncludeVerInfo">False</VersionInfo>
