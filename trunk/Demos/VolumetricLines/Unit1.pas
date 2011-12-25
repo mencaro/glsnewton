@@ -47,6 +47,7 @@ begin
   GLSceneViewer1.Buffer.RenderingContext.Activate;
   OGLStateEmul.GLStateCache.CheckStates;
   world:=TVBOMesh.CreateAsChild(GLScene1.Objects);
+  world.OldRender:=false;
   Beam:=TTexture.CreateFromFile('Media\red_laser.bmp');
   Glow:=TTexture.CreateFromFile('Media\blue_glow.bmp');;
 
@@ -54,11 +55,22 @@ begin
   VL.Texture:=Beam;
   vl.Blending:=bmAdditive;
 
+  VL.AddNode(-1,1,0);
+  VL.AddNode( 1,1,0);
+  VL.BreakLine;
+  VL.AddNode(-1,0,0);
+  VL.AddNode( 1,0,0);
+  VL.BreakLine;
   VL.AddNode(-1,-1,0);
   VL.AddNode( 1,-1,0);
-  VL.AddNode( 1, 1,0);
-  VL.AddNode(-1, 1,0);
-  VL.AddNode(-1,-1,0);
+  VL.BreakLine;
+
+
+  VL.AddNode(-2,-2,0);
+  VL.AddNode( 2,-2,0);
+  VL.AddNode( 2, 2,0);
+  VL.AddNode(-2, 2,0);
+  VL.AddNode(-2,-2,0);
 
   VL.LineWidth:=0.2;
   VL.Visible:=true;
