@@ -42,6 +42,7 @@ Type
   TVBOMeshItem = class
   private
     procedure setParent(const Value: TVBOMeshItem);
+    procedure setChilde(const Value: TVBOMeshItem);
   protected
     FUseParentViewer: boolean;
     FParentViewer: PViewerSettings;
@@ -64,7 +65,7 @@ Type
     property ProcessChilds: TProcessChilds read FProcessChilds write FProcessChilds;
     property UseParentViewer: boolean read FUseParentViewer write FUseParentViewer;
     property ParentViewer: PViewerSettings read FParentViewer write FParentViewer;
-    property Childe: TVBOMeshItem read FChilde write FChilde;
+    property Childe: TVBOMeshItem read FChilde write setChilde;
     property Parent: TVBOMeshItem read FParent write setParent;
   end;
 
@@ -184,6 +185,7 @@ end;
 
 destructor TVBOMeshItem.Destroy;
 begin
+  DispatchNotification(ntRemoved);
   if assigned(FParent) then FParent.Notification(self,ntRemoved);
   if assigned(FChilde) and (FChilde.FOwner=self) then FreeAndNil(FChilde);
   FSubscribers.Free;
@@ -207,8 +209,17 @@ begin
     ntUnsibscribe, ntRemoved: begin
       i:=FSubscribers.IndexOf(Sender);
       if i>=0 then FSubscribers.Delete(i);
+      if Sender=FChilde then FChilde:=nil;
+      if Sender=FParent then FParent:=nil;
+
     end;
   end;
+end;
+
+procedure TVBOMeshItem.setChilde(const Value: TVBOMeshItem);
+begin
+  FChilde := Value;
+  if assigned(Value) then FChilde.Subscribe(self);
 end;
 
 procedure TVBOMeshItem.setParent(const Value: TVBOMeshItem);

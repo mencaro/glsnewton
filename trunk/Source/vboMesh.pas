@@ -1,4 +1,8 @@
   { TODO 1 :
+ - Считать Extents для коллекций, контейнеров и чаилдов. Добавить проверку
+   фрастум/окклюжн кулинга по этому Extents. Пересчитывать Extents при изменении
+   стуктуры объекта. Добавить свойство управляющее проверкой видимости (только
+   видимость родителя (через свойство чаилда), родитель + чаилды, каждый сам за себя)
  - Добавить StrunctureChanged ко всем методам Add*
  - Пересмотреть рендер 3ds
  - Источник света как MovableObject
@@ -1432,7 +1436,7 @@ begin
   Temp.Vertexes.TransformAsPoints(wm);
   Temp.Normals.TransformAsVectors(wm);
   AttachBuffer(Temp^,Res^);
-  FreeVBOMem(Temp^); Dispose(Temp);
+  FreeVBOBuffer(Temp^); Dispose(Temp);
   Temp:=CreatePlane(Height,Depth,TilesY,TilesZ,nil,false);
   wm:=CreateRotationMatrixZ(-Pi/2);
   Temp.Vertexes.TransformAsPoints(wm);
@@ -1443,7 +1447,7 @@ begin
   Temp.Vertexes.TransformAsPoints(wm);
   Temp.Normals.TransformAsVectors(wm);
   AttachBuffer(Temp^,Res^);
-  FreeVBOMem(Temp^); Dispose(Temp);
+  FreeVBOBuffer(Temp^); Dispose(Temp);
   Temp:=CreatePlane(Width,Height,TilesX,TilesY,nil,false);
   wm:=CreateRotationMatrixX(-Pi/2);
   Temp.Vertexes.TransformAsPoints(wm);
@@ -1453,7 +1457,8 @@ begin
   wm:=CreateRotationMatrixX(Pi);
   Temp.Vertexes.TransformAsPoints(wm);
   Temp.Normals.TransformAsVectors(wm);
-  AttachBuffer(Temp^,Res^); FreeVBOMem(Temp^); Dispose(Temp);
+  AttachBuffer(Temp^,Res^);
+  FreeVBOBuffer(Temp^); Dispose(Temp);
 
   GenVBOBuff(Res^, False); Res.MatName:='';
   if not assigned(FMeshList) then FMeshList:=TList.Create;
@@ -1560,6 +1565,7 @@ end;
 destructor TMeshCollection.Destroy;
 begin
   FreeObjectList(FMeshList);
+
   FMaterials.Free; FTextures.Free;
   FMaterialObjects.Free;
 
@@ -1971,7 +1977,7 @@ var mo: TVBOMeshObject;
 begin
   mo:=TVBOMeshObject.Create;
   with mo do begin
-    OctreeList.Free; MeshList.Free;
+    OctreeList.Free; MeshList.Free; LodList.Free;
     MeshType:=mtInstance;
     Visible:=true;
     Name:='VBOProxy'+inttostr(FMeshList.Count);
