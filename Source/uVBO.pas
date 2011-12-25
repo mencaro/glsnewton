@@ -428,12 +428,18 @@ type
     procedure BindToVBO(var VBO: TVBOBuffer);
     procedure UnBindVBO(var VBO: TVBOBuffer);
 
-    function CreateDescriptor(aSize: cardinal; aType: TAttribType;
-      aName: string=''): integer;
+    function CreateDescriptor(aSize: cardinal; aType: TAttribType; aName: string=''): integer;
     function AddVertex: integer;
     procedure AttributeValue(DescrIndex: byte; x,y,z: single); overload;
     procedure AttributeValue(DescrIndex: byte; s,t: single); overload;
     procedure AttributeValue(DescrIndex: byte; r,g,b,a: single); overload;
+    procedure AttributeValue(DescrIndex: byte; v: TAffineVector); overload;
+    procedure AttributeValue(DescrIndex: byte; st: TTexPoint); overload;
+    procedure AttributeValue(DescrIndex: byte; v: TVector); overload;
+
+
+    function AddFloatValue(Value: single): integer;
+    procedure LockBuffer;
 
     property Count: integer read FCount;
     property RecordSize: integer read FRecordSize;
@@ -937,7 +943,11 @@ begin
         attr:=ExTexCoords[i];
         if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
         then attr.DataHandler.Free else dispose(attr.Data);
-        dispose(attr);
+      end;
+      for i := 0 to AttribList.Count - 1 do begin
+        attr:=AttribList[i];
+        if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
+        then attr.DataHandler.Free else dispose(attr.Data);
       end;
       Cleared := true
     end else Cleared := false;
@@ -1143,17 +1153,18 @@ begin
         attr:=ExTexCoords[i];
         if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
         then attr.DataHandler.Free else dispose(attr.Data);
-        dispose(attr);
+        glDeleteBuffers(1, @attr.Id); dispose(attr);
       end;
       for i:= 0 to AttribList.Count - 1 do begin
         attr:=AttribList[i];
         if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
         then attr.DataHandler.Free else dispose(attr.Data);
         glDeleteBuffers(1, @attr.Id); dispose(attr);
-      end; FreeAndNil(AttribList);
-
+      end;
+      FreeAndNil(AttribList);
       FreeAndNil(ExTexCoords);
       FreeAndNil(ExTexEnvMode);
+
       Cleared:=true;
     end;
   end;
@@ -1184,7 +1195,7 @@ begin
           attr:=ExTexCoords[i];
           if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
           then attr.DataHandler.Free else dispose(attr.Data);
-          dispose(attr);
+          //dispose(attr);
           //FreeAndNil(temp);
         end;
      end;
@@ -1193,7 +1204,7 @@ begin
         attr:=AttribList[i];
         if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
         then attr.DataHandler.Free else dispose(attr.Data);
-        dispose(attr);
+        //dispose(attr);
       end;
      end;
 
@@ -1496,9 +1507,10 @@ begin
         end else begin
           v2 := Vertexes[Indices[i - 1]];
           v3 := Vertexes[Indices[i - 2]];
-          nm := CalcPlaneNormal(v3, v2, v1);
+          if odd(i) then nm := CalcPlaneNormal(v1, v2, v3)
+          else nm := CalcPlaneNormal(v3, v2, v1);
 //          NegateVector(nm);
-          Normals[Indices[i]] := nm;
+          Normals[Indices[i]] := Vectoradd(Normals[Indices[i]],nm);//nm;
         end;
       end;
     end;
@@ -3580,6 +3592,11 @@ end;
 
 { TInterleavedBuffer }
 
+function TInterleavedBuffer.AddFloatValue(Value: single): integer;
+begin
+  FList.Add(Value);
+end;
+
 function TInterleavedBuffer.AddVertex: integer;
 var i,n: integer;
 begin
@@ -3748,6 +3765,20 @@ begin
   result:=FDescriptors[Index];
 end;
 
+procedure TInterleavedBuffer.LockBuffer;
+var i: integer;
+begin
+  assert(length(FDescriptors)>0,'You need to describe attributes first.');
+  if not FStructureLocked then begin
+    FRecordSize:=0;
+    for i:=0 to high(FDescriptors) do
+      FRecordSize:=FRecordSize+FDescriptors[i].size;
+    for i:=0 to high(FDescriptors) do
+      FDescriptors[i].stride:=FRecordSize*4;
+    FStructureLocked:=true;
+  end;
+end;
+
 procedure TInterleavedBuffer.SetDescr(Index: byte;
   const Value: TInterleavedAttrib);
 begin
@@ -3786,11 +3817,26 @@ begin
   end;
 end;
 
+procedure TInterleavedBuffer.AttributeValue(DescrIndex: byte; v: TAffineVector);
+begin
+  AttributeValue(DescrIndex,v[0],v[1],v[2]);
+end;
+
+procedure TInterleavedBuffer.AttributeValue(DescrIndex: byte; st: TTexPoint);
+begin
+  AttributeValue(DescrIndex,st.S,st.T);
+end;
+
+procedure TInterleavedBuffer.AttributeValue(DescrIndex: byte; v: TVector);
+begin
+  AttributeValue(DescrIndex,v[0],v[1],v[2],v[3]);
+end;
+
 initialization
   vCubicOccluder:=CreateCubicOccluder(false);
 
 finalization
   FreeVBOBuffer(vCubicOccluder^);
-
+  dispose(vCubicOccluder);
 end.
 

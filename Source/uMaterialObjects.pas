@@ -268,6 +268,7 @@ end;
 
 function TMaterialObject.AddNewMaterial(aName: string): TMaterial;
 begin
+  if assigned(FMaterial) and (FMaterial.Owner=self) then FMaterial.Free;
   FMaterial:=TMaterial.Create;
   FMaterial.Name:=aName;
   FMaterial.Owner:=self;
@@ -278,6 +279,7 @@ end;
 
 function TMaterialObject.AddNewTexture(aName: string): TTexture;
 begin
+  if assigned(FTexture) and (FTexture.Owner=self) then FTexture.Free;
   FTexture:=TTexture.Create;
   FTexture.Name:=aName;
   FTexture.Owner:=self;

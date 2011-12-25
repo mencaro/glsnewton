@@ -126,7 +126,9 @@ var i: integer;
 begin
   if not assigned(List) then exit;
   for i:=0 to List.Count-1 do begin
-    p:=List[i]; if assigned(p) then FreeAndNil(p);
+    p:=List[i];
+    if assigned(p) then
+      FreeAndNil(p);
   end; FreeAndNil(List);
 end;
 

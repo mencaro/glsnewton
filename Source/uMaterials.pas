@@ -596,7 +596,8 @@ end;
 function TLightLibrary.AddNewLight: TLightSource;
 begin
   result:=TLightSource.Create;
-  Add(result); //result.Enabled:=true;
+  Add(result);
+  //result.Enabled:=true;
   if assigned(FOnAdding) then FOnAdding(self);
 end;
 procedure TLightLibrary.Apply;
