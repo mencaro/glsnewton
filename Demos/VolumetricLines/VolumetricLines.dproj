@@ -77,7 +77,7 @@
 						<Source Name="MainSource">VolumetricLines.dpr</Source>
 					</Source>
 					<Language>
-						<Language Name="RootDir">I:\GLScene\VBOMesh2.0\RawDemos\VolumetricLines\</Language>
+						<Language Name="RootDir">..\..\Demos\VolumetricLines\</Language>
 					</Language>
 					<VersionInfo>
 						<VersionInfo Name="IncludeVerInfo">False</VersionInfo>

@@ -572,7 +572,7 @@ begin
 //  QueryObjectList.Capacity:=FMeshList.Count*2;
   FQueryObjectList.Count:=0;
   for i:=0 to FMeshList.Count-1 do begin
-    mo:=FMeshList[i];
+    mo:=FMeshList[i]; mo.ParentViewer:=@FRender.FSceneViewer;
     if assigned(mo) and (mo.MeshItemType=mcMeshObject) then begin
       if mo.Culled then mo.Occluded:=false; mo.Culled:=False;
       if (mo.Visible) or (mo.ProxyList.Count>0) then begin
