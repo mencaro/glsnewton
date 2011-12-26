@@ -587,7 +587,7 @@ Type
 
 //    procedure Delete
 //    procedure Exchange
-//    procedure Clear
+    procedure Clear;
   end;
 
 procedure QuadFromCount (count: integer; var size: integer);
@@ -2015,6 +2015,11 @@ begin
   result:=AddNode(affinevectormake(x,y,z));
 end;
 
+procedure TVolumetricLines.Clear;
+begin
+  FCount:=0; FUpdated:=true; FBreaks.Clear;
+end;
+
 constructor TVolumetricLines.Create(MaxNodes: integer = 1000);
 var TC1,TC2,TC3: TAffineVectorList;
     attr: PVBOAttribute;
@@ -2162,13 +2167,15 @@ begin
        end else AddLine(i,i+1);
        inc(i);
      end;
-     UpdateVBOBuff(vId,Vertexes.List,0,(FCount-1)*48);
-     attr:=ExTexCoords[0]; UpdateVBOBuff(attr.Id,attr.Data,0,(FCount-1)*48);
-     attr:=ExTexCoords[1]; UpdateVBOBuff(attr.Id,attr.Data,0,(FCount-1)*48);
-     attr:=ExTexCoords[2]; UpdateVBOBuff(attr.Id,attr.Data,0,(FCount-1)*48);
-     FVBOBuff.ElementsCount:=(FCount-1)*4;
-     FVBOBuff.MaxElements:=FVBOBuff.ElementsCount;
-     FVBOBuff.VertexCount:=FVBOBuff.ElementsCount;
+     if FCount>0 then begin
+       UpdateVBOBuff(vId,Vertexes.List,0,(FCount-1)*48);
+       attr:=ExTexCoords[0]; UpdateVBOBuff(attr.Id,attr.Data,0,(FCount-1)*48);
+       attr:=ExTexCoords[1]; UpdateVBOBuff(attr.Id,attr.Data,0,(FCount-1)*48);
+       attr:=ExTexCoords[2]; UpdateVBOBuff(attr.Id,attr.Data,0,(FCount-1)*48);
+       FVBOBuff.ElementsCount:=(FCount-1)*4;
+       FVBOBuff.MaxElements:=FVBOBuff.ElementsCount;
+       FVBOBuff.VertexCount:=FVBOBuff.ElementsCount;
+     end;
      FUpdated:=false;
   end;
   glDisable(GL_CULL_FACE);
