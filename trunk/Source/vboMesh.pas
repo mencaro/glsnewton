@@ -640,12 +640,12 @@ begin
   end else begin
     glGetFloatv(GL_MODELVIEW_MATRIX, @FViewMatrix);
     glGetFloatv(GL_PROJECTION_MATRIX, @FProjectionMatrix);
+    FRender.FSceneViewer.ViewMatrix:=FViewMatrix;
+    FRender.FSceneViewer.ProjectionMatrix:=FProjectionMatrix;
   end;
   F := GetFrustum(FProjectionMatrix, FViewMatrix);
   FRender.FSceneViewer.Frustum:=F;
   FRender.FSceneViewer.CurrentTime:=time;
-  FRender.FSceneViewer.ViewMatrix:=FViewMatrix;
-  FRender.FSceneViewer.ProjectionMatrix:=FProjectionMatrix;
 
   glGetIntegerv(GL_VIEWPORT, @FViewPort);
 
