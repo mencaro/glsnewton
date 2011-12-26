@@ -47,7 +47,6 @@ begin
   GLSceneViewer1.Buffer.RenderingContext.Activate;
   OGLStateEmul.GLStateCache.CheckStates;
   world:=TVBOMesh.CreateAsChild(GLScene1.Objects);
-  world.OldRender:=false;
   Beam:=TTexture.CreateFromFile('Media\red_laser.bmp');
   Glow:=TTexture.CreateFromFile('Media\blue_glow.bmp');;
 

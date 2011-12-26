@@ -55,7 +55,6 @@ begin
 
   //Добавляем к сцене контейнер с примитивами
   world:=TVBOMesh.CreateAsChild(GLScene1.Objects);
-  world.OldRender:=false;
 
   tex:=TTexture.CreateFromFile('Media\Tile.bmp');
   tex.TextureMode:=tcModulate;

@@ -437,9 +437,9 @@ type
     procedure AttributeValue(DescrIndex: byte; st: TTexPoint); overload;
     procedure AttributeValue(DescrIndex: byte; v: TVector); overload;
 
-
     function AddFloatValue(Value: single): integer;
     procedure LockBuffer;
+    procedure Clear;
 
     property Count: integer read FCount;
     property RecordSize: integer read FRecordSize;
@@ -946,8 +946,14 @@ begin
       end;
       for i := 0 to AttribList.Count - 1 do begin
         attr:=AttribList[i];
-        if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
-        then attr.DataHandler.Free else dispose(attr.Data);
+        if attr.AttrType=atInterleaved then
+          TInterleavedBuffer(attr.DataHandler).Clear
+        else begin
+          if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
+          then begin
+            attr.DataHandler.Free; attr.DataHandler:=nil;
+          end else dispose(attr.Data);
+        end;
       end;
       Cleared := true
     end else Cleared := false;
@@ -1649,7 +1655,8 @@ begin
           assert(AttribList.Count>0,'Interleaved attributes not found.');
           attr:=AttribList[0];
           assert(Attr.AttrType=atInterleaved,'Not interleaved attribute.');
-          assert(attr.DataHandler is TInterleavedBuffer,'Data handler is not TInterleavedBuffer.');
+          assert(assigned(attr.DataHandler),'Data hendler is not assigned');
+          assert(attr.DataHandler is TInterleavedBuffer, 'Data handler is not TInterleavedBuffer.');
           glBindBuffer(GL_ARRAY_BUFFER, attr.Id);
           IB:=TInterleavedBuffer(attr.DataHandler);
           IB.BindToVBO(Buff);
@@ -3699,7 +3706,7 @@ begin
   Attr.AttrType:=atInterleaved;
   attr.Location:=-1;
   attr.tag:='';
-  GenVBOBuff(VBO);
+  GenVBOBuff(VBO,false);
   for i:=0 to high(FDescriptors) do begin
     case FDescriptors[i].vaType of
       atNormal: Include(VBO.RenderBuffs,uNormals);
@@ -3712,6 +3719,11 @@ begin
       end;
     end;
   end;
+end;
+
+procedure TInterleavedBuffer.Clear;
+begin
+  FList.Clear;
 end;
 
 constructor TInterleavedBuffer.Create;
