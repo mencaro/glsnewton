@@ -886,9 +886,16 @@ begin
       case ddspf.dwRGBBitCount of
         32: begin
           InternalFormat:=GL_RGBA8;
-          if ddspf.dwRBitMask<ddspf.dwBBitMask then
-             ColorFormat:=GL_RGBA
+          if ddspf.dwRBitMask<ddspf.dwBBitMask
+          then ColorFormat:=GL_RGBA
           else ColorFormat:=GL_BGRA;
+          DataType:=GL_UNSIGNED_BYTE;
+        end;
+        24: begin
+          InternalFormat:=GL_RGB8;
+          if ddspf.dwRBitMask<ddspf.dwBBitMask
+          then ColorFormat:=GL_RGB
+          else ColorFormat:=GL_BGR;
           DataType:=GL_UNSIGNED_BYTE;
         end;
         8: begin
