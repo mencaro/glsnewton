@@ -14,10 +14,15 @@ type
        function CreateViewMatrix: TMatrix;
        function GetMatrixAdr: pointer;
        procedure SetPosition(const Value: TVector);
-
      public
        constructor Create;
        destructor Destroy; override;
+
+       function SetProjectionMatrix(left, right, bottom, top,
+         zNear, zFar: double): TMatrix; overload;
+       function SetProjectionMatrix(width, height, zNear, zFar: double): TMatrix; overload;
+       function SetPerspective(fovy, aspect, zNear, zFar: double): TMatrix;
+       function SetOrtogonal(width, height, zNear, zFar: double): TMatrix;
 
        procedure UpdateWorldMatrix;
        procedure UpdateViewMatrix;
@@ -163,9 +168,55 @@ begin
   UpdateViewMatrix;
 end;
 
+function TCameraController.SetOrtogonal(width, height, zNear,
+  zFar: double): TMatrix;
+var r,t: double;
+begin
+  r:=width/2; t:=height/2;
+  FProjectionMatrix[0]:=VectorMake(1/r,0,0,0);
+  FProjectionMatrix[1]:=VectorMake(0,1/t,0,0);
+  FProjectionMatrix[2]:=VectorMake(0, 0, -2/(zFar-zNear), 0);
+  FProjectionMatrix[3]:=VectorMake(0,0,-(zFar+zNear)/(zFar-zNear),0);
+  result:=FProjectionMatrix;
+end;
+
+function TCameraController.SetPerspective(fovy, aspect, zNear,
+  zFar: double): TMatrix;
+var top, bottom, left, right: double;
+begin
+  top := zNear * tan(pi/180*fovy/2);
+  bottom := -top;
+  right := aspect*top;
+  left := -right;
+  result:=SetProjectionMatrix(left,right,bottom,top,zNear,zFar);
+end;
+
 procedure TCameraController.SetPosition(const Value: TVector);
 begin
   MoveObject(Value); UpdateWorldMatrix;
+end;
+
+function TCameraController.SetProjectionMatrix(width, height, zNear,
+  zFar: double): TMatrix;
+var r,t: double;
+begin
+  r:=width/2; t:=height/2;
+  FProjectionMatrix[0]:=VectorMake(zNear/r,0,0,0);
+  FProjectionMatrix[1]:=VectorMake(0,zNear/t,0,0);
+  FProjectionMatrix[2]:=VectorMake(0, 0, -(zFar+zNear)/(zFar-zNear), -1);
+  FProjectionMatrix[3]:=VectorMake(0,0,-2*zFar*zNear/(zFar-zNear),0);
+  result:=FProjectionMatrix;
+end;
+
+function TCameraController.SetProjectionMatrix(left, right, bottom, top, zNear,
+  zFar: double): TMatrix;
+begin
+  FProjectionMatrix[0]:=VectorMake((2*zNear)/(right-left),0,0,0);
+  FProjectionMatrix[1]:=VectorMake(0,(2*zNear)/(top-bottom),0,0);
+  FProjectionMatrix[2]:=VectorMake((right+left)/(right-left),
+    (top+bottom)/(top-bottom), -(zFar+zNear)/(zFar-zNear), -1);
+  FProjectionMatrix[3]:=VectorMake(0,0,-2*zFar*zNear/(zFar-zNear),0);
+  result:=FProjectionMatrix;
 end;
 
 function TCameraController.LiftUp(step: single): TVector;

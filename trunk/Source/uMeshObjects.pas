@@ -960,7 +960,7 @@ begin
   Temp:=TList.Create; Temp.Count:=ObjList.Count;
   setlength(pd,ObjList.Count);
   for i:=0 to ObjList.Count-1 do begin
-     pm:=ObjList[i]; mv:=MatrixMultiply(pm^,Matrices.ViewMatrix);
+     pm:=ObjList[i]; mv:=MatrixMultiply(pm^,ParentViewer.ViewMatrix);
      pd[i].p:=mv[3]; pd[i].d:=VectorNorm(pd[i].p); pd[i].Obj:=pm;
      Temp[i]:=@pd[i];
   end;
@@ -979,11 +979,12 @@ var i,j,n: integer;
     d, mind: single;
     v: TVector;
 begin
-  F := GetFrustum(Matrices.ProjectionMatrix, ViewMatrix);
+//  F := GetFrustum(Matrices.ProjectionMatrix, ViewMatrix);
+  F := ParentViewer.Frustum;
   for i:=0 to FProxyMatrixList.Count-1 do begin
-        pm:=FProxyMatrixList[i];
-        if pm<>nil then dispose(pm);
-        FProxyMatrixList[i]:=nil;
+    pm:=FProxyMatrixList[i];
+    if pm<>nil then dispose(pm);
+    FProxyMatrixList[i]:=nil;
   end;
   FProxyMatrixList.Clear;
   if Visible then begin
@@ -995,12 +996,12 @@ begin
   //Frustum culling
   for i:=0 to FProxyList.Count-1 do begin
     ProxyObj:=FProxyList[i];
-    if ProxyObj.Visible and (not ProxyObj.FCulled) then begin
-      if (not ProxyObj.WorldMatrixUpdated) or assigned (ProxyObj.FParent) then ProxyObj.UpdateWorldMatrix;
-      if (not IsVolumeClipped(ProxyObj.Extents, F))
-      and(not ProxyObj.FCulled) then begin
-         new(pm); pm^:=MatrixMultiply(ProxyObj.Matrices.WorldMatrix,ViewMatrix);
-         FProxyMatrixList.Add(pm);
+    if ProxyObj.Visible {and (not ProxyObj.FCulled)} then begin
+      if (not ProxyObj.WorldMatrixUpdated) then ProxyObj.UpdateWorldMatrix;
+      ProxyObj.FCulled:=IsVolumeClipped(ProxyObj.Extents, F);
+      if not ProxyObj.FCulled then begin
+        new(pm); pm^:=MatrixMultiply(ProxyObj.Matrices.WorldMatrix,ViewMatrix);
+        FProxyMatrixList.Add(pm);
       end;
     end;
   end;
@@ -1034,8 +1035,6 @@ var m: TMatrix;
     Rcount: integer;
     singleMat: boolean;
     CMName: string;
-    pm: PMatrix;
-    F: TFrustum;
     mat: TMaterialObject;
 begin
   if FMeshType = mtInstance then exit;
@@ -1582,7 +1581,8 @@ begin
         FChilde.ParentViewer:=FParentViewer;
     if FProcessChilds=pcBefore then FChilde.Process;
   end;
-    RenderObject(Matrices.ViewMatrix);
+//    RenderObject(Matrices.ViewMatrix);
+    RenderObject(ParentViewer.ViewMatrix);
   if assigned(FChilde) then begin
     if FProcessChilds=pcAfter then FChilde.Process;
   end;
@@ -1948,14 +1948,6 @@ begin
     fFromPos_x:=v1[0]; fFromPos_y:=v1[1]; fFromPos_z:=v1[2];
     fToPos_x:=v2[0]; fToPos_y:= v2[1]; fToPos_z:=v2[2];
     VPos:=FVBOBuff.ElementsCount; FUpdated:=true;
-{  with FVBOBuff^ do begin
-    Vertexes[VPos]:=affineVectorMake(-0.2,-0.1, 2); inc(VPos);
-    Vertexes[VPos]:=affineVectorMake(-0.2, 0.1, 2); inc(VPos);
-    Vertexes[VPos]:=affineVectorMake( 0.2, 0.1, 2); inc(VPos);
-    Vertexes[VPos]:=affineVectorMake( 0.2,-0.1, 2); inc(VPos);
-    ElementsCount:=VPos;
-  end;
-}
 
     with FVBOBuff^ do begin
       attr:=ExTexCoords[0]; tc1:=TAffineVectorList(attr.DataHandler);
@@ -1982,32 +1974,7 @@ begin
       tc3[VPos]:=AffineVectorMake( fToPos_x, fToPos_y, fToPos_z );       // end position
       Vertexes[VPos]:=AffineVectorMake( fFromPos_x, fFromPos_y, fFromPos_z );// vertex 3 of quad
       ElementsCount:=VPos+1;
-    end;{
-    with FVBOBuff^ do begin
-      tc1:=ExTexCoords[0]; tc2:=ExTexCoords[1]; tc3:=ExTexCoords[2];
-      tc1[VPos]:=AffineVectorMake(0.0, 0.0, fVolumeWidth );                     // tu, tv, width
-      tc2[VPos]:=AffineVectorMake(-fVolumeWidth, fHalfVolumeWidth, 0 );         // width tweaks
-      tc3[VPos]:=AffineVectorMake(fToPos_x, fToPos_y, fToPos_z );               // end position
-      Vertexes[VPos]:=AffineVectorMake( fFromPos_x, fFromPos_y, fFromPos_z );   // vertex 0 of quad
-      inc(VPos);
-      tc1[VPos]:=AffineVectorMake( 0.0, 0.25, fVolumeWidth );            // tu, tv, width
-      tc2[VPos]:=AffineVectorMake( fVolumeWidth, fHalfVolumeWidth, 0 );  // width tweaks
-      tc3[VPos]:=AffineVectorMake( fToPos_x, fToPos_y, fToPos_z );       // end position
-      Vertexes[VPos]:=AffineVectorMake( fFromPos_x, fFromPos_y, fFromPos_z );// vertex 3 of quad
-      inc(VPos);
-      tc1[VPos]:=AffineVectorMake( 0.25, 0.25, fVolumeWidth );           // tu, tv, width
-      tc2[VPos]:=AffineVectorMake( -fVolumeWidth, fHalfVolumeWidth, 0 ); // width tweaks
-      tc3[VPos]:=AffineVectorMake( fFromPos_x, fFromPos_y, fFromPos_z ); // end position
-      Vertexes[VPos]:=AffineVectorMake( fToPos_x, fToPos_y, fToPos_z );  // vertex 2 of quad
-      inc(VPos);
-      tc1[VPos]:=AffineVectorMake( 0.25, 0.0, fVolumeWidth );            // tu, tv, width
-      tc2[VPos]:=AffineVectorMake( fVolumeWidth, fHalfVolumeWidth, 0 );  // width tweaks
-      tc3[VPos]:=AffineVectorMake( fFromPos_x, fFromPos_y, fFromPos_z ); // end position
-      Vertexes[VPos]:=AffineVectorMake( fToPos_x, fToPos_y, fToPos_z );  // vertex 1 of quad
-      inc(VPos);
-      ElementsCount:=VPos;
-    end;}
-
+    end;
 end;
 
 function TVolumetricLines.AddNode(x, y, z: single): integer;
@@ -2017,7 +1984,7 @@ end;
 
 procedure TVolumetricLines.Clear;
 begin
-  FCount:=0; FUpdated:=true; FBreaks.Clear;
+  FCount:=0; FUpdated:=true; FBreaks.Clear; FVBOBuff.ElementsCount:=0;
 end;
 
 constructor TVolumetricLines.Create(MaxNodes: integer = 1000);
@@ -2183,6 +2150,7 @@ begin
   glEnable( GL_DEPTH_TEST );
 
   glPushMatrix;
+  if WorldMatrixUpdated then UpdateWorldMatrix;
   mv:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
   //glLoadMatrixf(PGLFloat(@ViewMatrix));
   glLoadMatrixf(@mv);
@@ -2205,6 +2173,8 @@ begin
    if Index<FNodes.Count then begin
       FNodes[Index]:=Value; FUpdated:=true; end
    else assert(false,'Index out of Bound!');
+   AABBInclude(TAABB(FBaseExtents),Value);
+   WorldMatrixUpdated:=false;
 end;
 
 procedure TVolumetricLines.AddTestQuad;

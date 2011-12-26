@@ -1,19 +1,13 @@
   { TODO 1 :
  - Переработать ХУД-спрайт
- + Проверить работоспособность TVolumetricLine
-   + добавить возможность задавать отрезки(маркер?),
-   + проверить перемещение линии,
-   - добавить затухание линии (альфа, сужение).
  - Считать Extents для коллекций, контейнеров и чаилдов. Добавить проверку
    фрастум/окклюжн кулинга по этому Extents. Пересчитывать Extents при изменении
    стуктуры объекта. Добавить свойство управляющее проверкой видимости (только
    видимость родителя (через свойство чаилда), родитель + чаилды, каждый сам за себя)
- - Добавить StrunctureChanged ко всем методам Add*
  - Пересмотреть рендер 3ds
  - Источник света как MovableObject
  - Реализовать работу с группами мешей из 3ds/obj
  - Переписать загрузчики 3ds/obj на использование сабмешей
- - Добавить к мешу (фриформе) список используемых материалов
  - Для Instance "Master" реализовать расчет AABB по его инстансам
  - Реализовать сохранение/загрузку графа сцены
  - Доработать систему ЛОДов
@@ -21,8 +15,12 @@
  - Реализовать сериализацию (запись чанка в поток + таблица чанков)
  - Упаковка коллекции в сабмеши одного буфера
  - Сортировка сабмешей перед рендерингом по материалам
- - Создание/Установка проекционной матрицы у CameraController
  - FBO - реализовать рендеринг в слои/мип-уровни текстуры
+ + Создание/Установка проекционной матрицы у CameraController
+ + Добавить FStructureChanged ко всем методам Add*
+ + Проверить работоспособность TVolumetricLine
+   + добавить возможность задавать отрезки(маркер?),
+   + проверить перемещение линии,
  + Переписать проверку трансформации родителя на систему оповещений
  + Добавить систему нотификаций к TVBOMeshItem (регистрация при
      установке парента, оповещение о трансформации и удалении)
@@ -57,6 +55,8 @@
 
 {: vboMesh
 	Historique:
+  26/12/11 - Fantom - TVolumetricLine - добавлена возможность задавать отрезки(BreakLine)
+                    - TCameraController - добавлена установка проекционной матрицы
   17/12/11 - Fantom - Изменения в архитектуре:
                     - Создан базовый класс TVBOMeshItem, от которого наследуются TMovableObject,
                       TMeshCollection, TMeshContainer.
@@ -85,9 +85,6 @@ Type
 
   TVBOMesh = class;
   TSceneOctree = class;
-  TGLRender = class;
-
-
   TMeshCollection = class;
 
   TSceneParser = class
@@ -105,14 +102,6 @@ Type
     procedure ParseCollection(MeshCollection: TMeshCollection;
                               ExpandContainer: boolean=false);
     property LowPriorityIndex: integer read FLowPriorityIndex;
-  end;
-
-  TGLRender = class
-  private
-    class function GetVisibleObjects(MeshList: TList;
-      const Frustum: TFrustum): TList;
-  public
-    class procedure RenderMeshList(const Frustum: TFrustum; List: TList);
   end;
 
   TRenderShell = class
@@ -1475,6 +1464,7 @@ begin
     UpdateExtents; UpdateWorldMatrix; UpdateMaterialList;
   end; mo.IndexInMesh:=FMeshList.Add(mo); Result:=mo;
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddCollection(MeshCollection: TMeshCollection; Expand: boolean): integer;
@@ -1518,6 +1508,7 @@ Temp:=CreatePlane(Width,Height,TilesX,TilesY,HeightFunc);
     UpdateExtents; UpdateWorldMatrix; UpdateMaterialList;
   end; mo.IndexInMesh:=FMeshList.Add(mo); Result:=mo;
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddSphere(Radius: single; VSegments, HSegments: integer;
@@ -1566,6 +1557,7 @@ begin
     UpdateExtents; UpdateWorldMatrix; UpdateMaterialList;
   end;result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 destructor TMeshCollection.Destroy;
@@ -1623,6 +1615,8 @@ begin
     UpdateExtents; UpdateWorldMatrix; Pickable:=true;
   end; result:=mo;
   mo.IndexInMesh:=FMeshList.Add(mo);
+  mo.UpdateMaterialList;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddScreenQuad(AddToMesh:boolean): TVBOMeshObject;
@@ -1651,11 +1645,13 @@ begin
   if AddToMesh then mo.IndexInMesh:=FMeshList.Add(mo)
   else mo.IndexInMesh:=-1;
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddSMDAnimation(SMD: TSkeletalRender): TVBOMeshObject;
 var mo: TSkeletalRender;
 begin
+  FStructureChanged:=true;
   mo:=TSkeletalRender.Create;
   mo.Name:='SMDAnimation'+inttostr(FMeshList.Add(mo));
   result:=mo; mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
@@ -1714,6 +1710,7 @@ begin
     NoZWrite:=false; NoDepthTest:=false;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddSprite(s_type: TSpriteType; width,
@@ -1746,6 +1743,7 @@ begin
     UpdateWorldMatrix; UpdateMaterialList;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.ExtentsIntersect(const rayStart, rayVector: TVector; var List:Tlist): boolean;
@@ -1831,6 +1829,7 @@ begin
     UpdateWorldMatrix; UpdateMaterialList;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddAnimatedSprite(s_type: TSpriteType; width,
@@ -1863,6 +1862,7 @@ begin
     Pickable:=false;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddBBox(Extents: TExtents; Color: TVector): TVBOMeshObject;
@@ -1903,6 +1903,7 @@ begin
     UpdateWorldMatrix; UpdateMaterialList;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddPoints(PointsList:TAffineVectorList; ColorsList:
@@ -1935,6 +1936,7 @@ begin
     UpdateWorldMatrix; UpdateMaterialList;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddGrid(Width, Height: single; TilesX, TilesY: integer;
@@ -1976,6 +1978,7 @@ begin
     IgnoreOcclusion:=true;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddInstanceToObject(MasterObject: TVBOMeshObject): TVBOMeshObject;
@@ -1996,6 +1999,7 @@ begin
   MasterObject.ProxyList.Add(mo);
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddProxyObject(MasterObject: TVBOMeshObject): TVBOMeshObject;
@@ -2019,6 +2023,7 @@ begin
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.MatObjLib:=MasterObject.MatObjLib;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddUserObject(Name: string;
@@ -2038,6 +2043,7 @@ begin
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddUniformSMD(MeshFile: string;
@@ -2048,6 +2054,7 @@ var mo: TUniformSMDRender;
     Tex: TTexture;
     mat: TMaterialObject;
 begin
+  FStructureChanged:=true;
   assert(MeshFile<>'','Need Mesh');
   mo:=TUniformSMDRender.Create;
   mo.Name:='UniformSMDAnimation'+inttostr(FMeshList.Add(mo));
@@ -2088,6 +2095,7 @@ end;
 function TMeshCollection.AddUniformSMD(SMD: TUniformSMDRender): TUniformSMDRender;
 var mo: TUniformSMDRender;
 begin
+  FStructureChanged:=true;
   mo:=TUniformSMDRender.Create;
   mo.MeshType:=mtActorProxy;
   mo.Anim.Animations.Free; dispose(mo.Anim);
@@ -2127,6 +2135,7 @@ begin
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 procedure TMeshCollection.Clear(FreeObjects: boolean);
@@ -2197,9 +2206,10 @@ end;
 procedure TMeshCollection.DeleteMeshObject(index: integer; FreeObject: boolean);
 var MeshObject: TVBOMeshObject;
 begin
-   MeshObject:=FMeshList[index];
-   if FreeObject then FreeAndNil(MeshObject);
-   FMeshList.Delete(index);
+  MeshObject:=FMeshList[index];
+  if FreeObject then FreeAndNil(MeshObject);
+  FMeshList.Delete(index);
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddParticles(MaxCapacity: integer): TVBOMeshObject;
@@ -2214,6 +2224,7 @@ begin
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddMeshObject(mo: TVBOMeshObject): integer;
@@ -2221,6 +2232,7 @@ begin
   result:=FMeshList.Add(mo);
   mo.UpdateWorldMatrix; mo.UpdateMaterialList;
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddSMDAnimation(MeshFile: string;
@@ -2231,6 +2243,7 @@ var mo: TSkeletalRender;
     Tex: TTexture;
 begin
   assert(MeshFile<>'','Need Mesh');
+  FStructureChanged:=true;
   mo:=TSkeletalRender.Create;
   mo.Name:='SMDAnimation'+inttostr(FMeshList.Add(mo));
   result:=mo; mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
@@ -2368,49 +2381,6 @@ begin
 
 end;
 
-{ TGLRender }
-
-class function TGLRender.GetVisibleObjects(MeshList: TList; const Frustum: TFrustum): TList;
-var mo: TVBOMeshObject;
-    i: integer;
-    QueryObjectList: TList;
-begin
-  QueryObjectList:=TList.Create;
-  QueryObjectList.Capacity:=MeshList.Count*2;
-  QueryObjectList.Count:=0;
-  for i:=0 to MeshList.Count-1 do begin
-    mo:=MeshList[i];
-    if assigned(mo) and (mo.MeshItemType=mcMeshObject) then begin
-      if mo.Culled then mo.Occluded:=false; mo.Culled:=False;
-      if (mo.Visible) or (mo.ProxyList.Count>0) then begin
-        if assigned(mo.onBeforeCheckVisibility) then mo.onBeforeCheckVisibility(nil);
-        if not ((mo.MeshType=mtHUDSprite) or (mo.MeshType=mtSphericalSprite) or
-               (mo.MeshType=mtCylindricalSprite))
-        then begin
-          if (mo.MeshType=mtActor) or (mo.MeshType=mtActorProxy) then
-            mo.Culled:=TUniformSMDRender(mo).CheckVisibility(Frustum)
-          else mo.Culled:=IsVolumeClipped(mo.GeomCenter, mo.BaundedRadius, Frustum);
-        end;
-        if mo.ProxyList.Count>0 then mo.Culled:=false;
-        if (not mo.Culled) and (mo.MeshType<>mtInstance) then QueryObjectList.Add(mo);
-      end;
-    end;
-  end;
-  result:=QueryObjectList;
-end;
-
-class procedure TGLRender.RenderMeshList(const Frustum: TFrustum; List: TList);
-var i:integer;
-    VisList: TList;
-begin
-  VisList:=GetVisibleObjects(List,Frustum);
-  for i:=0 to VisList.Count-1 do begin
-
-  end;
-  VisList.Free;
-end;
-
-
 { TRenderShell }
 
 procedure TRenderShell.AttachTexture(aTexture: TTexture; aTarget: TMRTTarget);
@@ -2459,6 +2429,7 @@ end;
 function TRenderShell.GetVisibleObjects(MeshList: TList;
   const Frustum: TFrustum): TList;
 var mo: TVBOMeshObject;
+    mi: TVBOMeshItem;
     i: integer;
     QueryObjectList: TList;
 begin
@@ -2466,12 +2437,14 @@ begin
   QueryObjectList.Capacity:=MeshList.Count*2;
   QueryObjectList.Count:=0;
   for i:=0 to MeshList.Count-1 do begin
-    mo:=MeshList[i];
-    mo.Matrices.ViewMatrix:=FSceneViewer.ViewMatrix;
-    mo.Matrices.ProjectionMatrix:=FSceneViewer.ProjectionMatrix;
-    mo.ParentViewer:=@FSceneViewer;
+    mi:=MeshList[i];
+    mi.ParentViewer:=@FSceneViewer;
 
-    if assigned(mo) and (mo.MeshItemType=mcMeshObject) then begin
+    if assigned(mi) and (mi.MeshItemType=mcMeshObject) then begin
+      mo:=TVBOMeshObject(mi); mo.Culled:=False;
+      mo.Matrices.ViewMatrix:=FSceneViewer.ViewMatrix;
+      mo.Matrices.ProjectionMatrix:=FSceneViewer.ProjectionMatrix;
+
       if mo.Culled then mo.Occluded:=false; mo.Culled:=False;
       if (mo.Visible) or (mo.ProxyList.Count>0) then begin
         if assigned(mo.onBeforeCheckVisibility) then mo.onBeforeCheckVisibility(nil);
@@ -2482,10 +2455,10 @@ begin
             mo.Culled:=TUniformSMDRender(mo).CheckVisibility(Frustum)
           else mo.Culled:=IsVolumeClipped(mo.GeomCenter, mo.BaundedRadius, Frustum);
         end;
-        if mo.ProxyList.Count>0 then mo.Culled:=false;
+        if mo.ProxyList.Count>0 then begin mo.Culled:=false; mo.Occluded:=false; end;
         if (not mo.Culled) and (mo.MeshType<>mtInstance) then QueryObjectList.Add(mo);
       end;
-    end;
+    end else if assigned(mi) then QueryObjectList.Add(mi);
   end;
   result:=QueryObjectList;
 end;
@@ -2538,7 +2511,8 @@ begin
   end;
   for i:=m to n-1 do begin
     mc:=FSceneParser.FContainers[i];
-    if mc.UseParentViewer then mc.ParentViewer:=@FSceneViewer;
+    //if mc.UseParentViewer then
+    mc.ParentViewer:=@FSceneViewer;
     mc.Process;
   end;
 end;
