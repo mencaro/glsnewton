@@ -1155,7 +1155,7 @@ begin
       FreeAndNil(Indices);
       FreeAndNil(Colors);
       FreeList(SubMeshes);
-      for i:= 0 to ExTexCoords.Count - 1 do begin
+      for i:=0 to ExTexCoords.Count - 1 do begin
         attr:=ExTexCoords[i];
         if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
         then attr.DataHandler.Free else dispose(attr.Data);

@@ -783,12 +783,17 @@ var m,mv,ProjMatrix: TMatrix;
     ActiveMaterial: string;
     mat: TMaterialObject;
 begin
+  if FMeshType = mtInstance then exit;
   if (not WorldMatrixUpdated) then UpdateWorldMatrix;
+  m:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
+  if FProxyList.Count>0 then RebuildProxyList(ViewMatrix, m);
+
   glPushMatrix;
-//Формируем список видимых прокси
+{
+  //Формируем список видимых прокси
     if FProxyList.Count>0 then begin
        glGetFloatv(GL_PROJECTION_MATRIX, @ProjMatrix);
-       F := GetFrustum(ProjMatrix, ViewMatrix);
+       F := ParentViewer.Frustum;//GetFrustum(ProjMatrix, ViewMatrix);
        if assigned(FProxyMatrixList) then FProxyMatrixList.Clear
        else FProxyMatrixList:=TList.Create;
 //       FreeList(FProxyMatrixList);
@@ -807,13 +812,16 @@ begin
           end;
        end;
     end;
+}
 
-    if FPlaying then begin
+{    if FPlaying then begin
 
     end else begin
        m:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
        glLoadMatrixf(PGLFloat(@m));
     end;
+}
+    glLoadMatrixf(PGLFloat(@m));
 
     if FBO.Active then FBO.Apply;
 
