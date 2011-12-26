@@ -513,6 +513,7 @@ begin
   FGLSceneMeshAdapter:=TGLSceneMeshAdapter.CreateAsChild(aParentOwner);
   FGLSceneMeshAdapter.VBOMesh:=self;
   FGLSceneMeshAdapter.Visible:=true;
+  FGLSceneMeshAdapter.VisibilityCulling:=vcNone;
 end;
 
 function TVBOMesh.GetObjectByName(Name: string): TVBOMeshObject;
@@ -2466,6 +2467,10 @@ begin
   QueryObjectList.Count:=0;
   for i:=0 to MeshList.Count-1 do begin
     mo:=MeshList[i];
+    mo.Matrices.ViewMatrix:=FSceneViewer.ViewMatrix;
+    mo.Matrices.ProjectionMatrix:=FSceneViewer.ProjectionMatrix;
+    mo.ParentViewer:=@FSceneViewer;
+
     if assigned(mo) and (mo.MeshItemType=mcMeshObject) then begin
       if mo.Culled then mo.Occluded:=false; mo.Culled:=False;
       if (mo.Visible) or (mo.ProxyList.Count>0) then begin
@@ -2557,7 +2562,6 @@ var i,n: integer;
     queries: array of GLUInt;
     sampleCount: GLUint;
     available: GLUint;
-
 begin
   //Rendering opaque mesh objects
   VisList:=GetVisibleObjects(FSceneParser.FOpaqueMeshObjects,FSceneViewer.Frustum);
@@ -2572,7 +2576,8 @@ begin
     mo.Matrices.ViewMatrix:=FSceneViewer.ViewMatrix;
     mo.Matrices.ProjectionMatrix:=FSceneViewer.ProjectionMatrix;
     mo.Time:=FSceneViewer.CurrentTime;
-    if mo.UseParentViewer then mo.ParentViewer:=@FSceneViewer;
+    //if mo.UseParentViewer then
+    mo.ParentViewer:=@FSceneViewer;
     if (not FCollection.FOcclusionCulling) or (mo.IgnoreOcclusion)
     or (mo.PolygonsCount<100) or (mo.MeshType=mtGrid) then mo.Process
     else begin
@@ -2615,7 +2620,8 @@ begin
     if mo.MaterialObject.IsTransparency then
       mo.SortProxyByDistance(sdBackToFront)
     else mo.SortProxyByDistance(sdFrontToBack);
-    if mo.UseParentViewer then mo.ParentViewer:=@FSceneViewer;
+    //if mo.UseParentViewer then
+    mo.ParentViewer:=@FSceneViewer;
     mo.Process;
   end;
 end;
@@ -2633,7 +2639,8 @@ begin
     mo.Matrices.ViewMatrix:=FSceneViewer.ViewMatrix;
     mo.Matrices.ProjectionMatrix:=FSceneViewer.ProjectionMatrix;
     mo.Time:=FSceneViewer.CurrentTime;
-    if mo.UseParentViewer then mo.ParentViewer:=@FSceneViewer;
+    //if mo.UseParentViewer then
+    mo.ParentViewer:=@FSceneViewer;
     mo.Process;
   end; VisList.Free;
 end;
