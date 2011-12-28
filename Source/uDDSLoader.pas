@@ -613,7 +613,16 @@ begin
       if CDX10CompressedFormat[i]=dds.header10.dxgiFormat then begin
         result:=true; exit;
       end;
-  end else result:=true;
+  end else begin
+   case dds.header.ddspf.dwFourCC of
+     FOURCC_DXT1: result:=true;
+     FOURCC_DXT2: result:=true;
+     FOURCC_DXT3: result:=true;
+     FOURCC_DXT4: result:=true;
+     FOURCC_DXT5: result:=true;
+     else result:=false;
+   end;
+  end;
 end;
 
 
@@ -817,12 +826,18 @@ begin
       LODS[i].Width:=mw; LODS[i].Height:=mh;
       LODS[i].Size:=ms; LODS[i].Depth:=1;
       mw:=mw shr 1; mh:=mh shr 1; inc(i);
-    until mw+mh=0;
-    getmem(Data,s); DataSize:=s;
-    if i<>Levels then begin
+    until (i=Levels) or (mw+mh=0);
+    if desc.CubeMap then getmem(Data,s*6)
+    //else if desc.TextureArray then getmem(Data,s*Depth)
+    else getmem(Data,s);
+    DataSize:=s;
+
+{    if (i<>Levels) and (Levels>1) then begin
       result:=LODS[Levels].Offset;
       CompleatLods(desc,i); Levels:=i;
-    end else result:=s;
+    end else
+}
+    Levels:=1; result:=s;
 
 {    for i:=0 to Levels-1 do begin
       if mw=0 then mw:=1; if mh=0 then mh:=1;
@@ -849,6 +864,17 @@ asm
   jnz @loop;
 end;
 
+procedure SwapARGB16(data: PInteger; count: integer);assembler;
+asm
+@loop:
+  mov cx, word ptr [eax];
+  xchg cx, word ptr [eax+6];
+  mov word ptr [eax], cx;
+  add eax, 8;
+  dec edx;
+  jnz @loop;
+end;
+
 
 function DDSLoadFromStream(aStream: TStream): PDDSImageDesc;
 var dds: TDDSImage;
@@ -859,6 +885,7 @@ var dds: TDDSImage;
     offset: cardinal;
     Rbits,Gbits,Bbits,ABits: byte;
     p: pointer;
+    f,FaceCount: integer;
 begin
   aStream.Read(dds.dwMagic,4);
   assert(dds.dwMagic='DDS ','Invalid DDS file');
@@ -880,9 +907,20 @@ begin
     if CubeMap then assert(Width=Height,'Invalid cubemap');
     TextureArray:=(dds.header10.arraySize>1) and (not CubeMap);
     Compressed:=isCompressedFormat(dds);
+    if CubeMap then FaceCount:=6 else FaceCount:=1;
+
     ElementSize:=ddspf.dwRGBBitCount;
     if (not compressed) or (ddspf.dwFlags and DDPF_FOURCC=0)
     then begin
+      if ddspf.dwFourCC<>0 then begin
+        case ddspf.dwFourCC of
+          FOURCC_A16B16G16R16F: begin
+            InternalFormat:=GL_RGBA16F;
+            DataType:=GL_HALF_FLOAT;
+            ColorFormat:=GL_RGBA;
+          end;
+        end;
+      end else
       case ddspf.dwRGBBitCount of
         32: begin
           InternalFormat:=GL_RGBA8;
@@ -923,25 +961,60 @@ begin
             '; BBits: '+inttostr(Bbits)+'; ARBits: '+inttostr(Abits));
         end;
       end;
-      buffsize:=ReservUncompMem(ddspf.dwRGBBitCount,Result);
-      aStream.Read(Result.Data^,buffSize);
-      if ddspf.dwRGBBitCount=32 then SwapARGB(data,buffSize div 4);
-
+      result.ElementSize:=GetTextureElementSize(ColorFormat,DataType);
+      //buffsize:=ReservUncompMem(ddspf.dwRGBBitCount,Result);
+      buffsize:=ReservUncompMem(result.ElementSize*8,Result);
+      //for i:=0 to FaceCount-1 do begin
+        aStream.Read(Result.Data^,buffSize*FaceCount);
+      //end;
+      if (ddspf.dwRGBBitCount=32) or (result.ElementSize=4)
+      then SwapARGB(data,buffSize div 4);
+      //if result.ElementSize=8 then SwapARGB16(data,buffSize div 8);
     end else begin //assert(false,'only DXT1,3,5 format supported');
       case ddspf.dwFourCC of
         FOURCC_DXT1: glFormat := GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
         FOURCC_DXT3: glFormat := GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
         FOURCC_DXT5: glFormat := GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-      else assert(false,'only DXT1,3,5 format supported');
+      else assert(false,'only DXT 1,3,5 format supported');
       end; InternalFormat:=glFormat; ColorFormat:=glFormat; DataType:=glFormat;
+      result.ElementSize:=GetTextureElementSize(ColorFormat,DataType);
       buffsize:=ReservCompMem(BlockSize(dds),result);
       aStream.Read(data^,buffSize);
     end;
-    ReservedMem:=buffSize;
-    result.ElementSize:=GetTextureElementSize(ColorFormat,DataType);
-    p:=pointer(integer(result.Data)+result.LODS[0].Offset);
-    flipSurface(p,result.LODS[0].width,result.LODS[0].height,1,result);
+    ReservedMem:=buffSize*FaceCount;
+    //if not Cubemap then
+    for f:=0 to FaceCount-1 do begin
+      p:=pointer(integer(result.Data)+result.LODS[0].Offset+buffsize*f);
+      flipSurface(p,result.LODS[0].width,result.LODS[0].height,1,result);
+    end;
+(*
+  for face := 0 to faceCount - 1 do
+  begin
+    if offset > 0 then stream.Seek(offset, Ord(soCurrent));
+    for level := 0 to fLevelCount - 1 do begin
+      stream.Read(GetLevelAddress(level, face)^, GetLevelSizeInByte(level) div faceCount);
+      if not fCubeMap and vVerticalFlipDDS then
+        flipSurface(GetLevelAddress(level, face), FLOD[level].Width, FLOD[level].Height, FLOD[level].Depth);
+    end;
+  end; // for level
 
+  // Load the image
+  int size = getMipMappedSize(0, nMipMaps);
+  pixels = new ubyte[size];
+  if (isCube()){
+    for (int face = 0; face < 6; face++){
+      for (int mipMapLevel = 0; mipMapLevel < nMipMaps; mipMapLevel++){
+        int faceSize = getMipMappedSize(mipMapLevel, 1) / 6;
+        ubyte *src = getPixels(mipMapLevel) + face * faceSize;
+
+        fread(src, 1, faceSize, file);
+      }
+    }
+  } else {
+    fread(pixels, 1, size, file);
+  }
+
+*)
 
 {    if dwMipMapCount>0 then BuffSize:=dwPitchOrLinearSize*2
     else BuffSize:=dwPitchOrLinearSize;
