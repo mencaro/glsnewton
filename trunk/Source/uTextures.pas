@@ -123,10 +123,12 @@ Type
        procedure setName(const Value: string);
        function getTexDesc: PTextureDecription;
        procedure CreateCompressedTexture(dds: PDDSImageDesc);
-       procedure CreateUnCompressedTexture(dds: PDDSImageDesc);
+       procedure CreateUnCompressedTexture2D(dds: PDDSImageDesc);
+       procedure CreateUnCompressedTextureCube(dds: PDDSImageDesc);
 //       function CreateCompressedTexture(DDSDesc: PDDSImageDesc): boolean;
      public
        constructor Create;
+       function  CreateTexture: boolean;
        constructor CreateFromFile(Filename: string; target: TTexTarget = ttTexture2D);
        constructor CreateFromBitmap(bmp:TBitmap; target: TTexTarget = ttTexture2D);
        destructor Destroy;override;
@@ -137,7 +139,6 @@ Type
        property TextureMatrix: TMatrix read FTextureMatrix write SetTextureMatrix;
        property BlendingMode: TTextureBlendingModes read FBlendingMode write FBlendingMode;
 
-       function  CreateTexture: boolean;
        procedure ImportTextureParams(aTarget: GLEnum; TexId: GLUInt);
        procedure Assign(Texture: TTexture);
        procedure Apply(TextureUnit: GLEnum = 0; ApplyCombiner: boolean=true);
@@ -417,6 +418,17 @@ begin
   if FDisabled then exit;
   glActiveTexture(GL_TEXTURE0+TextureUnit);
   glEnable(FTexture.Target);
+
+{  if FTexture.Target=GL_TEXTURE_CUBE_MAP then begin
+    glEnable  ( GL_TEXTURE_GEN_S );
+    glEnable  ( GL_TEXTURE_GEN_T );
+    glEnable  ( GL_TEXTURE_GEN_R );
+    glTexGeni ( GL_S, GL_TEXTURE_GEN_MODE,  GL_REFLECTION_MAP );
+    glTexGeni ( GL_T, GL_TEXTURE_GEN_MODE,  GL_REFLECTION_MAP );
+    glTexGeni ( GL_R, GL_TEXTURE_GEN_MODE,  GL_REFLECTION_MAP );
+  end;
+}
+
   glBindTexture(FTexture.Target,FTexture.Id);
   if ApplyCombiner then SetTextureMode;
   if FBlendingMode<>tbmMesh then SetBlending;
@@ -871,14 +883,14 @@ begin
   glBindTexture(GL_TEXTURE_2D, 0);
 end;
 
-procedure TTexture.CreateUnCompressedTexture(dds: PDDSImageDesc);
+procedure TTexture.CreateUnCompressedTexture2D(dds: PDDSImageDesc);
 var i: integer;
     p: pointer;
 begin
   glBindTexture(GL_TEXTURE_2D, FTexture.Id);
   p:=dds.Data;
-  //glTexParameteri(TEXTURE_2D, TEXTURE_MAX_LEVEL, level-1); //TEXTURE_BASE_LEVEL
-  for i:=0 to 0{dds.Levels-1} do begin
+  //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, dds.Levels-1); //TEXTURE_BASE_LEVEL
+  for i:=0 to dds.Levels-1 do begin
     p:=pointer(integer(dds.Data)+dds.LODS[i].Offset);
     glTexImage2D(GL_TEXTURE_2D, i, dds.InternalFormat, dds.LODS[i].Width,
       dds.LODS[i].Height, 0, dds.ColorFormat, dds.DataType, p);
@@ -905,6 +917,59 @@ begin
   SetWraps(twRepeat,twRepeat);
   SetDimensions(dds.Width,dds.Height);
   glBindTexture(GL_TEXTURE_2D, 0);
+end;
+
+procedure TTexture.CreateUnCompressedTextureCube(dds: PDDSImageDesc);
+var i,f: integer;
+    p: pointer;
+    offs: integer;
+const
+CubeMapTarget: array[0..5] of cardinal = (
+
+  GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB,
+  GL_TEXTURE_CUBE_MAP_NEGATIVE_X_ARB,
+
+  GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_ARB,
+  GL_TEXTURE_CUBE_MAP_POSITIVE_Y_ARB,
+
+  GL_TEXTURE_CUBE_MAP_POSITIVE_Z_ARB,
+  GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_ARB
+
+  );
+
+begin
+  glBindTexture(GL_TEXTURE_CUBE_MAP, FTexture.Id);
+  p:=dds.Data; offs:=0;
+  for f:=0 to 5 do begin
+    //glTexParameteri(GL_TEXTURE_CUBE_MAP_POSITIVE_X+f, GL_TEXTURE_MAX_LEVEL, 1); //TEXTURE_BASE_LEVEL
+    for i:=0 to 0{dds.Levels-1} do begin
+      p:=pointer(integer(dds.Data)+dds.LODS[i].Offset+offs);
+      glTexImage2D(CubeMapTarget[f], i, dds.InternalFormat, dds.LODS[i].Width,
+        dds.LODS[i].Height, 0, dds.ColorFormat, dds.DataType, p);
+    end; offs:=offs+dds.DataSize;
+  end;
+  glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  FMinFilter := mnLinearMipmapLinear;
+  FTexture.minFilter:=GL_LINEAR_MIPMAP_LINEAR;
+
+  glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+{  if dds.Levels>1 then begin
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    FMinFilter := mnLinearMipmapLinear;
+    FTexture.minFilter:=GL_LINEAR_MIPMAP_LINEAR;
+  end else begin
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    FMinFilter := mnLinear;
+    FTexture.minFilter:=GL_LINEAR;
+  end;
+}
+  FMagFilter := mgLinear;
+  FTexture.magFilter:=GL_LINEAR;
+  glTexParameteri(FTexture.Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//  SetWraps(twRepeat,twRepeat);
+    SetWraps(twClampToEdge,twClampToEdge);
+  SetDimensions(dds.Width,dds.Height);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 end;
 
 Constructor  TTexture.CreateFromFile(Filename: string; target: TTexTarget);
@@ -938,11 +1003,17 @@ begin
    if ext='.DDS' then begin
      fs:=TFileStream.Create(FileName, fmOpenRead);
      new(dds); dds:=DDSLoadFromStream(fs); fs.Free;
-     SetTarget(ttTexture2D); FTexture.Created:=true;
-     if dds.Compressed then CreateCompressedTexture(dds)
-     else CreateUnCompressedTexture(dds);
-     dispose(dds.Data); Dispose(dds);
-     exit;
+     if not dds.CubeMap then begin
+       SetTarget(ttTexture2D);
+       FTexture.Created:=true;
+       if dds.Compressed then CreateCompressedTexture(dds)
+       else CreateUnCompressedTexture2D(dds);
+     end else begin
+       SetTarget(ttCubemap);
+       FTexture.Created:=true;
+       CreateUnCompressedTextureCube(dds);
+     end;
+     dispose(dds.Data); Dispose(dds); exit;
    end;
 
    Data:=LoadDataFromFile(Filename,format, w,h);
@@ -1753,7 +1824,7 @@ begin
      dds:=DDSLoadFromStream(fs);
      fs.Free;
      if dds.Compressed then CreateCompressedTexture(dds)
-     else CreateUnCompressedTexture(dds);
+     else CreateUnCompressedTexture2D(dds);
      FreeMem(dds.Data,dds.ReservedMem);
 //     dispose(dds.Data);
      Dispose(dds); dds:=nil;
