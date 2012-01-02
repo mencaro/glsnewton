@@ -169,6 +169,7 @@ Type
 
     //”казатель на самого себ€
     Property Handle: TVBOMeshObject read FHandle;
+    Property Owner: TVBOMeshItem read FOwner write FOwner;
     Property Params: Pointer read FParams write FParams;
     //»ндекс в контейнере
     Property IndexInMesh: integer read FIndexInMesh write FIndexInMesh;
@@ -1205,8 +1206,8 @@ begin
          if ((i=rcount) or (CMName<>ActiveMaterial)) then
          begin
            if assigned(mat) then begin
-             if FMaterialObject.Active then begin
-               FMaterialObject.UnApply(FonMaterialUnApply);
+             if mat.Active then begin
+               mat.UnApply(FonMaterialUnApply);
                ResetBlending;
              end else ResetBlending;
            end;

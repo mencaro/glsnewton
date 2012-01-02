@@ -175,6 +175,8 @@ begin
     Tex:=MatObjLib.TexLib.TextureByName(texName,'');
     if not assigned(Tex) then begin
       TexFileName:='';
+      StringReplace(TexName,'/','\',[rfReplaceAll]);
+      StringReplace(TexName,'\\','\',[rfReplaceAll]);
       if FileExists(FPath+texName) then TexFileName:=FPath+texName;
       if FileExists(FFilePath+texName) then TexFileName:=FFilePath+texName;
       assert(TexFileName<>'','Texture '+texName+' not found.');

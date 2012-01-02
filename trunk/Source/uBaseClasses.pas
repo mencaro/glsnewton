@@ -67,6 +67,7 @@ Type
     property ParentViewer: PViewerSettings read FParentViewer write FParentViewer;
     property Childe: TVBOMeshItem read FChilde write setChilde;
     property Parent: TVBOMeshItem read FParent write setParent;
+    property Owner: TVBOMeshItem read FOwner write FOwner;
   end;
 
   TRenderEventItem = class (TVBOMeshItem)

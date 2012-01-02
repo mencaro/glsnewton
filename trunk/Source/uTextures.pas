@@ -1,7 +1,9 @@
 {: uTextures - Модуль для работы с текстурами OpenGL
 
 	Historique:
-        14/05/11 - Fantom - Добавлено создание 3D тексутры
+  28/12/11 - Fantom - Добавлена загрузка кубической тексутры из dds
+                    - Добавлена установка режима генерации текстурных координат
+        14/05/11 - Fantom - Добавлено создание 3D текстуры
   12/05/11 - Fantom - Добавлено создание кубической тексутры
         09/05/11 - Fantom - Изменен метод импорта свойств сценовской текстуры
   23/03/11 - Fantom - Добавлено свойство TwoSides + импорт из сценовской текстуры
@@ -30,7 +32,7 @@ Type
                 ttCubemap, ttCubemapPX, ttCubemapPY, ttCubemapNX, ttCubemapNY,
                 ttCubemapPZ, ttCubemapNZ, tt1DArray, tt2DArray, ttCubeMapArray);
   TTextureWraps = (twClamp, twRepeat, twClampToEdge, twClampToBorder, twMirrorRepeat);
-
+  TTexGens = (tgDisable,tgObjectLinear,tgEyeLinear,tgSphereMap,tgNormalMap,tgReflectionMap);
   TMagFilter = (mgNearest, mgLinear);
   TMinFilter = (mnNearest, mnLinear, mnNearestMipmapNearest, mnNearestMipmapLinear,
                 mnLinearMipmapNearest, mnLinearMipmapLinear);
@@ -49,6 +51,9 @@ Type
      Target: GLEnum;
      minFilter: GLEnum;
      magFilter: GLEnum;
+     TextureGenS: GLEnum;
+     TextureGenT: GLEnum;
+     TextureGenR: GLEnum;
      GenerateMipMaps: boolean;
      Data: pointer;
      Id, pboRBId,pboWBId: GLUint;
@@ -198,6 +203,8 @@ Type
        function SetWraps(aWrapS, aWrapT: TTextureWraps; aWrapR: TTextureWraps=twClampToEdge): boolean;
        function SetTarget(Target: TTexTarget): boolean;
        function SetFilters(aMinFilter: TMinFilter; aMagFilter: TMagFilter): boolean;
+       function SetTexGens(GenS,GenT: TTexGens; GenR: TTexGens = tgDisable): boolean;
+       function SetAnisotropyLevel(level: single): boolean;
 
        property Name: string read FName write setName;
        property FileName: string read FLocation write FLocation;
@@ -342,7 +349,11 @@ begin
       FSettedParams:=[];
       GenerateMipMaps:=false;
       glGenTextures(1,@Id);
+      TextureGenS:=0;
+      TextureGenT:=0;
+      TextureGenR:=0;
    end;
+
 end;
 
 function TTexture.CreateTexture: boolean;
@@ -419,15 +430,18 @@ begin
   glActiveTexture(GL_TEXTURE0+TextureUnit);
   glEnable(FTexture.Target);
 
-{  if FTexture.Target=GL_TEXTURE_CUBE_MAP then begin
-    glEnable  ( GL_TEXTURE_GEN_S );
-    glEnable  ( GL_TEXTURE_GEN_T );
-    glEnable  ( GL_TEXTURE_GEN_R );
-    glTexGeni ( GL_S, GL_TEXTURE_GEN_MODE,  GL_REFLECTION_MAP );
-    glTexGeni ( GL_T, GL_TEXTURE_GEN_MODE,  GL_REFLECTION_MAP );
-    glTexGeni ( GL_R, GL_TEXTURE_GEN_MODE,  GL_REFLECTION_MAP );
+  if FTexture.TextureGenS>0 then begin
+    glEnable ( GL_TEXTURE_GEN_S );
+    glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, FTexture.TextureGenS );
   end;
-}
+  if FTexture.TextureGenT>0 then begin
+    glEnable ( GL_TEXTURE_GEN_T );
+    glTexGeni( GL_T, GL_TEXTURE_GEN_MODE, FTexture.TextureGenT );
+  end;
+  if FTexture.TextureGenR>0 then begin
+    glEnable ( GL_TEXTURE_GEN_R );
+    glTexGeni( GL_R, GL_TEXTURE_GEN_MODE, FTexture.TextureGenR );
+  end;
 
   glBindTexture(FTexture.Target,FTexture.Id);
   if ApplyCombiner then SetTextureMode;
@@ -450,6 +464,9 @@ procedure TTexture.UnApply(TextureUnit: GLEnum = 0);
 var MMode: GLUInt;
 begin
   if FDisabled then exit;
+  glDisable ( GL_TEXTURE_GEN_S );
+  glDisable ( GL_TEXTURE_GEN_T );
+  glDisable ( GL_TEXTURE_GEN_R );
   glBindTexture(FTexture.Target,0);
   glActiveTexture(GL_TEXTURE0+TextureUnit);
   glDisable(FTexture.Target);
@@ -995,6 +1012,9 @@ begin
       FSettedParams:=[];
       GenerateMipMaps:=false;
       glGenTextures(1,@Id);
+      TextureGenS:=0;
+      TextureGenT:=0;
+      TextureGenR:=0;
    end;
    {$IFDEF Logging}
      WriteToLog('(D)Creating texture');
@@ -1469,6 +1489,7 @@ end;
 function TTexture.LoadDataFromFile(Filename: String; var PixelFormat: GLEnum; var Width, Height: integer): pointer;
 begin
   result:=LoadTexture(Filename, PixelFormat, Width, Height);
+  assert(assigned(result),'Unsupported File Format: '+extractfilename(FileName));
 end;
 
 function TTexture.SetOGLTextureFormat(InternalFormat, PixelFormat,
@@ -1648,6 +1669,16 @@ begin
    FTarget:=Texture.FTarget;
 end;
 
+function TTexture.SetTexGens(GenS, GenT, GenR: TTexGens): boolean;
+const
+  cTG:array[tgDisable..tgReflectionMap] of GLEnum =
+  (0, GL_OBJECT_LINEAR, GL_EYE_LINEAR, GL_SPHERE_MAP, GL_NORMAL_MAP, GL_REFLECTION_MAP);
+begin
+  FTexture.TextureGenS:=cTG[GenS];
+  FTexture.TextureGenT:=cTG[GenT];
+  FTexture.TextureGenR:=cTG[GenR];
+end;
+
 procedure TTexture.SetTextureMatrix(const Value: TMatrix);
 begin
   FTextureMatrix := Value;
@@ -1682,6 +1713,9 @@ begin
       FSettedParams:=[];
       GenerateMipMaps:=true;
       glGenTextures(1,@Id);
+      TextureGenS:=0;
+      TextureGenT:=0;
+      TextureGenR:=0;
    end;
    case bmp.PixelFormat of
      pf8bit: bpp:=1;
@@ -1911,6 +1945,12 @@ begin
   end;
   SaveTGAImage(FileName,p,Width,Height,pf);
   dispose(p);
+end;
+
+function TTexture.SetAnisotropyLevel(level: single): boolean;
+begin
+  glTexParameterf(FTexture.Target, GL_TEXTURE_MAX_ANISOTROPY_EXT, level);
+  result:=true;
 end;
 
 procedure TTexture.SetBlending;
