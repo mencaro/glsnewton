@@ -499,13 +499,14 @@ end;
 {  Determines file type and sends to correct function              }
 {------------------------------------------------------------------}
 function LoadTexture(Filename: String; var Format: Cardinal; var Width, Height: integer; LoadFromRes : Boolean=false) : pointer;
+var ext: string;
 begin
-  result:=nil;
-  if copy(Uppercase(filename), length(filename)-3, 4) = '.BMP' then
+  result:=nil; ext:=copy(Uppercase(filename), length(filename)-3, 4);
+  if ext = '.BMP' then
     result:=LoadBMPTexture(Filename, Format, Width, Height, LoadFromRes);
-  if copy(Uppercase(filename), length(filename)-3, 4) = '.JPG' then
+  if ext = '.JPG' then
     result:=LoadJPGTexture(Filename, Format, Width, Height, LoadFromRes);
-  if copy(Uppercase(filename), length(filename)-3, 4) = '.TGA' then
+  if ext = '.TGA' then
     result:=LoadTGATexture(Filename, Format, Width, Height, LoadFromRes);
 end;
 

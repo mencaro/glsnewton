@@ -1,4 +1,5 @@
   { TODO 1 :
+ - Реализовать клас скелетки через паттерн Observer, кость как TMovableObject
  - Переработать ХУД-спрайт
  - Считать Extents для коллекций, контейнеров и чаилдов. Добавить проверку
    фрастум/окклюжн кулинга по этому Extents. Пересчитывать Extents при изменении
@@ -180,6 +181,10 @@ Type
     property Count:integer read GetCount;
     property MeshList: TList read FMeshList;
     property ObjectsList[Index: Integer]: TVBOMeshItem read GetMesh;default;
+    property Materials: TMaterialLibrary read FMaterials write FMaterials;
+    property Textures: TTextureLibrary read FTextures write FTextures;
+    property MaterialObjects: TMaterialObjectsLib read FMaterialObjects;
+
     property SortDirection: TSortDirection read FSortDirection write FSortDirection;
     property ExpandingRequired: boolean read FExpand write FExpand;
     property Priority: integer read FPriority write FPriority;
@@ -213,7 +218,7 @@ Type
     Function AddProxyObject(MasterObject: TVBOMeshObject): TVBOMeshObject;
     Function AddUserObject(Name: string; VBOMeshList: TList): TVBOMeshObject;overload;
     Function AddUserObject(Name: string; VBOBuffer: PVBOBuffer): TVBOMeshObject;overload;
-    Function AddMeshObject(mo:TVBOMeshObject): integer;
+    Function AddMeshObject(mo:TVBOMeshObject; owned: boolean = true): integer;
     Function AddSMDAnimation(MeshFile: string; const AnimFiles: array of string): TVBOMeshObject;overload;
     Function AddSMDAnimation(SMD: TSkeletalRender):TVBOMeshObject; overload;
     Function AddUniformSMD(MeshFile: string; const AnimFiles: array of string): TUniformSMDRender;overload;
@@ -300,13 +305,10 @@ Type
 
       property GLSceneMeshAdapter: TGLSceneMeshAdapter read FGLSceneMeshAdapter;
       property PolygonsCount: integer read FPolyCount;
-      property Materials: TMaterialLibrary read FMaterials write FMaterials;
-      property Textures: TTextureLibrary read FTextures write FTextures;
-      property MaterialObjects: TMaterialObjectsLib read FMaterialObjects;
-      property Lights: TLightLibrary read FLights write FLights;
       property SceneOctree: TSceneOctree read FSceneOctree;
       property ViewMatrix: TMatrix read FViewMatrix write SetViewMatrix;
       property Camera: TCameraController read FCamera write FCamera;
+      property Lights: TLightLibrary read FLights write FLights;
       property OldRender: boolean read FOldRender write FOldRender;
 
       Procedure DoRender;
@@ -476,11 +478,6 @@ constructor TVBOMesh.Create;
 begin
   inherited;
   FExtentsBuilded:=false;
-  FMaterials:=TMaterialLibrary.Create;
-  FTextures:=TTextureLibrary.Create;
-  FMaterialObjects:=TMaterialObjectsLib.Create;
-  FMaterialObjects.MatLib:=FMaterials;
-  FMaterialObjects.TexLib:=FTextures;
   OctreeBuilded:=false;
   Visible:=true;
   FOcclusionCulling:=false;
@@ -1351,6 +1348,12 @@ constructor TMeshCollection.Create;
 begin
   inherited;
   FMeshList:=TList.Create;
+  FMaterials:=TMaterialLibrary.Create;
+  FTextures:=TTextureLibrary.Create;
+  FMaterialObjects:=TMaterialObjectsLib.Create;
+  FMaterialObjects.MatLib:=FMaterials;
+  FMaterialObjects.TexLib:=FTextures;
+
   FExtentsBuilded:=false;
   OctreeBuilded:=false;
   Visible:=true;
@@ -1464,6 +1467,7 @@ begin
     UpdateExtents; UpdateWorldMatrix; UpdateMaterialList;
   end; mo.IndexInMesh:=FMeshList.Add(mo); Result:=mo;
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -1508,6 +1512,7 @@ Temp:=CreatePlane(Width,Height,TilesX,TilesY,HeightFunc);
     UpdateExtents; UpdateWorldMatrix; UpdateMaterialList;
   end; mo.IndexInMesh:=FMeshList.Add(mo); Result:=mo;
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -1557,12 +1562,20 @@ begin
     UpdateExtents; UpdateWorldMatrix; UpdateMaterialList;
   end;result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
 destructor TMeshCollection.Destroy;
+var i: integer;
+    mi: TVBOMeshItem;
 begin
-  FreeObjectList(FMeshList);
+  for i:=0 to FMeshList.Count-1 do begin
+    mi:=FMeshList[i];
+    if mi.Owner=self then mi.Free;
+  end;
+  FMeshList.Free; FMeshList:=nil;
+//  FreeObjectList(FMeshList);
 
   FMaterials.Free; FTextures.Free;
   FMaterialObjects.Free;
@@ -1583,9 +1596,11 @@ begin
   end;
   if aMatLib<>'' then begin
     if uppercase(ExtractFileExt(aMatLib))='.MTL' then begin
-      mtl:=TGLMTLFile.Create;
-      mtl.LoadMaterialLibrary(aMatLib,FMaterialObjects);
-      mtl.Free;
+      if fileexists(aMatLib) then begin
+        mtl:=TGLMTLFile.Create;
+        mtl.LoadMaterialLibrary(aMatLib,FMaterialObjects);
+        mtl.Free;
+      end;
     end else tpath:=aMatLib;
   end;
 
@@ -1615,6 +1630,7 @@ begin
     UpdateExtents; UpdateWorldMatrix; Pickable:=true;
   end; result:=mo;
   mo.IndexInMesh:=FMeshList.Add(mo);
+  mo.Owner:=self;
   mo.UpdateMaterialList;
   FStructureChanged:=true;
 end;
@@ -1642,8 +1658,9 @@ begin
     UpdateExtents; UpdateWorldMatrix; UpdateMaterialList;
     Pickable:=false;
   end; result:=mo;
-  if AddToMesh then mo.IndexInMesh:=FMeshList.Add(mo)
-  else mo.IndexInMesh:=-1;
+  if AddToMesh then begin
+    mo.IndexInMesh:=FMeshList.Add(mo); mo.Owner:=self;
+  end else mo.IndexInMesh:=-1;
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
   FStructureChanged:=true;
 end;
@@ -1655,7 +1672,7 @@ begin
   mo:=TSkeletalRender.Create;
   mo.Name:='SMDAnimation'+inttostr(FMeshList.Add(mo));
   result:=mo; mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
-  mo.AddScreenQuad(AddScreenQuad(false));
+  mo.AddScreenQuad(AddScreenQuad(false)); mo.Owner:=self;
   with mo do begin
     Assign(SMD);
     UpdateWorldMatrix;
@@ -1710,6 +1727,7 @@ begin
     NoZWrite:=false; NoDepthTest:=false;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -1743,6 +1761,7 @@ begin
     UpdateWorldMatrix; UpdateMaterialList;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -1829,6 +1848,7 @@ begin
     UpdateWorldMatrix; UpdateMaterialList;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -1862,6 +1882,7 @@ begin
     Pickable:=false;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -1903,6 +1924,7 @@ begin
     UpdateWorldMatrix; UpdateMaterialList;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -1936,7 +1958,7 @@ begin
     UpdateWorldMatrix; UpdateMaterialList;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
-  FStructureChanged:=true;
+  mo.Owner:=self; FStructureChanged:=true;
 end;
 
 function TMeshCollection.AddGrid(Width, Height: single; TilesX, TilesY: integer;
@@ -1978,6 +2000,7 @@ begin
     IgnoreOcclusion:=true;
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -1999,6 +2022,7 @@ begin
   MasterObject.ProxyList.Add(mo);
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -2023,6 +2047,7 @@ begin
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.MatObjLib:=MasterObject.MatObjLib;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -2043,6 +2068,7 @@ begin
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -2056,7 +2082,7 @@ var mo: TUniformSMDRender;
 begin
   FStructureChanged:=true;
   assert(MeshFile<>'','Need Mesh');
-  mo:=TUniformSMDRender.Create;
+  mo:=TUniformSMDRender.Create; mo.Owner:=self;
   mo.Name:='UniformSMDAnimation'+inttostr(FMeshList.Add(mo));
   result:=mo; mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   with mo do begin
@@ -2097,7 +2123,7 @@ var mo: TUniformSMDRender;
 begin
   FStructureChanged:=true;
   mo:=TUniformSMDRender.Create;
-  mo.MeshType:=mtActorProxy;
+  mo.MeshType:=mtActorProxy; mo.Owner:=self;
   mo.Anim.Animations.Free; dispose(mo.Anim);
   mo.Name:='UniformSMDAnimationProxy'+inttostr(FMeshList.Add(mo));
   result:=mo; mo.MatLib:=FMaterials;
@@ -2135,6 +2161,7 @@ begin
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -2224,14 +2251,18 @@ begin
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.MatObjLib:=FMaterialObjects;
+  mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
-function TMeshCollection.AddMeshObject(mo: TVBOMeshObject): integer;
+function TMeshCollection.AddMeshObject(mo: TVBOMeshObject; owned: boolean): integer;
 begin
   result:=FMeshList.Add(mo);
   mo.UpdateWorldMatrix; mo.UpdateMaterialList;
-  mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
+  if not assigned(mo.MatLib) then mo.MatLib:=FMaterials;
+  if not assigned(mo.TexLib) then mo.TexLib:=FTextures;
+  if not assigned(mo.MatObjLib) then mo.MatObjLib:=FMaterialObjects;
+  if owned then mo.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -2247,7 +2278,7 @@ begin
   mo:=TSkeletalRender.Create;
   mo.Name:='SMDAnimation'+inttostr(FMeshList.Add(mo));
   result:=mo; mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
-  mo.AddScreenQuad(AddScreenQuad(false));
+  mo.AddScreenQuad(AddScreenQuad(false)); mo.Owner:=self;
   with mo do begin
     //Load Mesh File
     Anim.Mesh:=SMDLoad(MeshFile);

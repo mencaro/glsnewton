@@ -143,6 +143,8 @@ Type
    public
      constructor Create(ShadersCollection: TShaders=nil);overload;
      constructor Create(aVertex,aFragment: string; aGeometry: string='');overload;
+     constructor CreateGS(aVertex,aFragment,aGeometry: string;
+       InputType,OutputType,OutCount: GLUInt);
      destructor Destroy; override;
 
      procedure Apply;
@@ -168,10 +170,10 @@ Type
      procedure SetUniforms( const name : AnsiString; const value: TMatrix3f; count: GLsizei=1; transpose: boolean=false);overload;
      procedure SetUniforms( const name : AnsiString; const value: TMatrix4f; count: GLsizei=1; transpose: boolean=false);overload;
 
-     procedure SetGeomInputType(ProgramId, Value: GLUInt);
-     procedure SetGeomOutputType(ProgramId, Value: GLUInt);
-     procedure SetGeomVerticesOutCount(ProgramId, Value: GLUInt);
-     procedure SetProgParam(ProgramId, Param, Value: GLUInt);
+     procedure SetGeomInputType(Value: GLUInt);
+     procedure SetGeomOutputType(Value: GLUInt);
+     procedure SetGeomVerticesOutCount(Value: GLUInt);
+     procedure SetProgParam(Param, Value: GLUInt);
 
      property Name: string read FName write FName;
      property onApplyShader: TShaderEvents read FonApplyShader write FonApplyShader;
@@ -1012,27 +1014,55 @@ begin
   result:=BuildProgram;
 end;
 
-procedure TShaderProgram.SetGeomInputType(ProgramId, Value: GLUInt);
+constructor TShaderProgram.CreateGS(aVertex, aFragment, aGeometry: string;
+  InputType, OutputType, OutCount: GLUInt);
 begin
-  SetProgParam(ProgramId,GL_GEOMETRY_INPUT_TYPE_EXT,Value);
+  Create(nil);
+  FVertexText.LoadFromFile(aVertex);
+  FFragmentText.LoadFromFile(aFragment);
+  FGeometryText.LoadFromFile(aGeometry);
+
+  if not assigned(FShaders) then begin
+    FShaders:=TShaders.Create; FShaders.Owner:=self; end;
+  FProgramId:=FShaders.CreateShaderProgram;
+
+  FVertObjId:=FShaders.AddShaderObject(FVertexText.Text,GL_VERTEX_SHADER,asHandle);
+  FFragObjId:=FShaders.AddShaderObject(FFragmentText.Text,GL_FRAGMENT_SHADER,asHandle);
+  FGeomObjId:=FShaders.AddShaderObject(FGeometryText.Text,GL_GEOMETRY_SHADER,asHandle);
+
+  FShaders.AttachShaderObjectToProgram(FVertObjId,FProgramId);
+  FShaders.AttachShaderObjectToProgram(FFragObjId,FProgramId);
+  FShaders.AttachShaderObjectToProgram(FGeomObjId,FProgramId);
+
+  SetProgParam(GL_GEOMETRY_INPUT_TYPE_EXT,InputType);
+  SetProgParam(GL_GEOMETRY_OUTPUT_TYPE_EXT,OutputType);
+  SetGeomVerticesOutCount(OutCount);
+
+  FShaders.LinkShaderProgram(FProgramId);
+
 end;
 
-procedure TShaderProgram.SetGeomOutputType(ProgramId, Value: GLUInt);
+procedure TShaderProgram.SetGeomInputType(Value: GLUInt);
 begin
-  SetProgParam(ProgramId,GL_GEOMETRY_OUTPUT_TYPE_EXT,Value);
+  SetProgParam(GL_GEOMETRY_INPUT_TYPE_EXT,Value);
 end;
 
-procedure TShaderProgram.SetGeomVerticesOutCount(ProgramId, Value: GLUInt);
+procedure TShaderProgram.SetGeomOutputType(Value: GLUInt);
+begin
+  SetProgParam(GL_GEOMETRY_OUTPUT_TYPE_EXT,Value);
+end;
+
+procedure TShaderProgram.SetGeomVerticesOutCount(Value: GLUInt);
 var Temp: cardinal;
 begin
   if Value=0 then begin
     glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, @Temp);
-    SetProgParam(ProgramId,GL_GEOMETRY_VERTICES_OUT_EXT,Temp);
+    SetProgParam(GL_GEOMETRY_VERTICES_OUT_EXT,Temp);
   end;
-  SetProgParam(ProgramId,GL_GEOMETRY_VERTICES_OUT_EXT,Value);
+  SetProgParam(GL_GEOMETRY_VERTICES_OUT_EXT,Value);
 end;
 
-procedure TShaderProgram.SetProgParam(ProgramId, Param, Value: GLUInt);
+procedure TShaderProgram.SetProgParam(Param, Value: GLUInt);
 begin
   glProgramParameteriEXT(ProgramId,Param,Value);
 end;

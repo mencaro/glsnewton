@@ -668,22 +668,25 @@ begin
 
        glTex:=FTextures.TextureByName(Materials[i]);
        if not assigned(glTex) then gltex:=FTextures.AddNewTexture(Materials[i]);
-       matObj.AttachTexture(glTex);
-
        with glTex do begin
           SetTarget(ttTexture2D);
           SetFilters(mnLinearMipmapLinear, mgLinear);
           LoadFromFile(path+mat3ds.Texture.Map.NameStr);
-          TextureMode := tcModulate;
-          TwoSides:=mat3ds.TwoSided;
-          with mat3ds.Texture.Map do begin
-            //if (UScale<>1) or (VScale<>1) or (UOffset<>0) or (VOffset<>0)then begin
-              TextureMatrix:=CreateScaleMatrix(AffineVectorMake(UScale, VScale, 1));
-              TextureMatrix:=MatrixMultiply(TextureMatrix,
-                CreateTranslationMatrix(AffineVectorMake((1-frac(UOffset))*UScale, (frac(VOffset))*VScale, 0)));
-            //end;
+          if not assigned (TexDesc.Data) then glTex.Free
+          else begin
+            matObj.AttachTexture(glTex);
+            TextureMode := tcModulate;
+            TwoSides:=mat3ds.TwoSided;
+            with mat3ds.Texture.Map do begin
+              //if (UScale<>1) or (VScale<>1) or (UOffset<>0) or (VOffset<>0)then begin
+                TextureMatrix:=CreateScaleMatrix(AffineVectorMake(UScale, VScale, 1));
+                TextureMatrix:=MatrixMultiply(TextureMatrix,
+                  CreateTranslationMatrix(AffineVectorMake((1-frac(UOffset))*UScale, (frac(VOffset))*VScale, 0)));
+              //end;
+            end;
           end;
        end;
+
      end;
   end;
   Materials.Free;
