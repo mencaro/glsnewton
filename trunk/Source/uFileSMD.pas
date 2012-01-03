@@ -83,6 +83,7 @@ Procedure TransformModel(Model:TList; var anim: TSMDFile; FrameNo:integer);
 Procedure GetBonesAtFrame(smd: PSMDFile; var Bones: array of TVector; FrameNo: single);
 Function GetInterpolatedBones(smd: PSMDFile;
   var Bones: array of TVector; FrameNo: single): TSMDNodes;
+Procedure BonesToNodes(const Bones: array of TVector; var Nodes: TSMDNodes);
 Procedure BlendAnimation( var Nodes: TSMDNodes; Anim1,Anim2: PSMDFile;
                          Frame1,Frame2: single; BlendFactor: single);
 Function BlendFrames(const Frame1,Frame2: TSMDNodes; factor: single;
@@ -718,6 +719,37 @@ begin
     result:=BlendFrames(node,node2,factor,Bones);
   end else begin
     result:=node; NodesToBones(node,Bones);
+  end;
+end;
+
+procedure BonesToNodes(const Bones: array of TVector; var Nodes: TSMDNodes);
+var Pos:TVector;
+    Q:TQuaternion;
+    M,InvM:TMatrix;
+    I,Par:integer;
+begin
+  if Length(Bones)<>Length(Nodes)*2 then Exit; // хотя тут можно и выдать сообщение о несоответствии костей
+  for i:=0 to Length(Nodes)-1 do begin
+    Par:=Nodes[i].parent;
+    if Par=-1 then begin
+      Pos:=Bones[Nodes[i].Index*2];
+      Q.ImagPart:=AffineVectorMake(Bones[Nodes[i].Index*2+1]);
+      Q.RealPart:=Bones[Nodes[i].Index*2+1][3];
+      M:=QuaternionToMatrix(Q);
+      Pos[3]:=1; M[3]:=Pos;
+      Nodes[i].GlobalMatrix:=M;
+      Nodes[i].LocalMatrix:=M;
+      Nodes[i].LocalPos:=pos;
+    end else begin
+      Pos:=Bones[Nodes[i].Index*2]; Pos[3]:=1;
+      Q.ImagPart:=AffineVectorMake(Bones[Nodes[i].Index*2+1]);
+      Q.RealPart:=Bones[Nodes[i].Index*2+1][3];
+      M:=QuaternionToMatrix(Q); M[3]:=Pos;
+      InvM:=MatrixInvert(Nodes[Par].GlobalMatrix);
+      Nodes[i].GlobalMatrix:=M;
+      Nodes[i].LocalMatrix:=MatrixMultiply(M,InvM);
+      Nodes[i].LocalPos:=VectorTransform(Pos,InvM);
+    end;
   end;
 end;
 

@@ -938,7 +938,7 @@ begin
     MaxElements := ElementsCount;
     VertexCount := Vertexes.Count;
     if FreeBuffMem then begin
-      Vertexes.Clear; Normals.Clear; TexCoords.Clear;Colors.Clear;
+      Vertexes.Clear; Normals.Clear; TexCoords.Clear; Colors.Clear;
       for i := 0 to ExTexCoords.Count - 1 do begin
         attr:=ExTexCoords[i];
         if assigned(attr.DataHandler) and (pointer(attr.DataHandler)<>attr)
@@ -971,7 +971,7 @@ var i,j: integer;
     VBuff: PVBOBuffer;
 begin
   for j:=0 to List.Count-1 do begin
-    VBuff:=List[j]; GenVBOBuff(VBuff^);
+    VBuff:=List[j]; GenVBOBuff(VBuff^,FreeBuffMem);
   end;
 end;
 
