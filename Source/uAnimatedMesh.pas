@@ -655,7 +655,8 @@ begin
         VectorScale(Properties.SpecularColor.ColorVector, mat3ds.ShinStrength);
         Properties.Shininess:=trunc(mat3ds.Shininess);
      end;
-     if mat3ds.Transparency <> 0 then matObj.Blending.SetByMode(bmTransparency);
+     if abs(mat3ds.Transparency) <> 0 then matObj.Blending.SetByMode(bmTransparency)
+     else matObj.Blending.SetByMode(bmOpaque);
      if Trim(mat3ds.Texture.Map.NameStr) <> '' then begin
        path:=ExtractFilePath(FileName);
        if pos(':',TexPath)>0 then path:=texPath else begin
