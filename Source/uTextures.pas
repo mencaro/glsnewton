@@ -22,7 +22,7 @@ interface
 
 Uses Windows, Classes, Contnrs, Graphics, SysUtilsLite, OpenGL1x,
      VectorLists, GLTextureFormat, Textures, uDDSLoader, VectorGeometry,
-     OGLStateEmul, uLogs;
+     OGLStateEmul{$IFDEF Logging},uLogs{$ENDIF};
 
 Type
   TSettedTexParams = set of (stFormats, stFilters, stData,
@@ -996,6 +996,10 @@ var format: GLEnum;
     ext: string;
     dds: PDDSImageDesc;
     fs: TFileStream;
+   {$IFDEF Logging}
+    t: double;
+   {$ENDIF}
+
 begin
    inherited Create;
    FTextureMatrix:=IdentityHmgMatrix;
@@ -1035,8 +1039,14 @@ begin
      end;
      dispose(dds.Data); Dispose(dds); exit;
    end;
-
+   {$IFDEF Logging}
+     WriteToLog('--Image Loading...'); t:=GetTime;
+   {$ENDIF}
    Data:=LoadDataFromFile(Filename,format, w,h);
+   {$IFDEF Logging}
+     t:=GetTime-t; WriteToLog('--Image Loaded in '+floattostr(t*1000,5,3)+'ms');
+   {$ENDIF}
+
    {$IFDEF Logging}
      WriteToLog('--Texture image loaded: ');
      WriteToLog('-----FileName: '+Filename);
@@ -1876,10 +1886,10 @@ begin
        Else WriteToLog(format);
      end;
      WriteToLog('-----Target: ',false);
-     case target of
+     case Ftarget of
        ttTexture2D: WriteToLog('Texture 2D');
        ttTextureRectangle: WriteToLog('Texture Rectangle');
-       Else WriteToLog(ord(target));
+       Else WriteToLog(ord(Ftarget));
      end;
      WriteToLog('-----Width: ',false); WriteToLog(w);
      WriteToLog('-----Height: ',false); WriteToLog(h);

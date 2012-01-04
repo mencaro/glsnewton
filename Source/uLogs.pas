@@ -2,7 +2,7 @@ unit uLogs;
 
 interface
 
-uses SysUtilsLite, Classes;
+uses SysUtilsLite, Classes, Windows;
 
 var vLog: TFileStream;
 
@@ -10,11 +10,20 @@ procedure WriteToLog(s: ansistring; br: boolean = true); overload;
 procedure WriteToLog(v: integer; br: boolean = true); overload;
 //procedure WriteToLog(v: double; br: boolean = true); overload;
 procedure WriteToLog(b: boolean; br: boolean = true); overload;
+function GetTime:double;
 
 implementation
 
 const
   cBreakLine: array[false..true] of string = ('',#13+#10);
+
+function GetTime:double;
+var Freq, Tick: Int64;
+begin
+  QueryPerformanceFrequency(Freq);
+  QueryPerformanceCounter(Tick);
+  Result:=Tick/Freq;
+end;
 
 procedure WriteToLog(s: ansistring; br: boolean = true); overload;
 var x: pchar;
@@ -46,13 +55,15 @@ end;
 initialization
 begin
   {$IFDEF Logging}
-     vLog:=TFileStream.Create('log.txt',fmCreate);
+     vLog:=TFileStream.Create('log.txt',fmCreate); exit;
   {$ENDIF}
 end;
 
 finalization
 begin
-  vLog.Free;
+  {$IFDEF Logging}
+    vLog.Free;
+  {$ENDIF}
 end;
 
 end.
