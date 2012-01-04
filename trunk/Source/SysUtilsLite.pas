@@ -53,7 +53,7 @@ function StrToInt(const S: string): Integer;
 function StrToIntDef(const S: string; Default: Integer): Integer;
 function Trim(const S: WideString): WideString; overload;
 function Trim(const S: AnsiString): AnsiString; overload;
-function TrimLeft(const S: string): string; overload;
+function TrimLeft(const S: Widestring): string; overload;
 function TrimLeft(const S: AnsiString): AnsiString; overload;
 function CropString(const s: ansistring; left,right: integer): ansistring;
 
@@ -128,7 +128,7 @@ begin
   end;
 end;
 
-function TrimLeft(const S: string): string; overload;
+function TrimLeft(const S: WideString): string; overload;
 var
   I, L: Integer;
 begin

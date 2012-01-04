@@ -56,6 +56,9 @@
 
 {: vboMesh
 	Historique:
+
+  04/01/12 - Fantom - Добавлен метод TVBOMeshObject.ChangeProxy для смены мастер-объекта существующего прокси
+                    - Добавлено свойство TVBOMeshObject.MasterProxy для миены мастер-прокси и превращения объекта в прокси
   26/12/11 - Fantom - TVolumetricLine - добавлена возможность задавать отрезки(BreakLine)
                     - TCameraController - добавлена установка проекционной матрицы
   17/12/11 - Fantom - Изменения в архитектуре:
@@ -2031,22 +2034,25 @@ var mo: TVBOMeshObject;
 begin
   mo:=TVBOMeshObject.Create;
   with mo do begin
+    Visible:=true;
+    Name:='VBOProxy'+inttostr(FMeshList.Count);
+    MasterProxy:=MasterObject;
+  end;
+{  with mo do begin
     OctreeList.Free; MeshList.Free; LodList.Free;
 //    MeshType:=mtProxy;
     MeshType:=MasterObject.MeshType;
-    Visible:=true;
-    Name:='VBOProxy'+inttostr(FMeshList.Count);
     Params:=MasterObject;
     MeshList:=MasterObject.MeshList;
     OctreeList:=MasterObject.OctreeList;
     LodList:=MasterObject.LodList;
     UseLods:=MasterObject.UseLods;
     BaseExtents:=MasterObject.BaseExtents;
+    MatObjLib:=MasterObject.MatObjLib;
     UpdateWorldMatrix; UpdateMaterialList;
-  end;
+  end;}
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
-  mo.MatObjLib:=MasterObject.MatObjLib;
   mo.Owner:=self;
   FStructureChanged:=true;
 end;

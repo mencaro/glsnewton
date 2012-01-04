@@ -74,6 +74,8 @@ Type
     FFaceMode: TFaceMode;
     FUseLods: boolean;
     FTwoSides: boolean;
+    FOwner: TVBOMeshItem;
+    FIsProxy: boolean;
 
     procedure fUpdateExtents;
     function  AABBUpdate(const aabb: TAABB; const WorldMatrix:TMatrix): TAABB;
@@ -91,6 +93,8 @@ Type
     procedure setParent(const Value: TVBOMeshObject);
     function getBlending: TBlendingModes;
     procedure SetBlending(const Value: TBlendingModes);
+    function getMasterProxy: TVBOMeshObject;
+    procedure setMasterProxy(const Value: TVBOMeshObject);
   Protected
     FUseRenderList: boolean;
     FRenderList:TList;
@@ -200,6 +204,8 @@ Type
     Property MultiBuffer: TMultiPackBuff read FMultiBuffer;
     //Список инстансов
     Property ProxyList: TList read FProxyList;
+    //Мастер-прокси объекта
+    Property MasterProxy: TVBOMeshObject read getMasterProxy write setMasterProxy;
     //Режим отображения граней
     Property FaceMode: TFaceMode read FFaceMode write FFaceMode;
     //Игнорировать проверку перекрытия
@@ -208,6 +214,7 @@ Type
     //Использовать ЛОДы
     Property UseLods: boolean read FUseLods write FUseLods;
     Property LodList: TList read FLodList write FLodList;
+
 
     Procedure UpdateExtents;
     //трансформирует все вершины используя матрицу WMatrix,
@@ -243,6 +250,8 @@ Type
 
     //Добавляет LOD
     Procedure AddLod(LOD: TVBOMeshObject; MaxViewDistance:single);
+    //Меняет мастер-объект прокси
+    Procedure ChangeProxy(MasterObject: TVBOMeshObject);
     //Тесселяция геоемтрии
     Procedure Tesselate(iter: integer = 1);
     //Очищает список всех прокси
@@ -687,6 +696,22 @@ begin
   FOctreeBuilded:=true;
 end;
 
+procedure TVBOMeshObject.ChangeProxy(MasterObject: TVBOMeshObject);
+begin
+  assert(FIsProxy,'MeshObject "'+Name+'" is not ProxyObject');
+  if assigned(MasterObject) then begin
+    MeshType:=MasterObject.MeshType;
+    Params:=MasterObject;
+    MeshList:=MasterObject.MeshList;
+    OctreeList:=MasterObject.OctreeList;
+    LodList:=MasterObject.LodList;
+    UseLods:=MasterObject.UseLods;
+    BaseExtents:=MasterObject.BaseExtents;
+    MatObjLib:=MasterObject.MatObjLib;
+    UpdateWorldMatrix; UpdateMaterialList;
+  end else Visible:=false;
+end;
+
 procedure TVBOMeshObject.ClearProxy;
 var pm: PMatrix;
     i: integer;
@@ -704,6 +729,7 @@ constructor TVBOMeshObject.Create;
 begin
   FHandle:=inherited Create;
   FItemType:=mcMeshObject;
+  FIsProxy:=false;
 
   MeshList:=TList.Create;
   Materials:=TStringList.Create;
@@ -793,6 +819,11 @@ end;
 function TVBOMeshObject.getBlending: TBlendingModes;
 begin
   result:=MaterialObject.Blending.BlendingMode;
+end;
+
+function TVBOMeshObject.getMasterProxy: TVBOMeshObject;
+begin
+  result:=FParams;
 end;
 
 function TVBOMeshObject.getMaterial: TMaterial;
@@ -1419,6 +1450,15 @@ begin
   end;
 end;
 
+procedure TVBOMeshObject.setMasterProxy(const Value: TVBOMeshObject);
+begin
+  if not FIsProxy then begin
+    OctreeList.Free; LodList.Free;
+    FreeVBOList(MeshList); MeshList.Free;
+  end; fIsProxy:=true;
+  ChangeProxy(Value);
+end;
+
 procedure TVBOMeshObject.GetTriMesh(var TriMesh: TAffinevectorList);
 var i:integer;
     p:PVBOBuffer;
@@ -1608,6 +1648,7 @@ procedure TVBOMeshObject.UpdateMaterialList;
 var i: integer;
     p: PVBOBuffer;
 begin
+  Materials.Clear;
   for i:=0 to MeshList.Count-1 do begin
     p:=MeshList[i]; if not assigned(p) then exit;
 

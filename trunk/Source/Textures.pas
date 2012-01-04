@@ -1,6 +1,7 @@
 {: Textures - Предназначен для загрузки текстур в формате bmp, tga и jpg.
 
 	Historique:
+        05/01/12 - Fantom - Переписан загрузчик текстур в формате jpg
         08/05/11 - Fantom - Исправлен баг с загрузкой 256-цветных bmp (хак)
         21/08/10 - Fantom - Исправлен баг с загрузкой jpeg
 }
@@ -9,7 +10,7 @@ unit Textures;
 interface
 
 uses
-  Windows, Graphics, Classes, JPEG, SysUtilsLite;
+  Windows, Graphics, Classes, JPEG, SysUtils{, JpegLoader};
 
 function LoadTexture(Filename: String; var Format: Cardinal; var Width, Height: integer; LoadFromRes : Boolean=false) : pointer;
 procedure SaveTGAImage(FileName: string; Data: pointer; Width,Height: integer;
@@ -495,17 +496,39 @@ begin
    stream.Free;
 end;
 
+{
+var
+  LoadJpeg: procedure(var Data: pointer; FileName: string;
+    var IntFormat,ColorFormat: cardinal; var width,height: integer); stdcall;
+  jpgLibHandle: HINST = 0;
+
+procedure InitJpegLoader;
+begin
+  jpgLibHandle := LoadLibraryW(PWideChar('JpegLoader.dll'));
+  LoadJpeg:=GetProcAddress(Cardinal(jpgLibHandle), 'LoadJpeg');
+end;
+}
+
+procedure LoadJpeg(var Data: pointer; FileName: string;
+  var IntFormat,ColorFormat: cardinal; var width,height: integer);
+    external 'jpegLoader.dll';
+
 {------------------------------------------------------------------}
 {  Determines file type and sends to correct function              }
 {------------------------------------------------------------------}
 function LoadTexture(Filename: String; var Format: Cardinal; var Width, Height: integer; LoadFromRes : Boolean=false) : pointer;
 var ext: string;
+    ColorFormat: cardinal;
 begin
   result:=nil; ext:=copy(Uppercase(filename), length(filename)-3, 4);
   if ext = '.BMP' then
     result:=LoadBMPTexture(Filename, Format, Width, Height, LoadFromRes);
-  if ext = '.JPG' then
-    result:=LoadJPGTexture(Filename, Format, Width, Height, LoadFromRes);
+  if ext = '.JPG' then begin
+//    if jpgLibHandle=0 then InitJpegLoader;
+//    result:=LoadJPGTexture(Filename, Format, Width, Height, LoadFromRes);
+    LoadJpeg(result,FileName,ColorFormat,Format,Width,Height);
+    if Format=$80E0 then begin SwapRGB(result,Width*Height); Format:=GL_RGB; end;
+  end;
   if ext = '.TGA' then
     result:=LoadTGATexture(Filename, Format, Width, Height, LoadFromRes);
 end;
