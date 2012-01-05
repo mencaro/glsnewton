@@ -1546,7 +1546,7 @@ begin
           b:=j*db; rx:=rxz*cos(b); rz:=rxz*sin(b);
           vi:=i*(HSegments)+j;
           Vertexes.Add(rx,ry,rz);
-          TexCoords.Add(j*ks*TileS,i*kt*TileT);
+          TexCoords.Add((1-j*ks)*TileS,(1-i*kt)*TileT);
           norm:=affinevectormake(rx/Radius,ry/Radius,rz/Radius);
           if NormalInside then NegateVector(norm);
           Normals.Add(norm);

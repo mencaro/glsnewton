@@ -1,6 +1,7 @@
-{: Textures - Предназначен для загрузки текстур в формате bmp, tga и jpg.
+{: Textures - Предназначен для загрузки текстур в формате bmp, tga, jpg, png и dds.
 
 	Historique:
+        05/01/12 - Fantom - Добавлен загрузчик текстур в формате зтп
         05/01/12 - Fantom - Переписан загрузчик текстур в формате jpg
         08/05/11 - Fantom - Исправлен баг с загрузкой 256-цветных bmp (хак)
         21/08/10 - Fantom - Исправлен баг с загрузкой jpeg
@@ -10,17 +11,31 @@ unit Textures;
 interface
 
 uses
-  Windows, Graphics, Classes, JPEG, SysUtils{, JpegLoader};
+  Windows, Graphics, Classes, JPEG, SysUtils;
 
-function LoadTexture(Filename: String; var Format: Cardinal; var Width, Height: integer; LoadFromRes : Boolean=false) : pointer;
+function LoadTexture(Filename: String; var Format: Cardinal; var Width, Height: integer; LoadFromRes : Boolean=false) : pointer;overload;
+function LoadTexture(Filename: String; var iFormat,cFormat,dType,pSize: Cardinal; var Width, Height: integer) : pointer; overload;
 procedure SaveTGAImage(FileName: string; Data: pointer; Width,Height: integer;
   PixelFormat: TPixelFormat);
 
 implementation
 
-Const
-   GL_RGB  = $1907;
-   GL_RGBA = $1908;
+const
+  GL_LUMINANCE = $1909;
+  GL_BGR = $80E0;
+  GL_LUMINANCE8 = $8040;
+  GL_RGB8 = $8051;
+  GL_UNSIGNED_SHORT = $1403;
+  GL_UNSIGNED_BYTE = $1401;
+  GL_LUMINANCE16 = $8042;
+  GL_LUMINANCE_ALPHA = $190A;
+  GL_LUMINANCE16_ALPHA16 = $8048;
+  GL_LUMINANCE8_ALPHA8 = $8045;
+  GL_RGB   = $1907;
+  GL_RGB16 = $8054;
+  GL_RGBA  = $1908;
+  GL_RGBA16 = $805B;
+  GL_RGBA8 = $8058;
 
 Type
    TTGAHeader = packed record
@@ -170,10 +185,7 @@ begin
 
   // Bitmaps are stored BGR and not RGB, so swap the R and B bytes.
   SwapRGB(pData, Width*Height);
-
-//  Texture :=CreateTexture(Width, Height, GL_RGB, pData);
   result:=pData; Format:=GL_RGB;
-//  FreeMem(pData);
 end;
 
 
@@ -395,7 +407,6 @@ begin
           Back^ := Temp;
         end;
         Result := Image; Format := GL_RGB;
-//        Texture :=CreateTexture(Width, Height, GL_RGB, Image);
       end else begin
         for I :=0 to Width * Height - 1 do begin
           Front := Pointer(Integer(Image) + I*4);
@@ -405,7 +416,6 @@ begin
           Back^ := Temp;
         end;
         Result := Image; Format := GL_RGBA;
-//        Texture :=CreateTexture(Width, Height, GL_RGBA, Image);
       end;
     end;
 
@@ -460,11 +470,8 @@ begin
       until CurrentPixel >= Width*Height;
       Result := Image;
       if ColorDepth = 3 then Format := GL_RGB
-//        Texture :=CreateTexture(Width, Height, GL_RGB, Image)
       else Format := GL_RGBA;
-//        Texture :=CreateTexture(Width, Height, GL_RGBA, Image);
     end;
-//    FreeMem(Image);
   end;
 end;
 
@@ -497,9 +504,14 @@ begin
 end;
 
 var
-  LoadJpeg: procedure(var Data: pointer; FileName: string;
+  LoadJpeg: procedure (var Data: pointer; FileName: PWideChar;
     var IntFormat,ColorFormat: cardinal; var width,height: integer);
   jpgLibHandle: THandle = 0;
+
+  LoadPNG: procedure (var Data: pointer; FileName: PWideChar;
+    var IntFormat,ColorFormat,DataType,ElementSize: cardinal;
+    var width,height: integer);
+  ImgLibHandle: THandle = 0;
 
 procedure InitJpegLoader;
 begin
@@ -509,6 +521,26 @@ begin
   if (jpgLibHandle=0) or (not assigned(LoadJpeg)) then jpgLibHandle:=$FFFFFFFF;
 end;
 
+procedure InitImgLoader;
+begin
+  ImgLibHandle := LoadLibrary('ImgLoader.dll');
+  if ImgLibHandle<>0 then begin
+    LoadJpeg:=GetProcAddress(Cardinal(ImgLibHandle), 'LoadJpeg');
+    LoadPng:=GetProcAddress(Cardinal(ImgLibHandle), 'LoadPNG');
+  end else begin
+    ImgLibHandle := LoadLibrary('JpegLoader.dll');
+    if ImgLibHandle<>0 then
+      LoadJpeg:=GetProcAddress(Cardinal(ImgLibHandle), 'LoadJpeg');
+    LoadPng:=nil;
+  end;
+  if (ImgLibHandle=0) then ImgLibHandle:=$FFFFFFFF;
+end;
+
+{
+procedure LoadPNG(var Data: pointer; FileName: String;
+  var IntFormat,ColorFormat,DataType,ElementSize: cardinal;
+  var width,height: integer); external 'ImgLoader.dll';
+}
 
 {procedure LoadJpeg(var Data: pointer; FileName: string;
   var IntFormat,ColorFormat: cardinal; var width,height: integer);
@@ -517,27 +549,77 @@ end;
 {------------------------------------------------------------------}
 {  Determines file type and sends to correct function              }
 {------------------------------------------------------------------}
-function LoadTexture(Filename: String; var Format: Cardinal; var Width, Height: integer; LoadFromRes : Boolean=false) : pointer;
+function LoadTexture(Filename: String; var Format: Cardinal;
+  var Width, Height: integer; LoadFromRes : Boolean=false) : pointer; overload;
 var ext: string;
-    ColorFormat: cardinal;
+    ColorFormat,DataType,eSize: cardinal;
 begin
   result:=nil; ext:=copy(Uppercase(filename), length(filename)-3, 4);
   if ext = '.BMP' then
     result:=LoadBMPTexture(Filename, Format, Width, Height, LoadFromRes);
   if ext = '.JPG' then begin
-    if jpgLibHandle=0 then InitJpegLoader;
-    if jpgLibHandle<>$FFFFFFFF then begin
-      LoadJpeg(result,FileName,ColorFormat,Format,Width,Height);
+    if ImgLibHandle=0 then InitImgLoader;
+    if ImgLibHandle<>$FFFFFFFF then begin
+      LoadJpeg(result,PWideChar(FileName),ColorFormat,Format,Width,Height);
       if Format=$80E0 then begin SwapRGB(result,Width*Height); Format:=GL_RGB; end;
     end else result:=LoadJPGTexture(Filename, Format, Width, Height, LoadFromRes);
     //LoadJpeg(result,FileName,ColorFormat,Format,Width,Height);
   end;
   if ext = '.TGA' then
     result:=LoadTGATexture(Filename, Format, Width, Height, LoadFromRes);
+  if ext = '.PNG' then begin
+    if ImgLibHandle=0 then InitImgLoader;
+    if (ImgLibHandle<> $FFFFFFFF) and (assigned(LoadPng)) then begin
+      LoadPNG(result,PWideChar(FileName),ColorFormat,Format,DataType,eSize,Width,Height);
+    end else assert(false,'PNG Textures not supported. Put ImgLoader.dll in search path');
+  end;
+end;
+
+function LoadTexture(Filename: String; var iFormat,cFormat,dType,pSize: Cardinal;
+  var Width, Height: integer): pointer; overload;
+var ext: string;
+begin
+  result:=nil; ext:=copy(Uppercase(filename), length(filename)-3, 4);
+  if ext = '.BMP' then begin
+    result:=LoadBMPTexture(Filename, cFormat, Width, Height, false);
+    iFormat:=GL_RGB8; dType:=GL_UNSIGNED_BYTE; pSize:=3;
+  end;
+  if ext = '.JPG' then begin
+    if ImgLibHandle=0 then InitImgLoader;
+    if ImgLibHandle<>$FFFFFFFF then begin
+      LoadJpeg(result,PWideChar(FileName),iFormat,cFormat,Width,Height);
+      if cFormat=$80E0 then begin
+        SwapRGB(result,Width*Height); cFormat:=GL_RGB;
+        iFormat:=GL_RGB8; pSize:=3;
+      end else pSize:=1;
+      dType:=GL_UNSIGNED_BYTE;
+    end else begin
+      result:=LoadJPGTexture(Filename, cFormat, Width, Height, false);
+      iFormat:=GL_RGB8; dType:=GL_UNSIGNED_BYTE; pSize:=3;
+    end;
+
+  end;
+  if ext = '.TGA' then begin
+    result:=LoadTGATexture(Filename, cFormat, Width, Height,false);
+    if cFormat=GL_RGB then begin
+      iFormat:=GL_RGB8; pSize:=3;
+    end else begin
+      iFormat:=GL_RGBA8; pSize:=4;
+    end; dType:=GL_UNSIGNED_BYTE;
+  end;
+
+  if ext = '.PNG' then begin
+    if ImgLibHandle=0 then InitImgLoader;
+    if (ImgLibHandle<> $FFFFFFFF) and (assigned(LoadPng)) then begin
+      LoadPNG(result,PWideChar(FileName),iFormat,cFormat,dType,pSize,Width,Height);
+    end else assert(false,'PNG Textures not supported. Put ImgLoader.dll in search path');
+  end;
 end;
 
 initialization
 
 finalization
-  if (jpgLibHandle<>0) and (jpgLibHandle<>$FFFFFFFF) then FreeLibrary(jpgLibHandle);
+//  if (jpgLibHandle<>0) and (jpgLibHandle<>$FFFFFFFF) then FreeLibrary(jpgLibHandle);
+  if (ImgLibHandle<>0) and (ImgLibHandle<>$FFFFFFFF) then FreeLibrary(ImgLibHandle);
+
 end.
