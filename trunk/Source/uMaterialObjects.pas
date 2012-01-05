@@ -60,6 +60,8 @@ Type
     FUseTexture: boolean;
     FUseMaterial: boolean;
     FUseShader: boolean;
+    FTwoSideLighting: boolean;
+    FIgnoreLighting: boolean;
     FName: string;
     FNameChanged: boolean;
     FAdditionalTextures: array of TTexture;
@@ -73,6 +75,8 @@ Type
     procedure setName(const Value: string);
     function getAddTex(index: integer): TTexture;
     procedure setAddTex(index: integer; const Value: TTexture);
+    procedure setIgnoreLighting(const Value: boolean);
+    procedure setTwoSideLighting(const Value: boolean);
   public
     constructor Create;
     destructor Destroy;override;
@@ -99,6 +103,9 @@ Type
     property UseTexture: boolean read FUseTexture write setUseTexture;
     property UseShader: boolean read FUseShader write setUseShader;
     property UseAddinionalTextures: boolean read FUseAddTex write FUseAddTex;
+    property TwoSideLighting: boolean read FTwoSideLighting write setTwoSideLighting;
+    property IgnoreLighting: boolean read FIgnoreLighting write setIgnoreLighting;
+
     property NormalScale: single read FNormalScale write FNormalScale;
 
   end;
@@ -298,6 +305,9 @@ begin
       if assigned(FAdditionalTextures[i]) then
         FAdditionalTextures[i].Apply(i+1);
   end;
+  if TwoSideLighting then glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,1)
+  else glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,0);
+  if IgnoreLighting then glDisable(GL_LIGHTING);
   if assigned(FMaterial) and FUseMaterial then FMaterial.Apply;
   if assigned(FShader) and FUseShader then FShader.Apply;
   if assigned(ApplyProc) then ApplyProc(Self);
@@ -369,8 +379,9 @@ begin
   setlength(FAdditionalTextures,mtc); FUseAddTex:=false;
   if mtc>1024 then mtc:=1024;
   for i:=0 to length(FAdditionalTextures)-1 do FAdditionalTextures[i]:=nil;
-  FActive:=false;
-  FTexture:=nil; FMaterial:=nil; FShader:=nil;
+  FActive:=false; FTexture:=nil; FMaterial:=nil; FShader:=nil;
+  FTwoSideLighting:=False;
+  FIgnoreLighting:=False;
   inherited;
 end;
 
@@ -409,10 +420,20 @@ begin
   FAdditionalTextures[index-1]:=Value;
 end;
 
+procedure TMaterialObject.setIgnoreLighting(const Value: boolean);
+begin
+  FIgnoreLighting := Value; FActive:=true;
+end;
+
 procedure TMaterialObject.setName(const Value: string);
 begin
  FName := Value; FNameChanged:=true;
  FHashKey:=StringHashKey(FName);
+end;
+
+procedure TMaterialObject.setTwoSideLighting(const Value: boolean);
+begin
+  FTwoSideLighting := Value; FActive:=true;
 end;
 
 procedure TMaterialObject.setUseMaterial(const Value: boolean);
@@ -439,8 +460,9 @@ begin
   if assigned(FShader) and FUseShader then
   FShader.UnApply;
   if assigned(FTexture) and FUseTexture then FTexture.UnApply(0);
-  if assigned(FMaterial) and FUseMaterial then
-    FMaterial.UnApply;
+  if assigned(FMaterial) and FUseMaterial then FMaterial.UnApply;
+  if TwoSideLighting then glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,0);
+  if IgnoreLighting then glEnable(GL_LIGHTING);
 end;
 
 { TMaterialCache }
