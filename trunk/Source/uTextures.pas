@@ -47,6 +47,7 @@ Type
      InternalFormat: GLUInt;
      Precision: GLUInt;
      ColorChanels: GLUint;
+     PixelSize: cardinal;
      WrapS, WrapT, WrapR: GLUInt;
      Target: GLEnum;
      minFilter: GLEnum;
@@ -57,7 +58,7 @@ Type
      GenerateMipMaps: boolean;
      Data: pointer;
      Id, pboRBId,pboWBId: GLUint;
-     FullSize, PixelSize: integer;
+     FullSize: integer;
      Width, Height, Depth: integer;
      UsePBO: boolean;
      Created: boolean;
@@ -214,7 +215,7 @@ Type
        property Height: integer read FTexture.Height;
        property Depth: integer read FTexture.Depth;
        property MemSize: integer read FTexture.FullSize;
-       property PixelSize: integer read FTexture.PixelSize;
+       property PixelSize: cardinal read FTexture.PixelSize;
        property InternalOGLFormat: GLEnum read FTexture.InternalFormat;
        property PrecisionOGLFormat: GLEnum read FTexture.Precision;
        property PixelOGLFormat: GLEnum read FTexture.ColorChanels;
@@ -353,6 +354,7 @@ begin
       TextureGenT:=0;
       TextureGenR:=0;
    end;
+   FTextureMode:=tcModulate;
 
 end;
 
@@ -992,19 +994,16 @@ end;
 Constructor  TTexture.CreateFromFile(Filename: string; target: TTexTarget);
 var format: GLEnum;
     w,h: integer;
-    data: pointer;
+    _data: pointer;
     ext: string;
     dds: PDDSImageDesc;
     fs: TFileStream;
-   {$IFDEF Logging}
-    t: double;
-   {$ENDIF}
-
 begin
    inherited Create;
    FTextureMatrix:=IdentityHmgMatrix;
    FTexMatrixChanged:=false; FTwoSides:=false;
    FBlendingMode:=tbmMesh;
+   FTextureMode:=tcModulate;
    FDisabled:=false;
    FOwner:=nil; FResourceHandler:=self;
    with FTexture do begin
@@ -1020,9 +1019,6 @@ begin
       TextureGenT:=0;
       TextureGenR:=0;
    end;
-   {$IFDEF Logging}
-     WriteToLog('(D)Creating texture');
-   {$ENDIF}
    ext:=uppercase(ExtractFileExt(FileName));
    if ext='.DDS' then begin
      fs:=TFileStream.Create(FileName, fmOpenRead);
@@ -1039,52 +1035,21 @@ begin
      end;
      dispose(dds.Data); Dispose(dds); exit;
    end;
-   {$IFDEF Logging}
-     WriteToLog('--Image Loading...'); t:=GetTime;
-   {$ENDIF}
-   Data:=LoadDataFromFile(Filename,format, w,h);
-   {$IFDEF Logging}
-     t:=GetTime-t; WriteToLog('--Image Loaded in '+floattostr(t*1000,5,3)+'ms');
-   {$ENDIF}
-
-   {$IFDEF Logging}
-     WriteToLog('--Texture image loaded: ');
-     WriteToLog('-----FileName: '+Filename);
-     WriteToLog('-----Format: ',false);
-     case format of
-       GL_RGB: WriteToLog('GL_RGB');
-       GL_RGBA: WriteToLog('GL_RGBA');
-       Else WriteToLog(format);
+   //Data:=LoadDataFromFile(Filename,format, w,h);
+   SetTarget(target);
+   with FTexture do begin
+     _Data:=LoadTexture(Filename,InternalFormat,ColorChanels,Precision,PixelSize,w,h);
+     assert(assigned(_Data), 'Unsupported File Format: '+extractfilename(FileName));
+     SetOGLTextureFormat(InternalFormat,ColorChanels,Precision);
+     SetDimensions(w, h);
+     if not (stFilters in FSettedParams) then begin
+       if Precision=GL_UNSIGNED_BYTE then SetFilters(mnLinearMipmapLinear, mgLinear)
+       else SetFilters(mnNearest, mgNearest);
      end;
-     WriteToLog('-----Target: ',false);
-     case target of
-       ttTexture2D: WriteToLog('Texture 2D');
-       ttTextureRectangle: WriteToLog('Texture Rectangle');
-       Else WriteToLog(ord(target));
-     end;
-     WriteToLog('-----Width: ',false); WriteToLog(w);
-     WriteToLog('-----Height: ',false); WriteToLog(h);
-   {$ENDIF}
-   SetFilters(mnLinearMipmapLinear, mgLinear);
-    case format of
-       GL_RGB: begin
-                 if target = ttTexture2D then
-                    CreateRGB8Texture2D(w,h,data);
-                 if target = ttTextureRectangle then
-                    CreateRGB8TextureRECT(w,h,data);
-               end;
-       GL_RGBA:begin
-                 if target = ttTexture2D then
-                    CreateRGBA8Texture2D(w,h,data);
-                 if target = ttTextureRectangle then
-                    CreateRGBA8TextureRECT(w,h,data);
-               end;
-    end;
-   freemem(Data);
-  {$IFDEF Logging}
-     WriteToLog('(D) Texture Creating compleated.'+#13+#10);
-  {$ENDIF}
-
+     CreateTexture;
+     UploadData(_Data,UsePBO);
+     freemem(_Data);
+   end;
 end;
 
 function TTexture.CreateLuminance32FTextureRECT(Width, Height: integer;
@@ -1687,6 +1652,7 @@ begin
   FTexture.TextureGenS:=cTG[GenS];
   FTexture.TextureGenT:=cTG[GenT];
   FTexture.TextureGenR:=cTG[GenR];
+  result:=true;
 end;
 
 procedure TTexture.SetTextureMatrix(const Value: TMatrix);
@@ -1852,14 +1818,11 @@ end;
 procedure TTexture.LoadFromFile(Filename: String);
 var format: GLEnum;
     w,h: integer;
-    data: pointer;
+    _data: pointer;
     ext: string;
     dds: PDDSImageDesc;
     fs: TFileStream;
 begin
-   {$IFDEF Logging}
-     WriteToLog('(D) Loading texture image: ',false);
-   {$ENDIF}
    if not (stTarget in FSettedParams) then SetTarget(ttTexture2D);
    ext:=uppercase(ExtractFileExt(FileName));
    if ext='.DDS' then begin
@@ -1875,44 +1838,18 @@ begin
      exit;
    end;
    assert(FTexture.Target<>0,'Texture target is not setted');
-   Data:=LoadDataFromFile(Filename,format, w,h);
-   {$IFDEF Logging}
-     WriteToLog('OK');
-     WriteToLog('-----FileName: '+Filename);
-     WriteToLog('-----Format: ',false);
-     case format of
-       GL_RGB: WriteToLog('GL_RGB');
-       GL_RGBA: WriteToLog('GL_RGBA');
-       Else WriteToLog(format);
+//   Data:=LoadDataFromFile(Filename,format, w,h);
+   with FTexture do begin
+     _Data:=LoadTexture(Filename,InternalFormat,ColorChanels,Precision,PixelSize,w,h);
+     assert(assigned(_Data), 'Unsupported File Format: '+extractfilename(FileName));
+     SetOGLTextureFormat(InternalFormat,ColorChanels,Precision);
+     SetDimensions(w, h);
+     if not (stFilters in FSettedParams) then begin
+       if Precision=GL_UNSIGNED_BYTE then SetFilters(mnLinearMipmapLinear, mgLinear)
+       else SetFilters(mnNearest, mgNearest);
      end;
-     WriteToLog('-----Target: ',false);
-     case Ftarget of
-       ttTexture2D: WriteToLog('Texture 2D');
-       ttTextureRectangle: WriteToLog('Texture Rectangle');
-       Else WriteToLog(ord(Ftarget));
-     end;
-     WriteToLog('-----Width: ',false); WriteToLog(w);
-     WriteToLog('-----Height: ',false); WriteToLog(h);
-   {$ENDIF}
-    SetFilters(mnLinearMipmapLinear, mgLinear);
-    case format of
-       GL_RGB: begin
-                 if TextureTarget = ttTexture2D then begin
-                    CreateRGB8Texture2D(w,h,data);
-                 end;
-                 if TextureTarget = ttTextureRectangle then
-                    CreateRGB8TextureRECT(w,h,data);
-               end;
-       GL_RGBA:begin
-                 if TextureTarget = ttTexture2D then
-                    CreateRGBA8Texture2D(w,h,data);
-                 if TextureTarget = ttTextureRectangle then
-                    CreateRGBA8TextureRECT(w,h,data);
-               end;
-    end;
-   {$IFDEF Logging}
-     WriteToLog('(D) Loading texture image: Compleated.'+#13+#10);
-   {$ENDIF}
+     CreateTexture; UploadData(_Data,UsePBO); FreeMem(_Data);
+   end;
 end;
 
 procedure TTexture.SaveAsBMP(FileName: String);
