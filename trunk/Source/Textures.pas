@@ -496,23 +496,24 @@ begin
    stream.Free;
 end;
 
-{
 var
   LoadJpeg: procedure(var Data: pointer; FileName: string;
-    var IntFormat,ColorFormat: cardinal; var width,height: integer); stdcall;
-  jpgLibHandle: HINST = 0;
+    var IntFormat,ColorFormat: cardinal; var width,height: integer);
+  jpgLibHandle: THandle = 0;
 
 procedure InitJpegLoader;
 begin
-  jpgLibHandle := LoadLibraryW(PWideChar('JpegLoader.dll'));
-  LoadJpeg:=GetProcAddress(Cardinal(jpgLibHandle), 'LoadJpeg');
+  jpgLibHandle := LoadLibrary('JpegLoader.dll');
+  if jpgLibHandle<>0 then
+    LoadJpeg:=GetProcAddress(Cardinal(jpgLibHandle), 'LoadJpeg');
+  if (jpgLibHandle=0) or (not assigned(LoadJpeg)) then jpgLibHandle:=$FFFFFFFF;
 end;
-}
 
-procedure LoadJpeg(var Data: pointer; FileName: string;
+
+{procedure LoadJpeg(var Data: pointer; FileName: string;
   var IntFormat,ColorFormat: cardinal; var width,height: integer);
     external 'jpegLoader.dll';
-
+}
 {------------------------------------------------------------------}
 {  Determines file type and sends to correct function              }
 {------------------------------------------------------------------}
@@ -524,14 +525,19 @@ begin
   if ext = '.BMP' then
     result:=LoadBMPTexture(Filename, Format, Width, Height, LoadFromRes);
   if ext = '.JPG' then begin
-//    if jpgLibHandle=0 then InitJpegLoader;
-//    result:=LoadJPGTexture(Filename, Format, Width, Height, LoadFromRes);
-    LoadJpeg(result,FileName,ColorFormat,Format,Width,Height);
-    if Format=$80E0 then begin SwapRGB(result,Width*Height); Format:=GL_RGB; end;
+    if jpgLibHandle=0 then InitJpegLoader;
+    if jpgLibHandle<>$FFFFFFFF then begin
+      LoadJpeg(result,FileName,ColorFormat,Format,Width,Height);
+      if Format=$80E0 then begin SwapRGB(result,Width*Height); Format:=GL_RGB; end;
+    end else result:=LoadJPGTexture(Filename, Format, Width, Height, LoadFromRes);
+    //LoadJpeg(result,FileName,ColorFormat,Format,Width,Height);
   end;
   if ext = '.TGA' then
     result:=LoadTGATexture(Filename, Format, Width, Height, LoadFromRes);
 end;
 
+initialization
 
+finalization
+  if (jpgLibHandle<>0) and (jpgLibHandle<>$FFFFFFFF) then FreeLibrary(jpgLibHandle);
 end.
