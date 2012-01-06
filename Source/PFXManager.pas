@@ -2,7 +2,8 @@ unit PFXManager;
 
 interface
 
-Uses Classes, VectorGeometry, VectorLists, uVBO, OGLStateEmul;
+Uses Classes, VectorGeometry, VectorTypes, VectorLists, uVectorLists,
+     uVBO, OGLStateEmul;
 
 Type
   TForceType = (ftConstant, ftLinAttenuate, ftQuadricAttenuate,ftUserFunction);

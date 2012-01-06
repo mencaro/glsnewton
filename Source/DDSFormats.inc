@@ -224,8 +224,8 @@ begin
           end;
         end;
       end;
-      if ElementSize>0 then exit;
     end;
+    if ElementSize>0 then exit;
     if (ddspf.dwFlags = DDPF_RGBA) and (ddspf.dwRGBBitCount = 32) then begin
         ColorFormat := GL_BGRA;
         InternalFormat := GL_RGBA8;

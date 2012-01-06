@@ -5,7 +5,8 @@ unit uOpenAL_Sound;
 
 interface
 
-uses OpenAL, Classes, SysUtilsLite, VBOMesh, uMeshObjects, VectorGeometry, VectorTypes;
+uses OpenAL, Classes, SysUtilsLite, VBOMesh, uMeshObjects, VectorGeometry,
+     VectorTypes;
 
 type
   TBufferData = packed record
