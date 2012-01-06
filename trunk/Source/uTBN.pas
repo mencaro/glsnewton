@@ -2,7 +2,7 @@ unit uTBN;
 
 interface
 
-uses VectorGeometry, VectorLists, uVBO;
+uses VectorGeometry, VectorLists, uVectorLists, uVBO;
 
 procedure CalculateTangentsAndBinormals(var buff: TVBOBuffer);
 procedure CalcTriangleBasis( const E,F,G: TAffineVector;

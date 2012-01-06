@@ -4,7 +4,7 @@ interface
 
 uses Classes, Types, SysUtilsLite,
      OpenGL1x, GeometryBB, VectorGeometry, VectorLists, Octree,
-     uMiscUtils, uBaseClasses, uFileSMD,
+     VectorTypes, uVectorLists, uMiscUtils, uBaseClasses, uFileSMD,
      PFXManager, uTextures, uFBO, uVBO, uShaders,
      uMaterials, uMaterialObjects, OGLStateEmul;
 

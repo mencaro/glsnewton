@@ -2,9 +2,9 @@ unit uAnimatedMesh;
 
 interface
 
-uses classes, uFileSMD, File3DS, Types3DS, vboMesh, uVBO, uMiscUtils, uBaseClasses,
-     VectorGeometry, uMaterials, uTextures, uMaterialObjects, uMeshObjects,
-     SySUtilsLite, VectorLists, OpenGL1x, OGLStateEmul;
+uses classes, uFileSMD, File3DS, Types3DS, uMeshObjects, uVBO, uMiscUtils, uBaseClasses,
+     VectorGeometry, uMaterials, uTextures, uMaterialObjects,
+     SysUtilsLite, VectorLists, OpenGL1x, OGLStateEmul;
 
 
 Type
@@ -566,17 +566,8 @@ begin
           mat:=MatArray[j];
           l:=Materials.IndexOf(mat.NameStr);
           if l<0 then l:=Materials.Add(mat.NameStr);
-          for k:=0 to mat.NFaces-1 do begin
-            f:=FaceArray[mat.FaceIndex[k]];
-            v:=VertexArray[f.V1];
-            v1:=AffineVectorMake(v.X,v.Y,v.Z);
-            v:=VertexArray[f.V2];
-            v2:=AffineVectorMake(v.X,v.Y,v.Z);
-            v:=VertexArray[f.V3];
-            v3:=AffineVectorMake(v.X,v.Y,v.Z);
-            f.Flag:=l;
-            FaceArray[mat.FaceIndex[k]]:=f;
-          end;
+          for k:=0 to mat.NFaces-1 do
+            FaceArray[mat.FaceIndex[k]].Flag:=l;
         end;
       end else for j:=0 to NFaces-1 do FaceArray[j].Flag:=$FFFF;
 
@@ -612,6 +603,8 @@ begin
           setlength(HashTable,c);
           new(buff); InitVBOBuff(buff^,GL_TRIANGLES,DrawElements);
           buff.RenderBuffs:=[uNormals,uIndices];
+          buff.MaterialFunc:=MaterialSetter;
+
           if pMesh.NTextVerts>0 then buff.RenderBuffs:=buff.RenderBuffs+[uTexCoords];
 
           IndexingHT(HashTable,VertexList,buff.Indices);

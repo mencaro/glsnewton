@@ -81,8 +81,8 @@ Uses
      GLScene, OpenGL1x, VectorTypes, VectorGeometry, VectorLists,
      GLRenderContextInfo, Octree, GeometryBB,
      uVBO, PFXManager, uTextures, uFBO, uShaders, MTLLoader, SysUtilsLite, uCamera,
-     uFileSMD, uFileObj, uMaterials, uMaterialObjects, uMiscUtils, uBaseClasses,
-     uMeshObjects, OGLStateEmul;
+     uFileSMD, uFileObj, uAnimatedMesh, uMaterials, uMaterialObjects, uMiscUtils,
+     uVectorLists, uBaseClasses, uMeshObjects, OGLStateEmul;
 
 Type
   TRenderBuffer = (rtNone, rtCurrent, rtFrameBuffer);
@@ -398,8 +398,6 @@ Type
   function GetTime: double;
 
 implementation
-
-uses uAnimatedMesh;
 
 function Max(a,b: single):single;
 begin
