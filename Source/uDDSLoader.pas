@@ -2,7 +2,7 @@ unit uDDSLoader;
 
 interface
 
-uses Classes, uMiscUtils, SysUtilsLite, GLTextureFormat, OpenGL1x;
+uses Classes, uMiscUtils, SysUtilsLite, OpenGL1x;
 
 const
 //Pixel formats dwFlags
@@ -373,7 +373,7 @@ begin
   result:=ord(s[1]) or (ord(s[2]) shl 8) or (ord(s[3]) shl 16) or (ord(s[4]) shl 24);
 end;
 
-{$REGION 'FlipBlocks'}
+{$if CompilerVersion>17.0}{$REGION 'FlipBlocks'}{$ifend}
   // flip a DXT1 color block
   ////////////////////////////////////////////////////////////
   procedure flip_blocks_dxtc1( data : PByte; numBlocks: integer);
@@ -538,7 +538,8 @@ end;
     end;
   end;
 
-{$ENDREGION}
+{$if CompilerVersion>17.0}{$ENDREGION}{$ifend}
+
 procedure flipSurface(chgData: Pbyte; w, h, d: integer; DDSDesc: PDDSImageDesc);
 var
   lineSize: integer;
@@ -603,170 +604,6 @@ begin
   end;
 end;
 
-function isCompressedFormat(const dds: TDDSImage): boolean; overload;
-var i: integer;
-begin
-  result:=false;
-  if dds.header.ddspf.dwFlags<>DDPF_FOURCC then exit;
-  if dds.header.ddspf.dwFourCC=FOURCC_DX10 then begin
-    for i:=0 to high(CDX10CompressedFormat) do
-      if CDX10CompressedFormat[i]=dds.header10.dxgiFormat then begin
-        result:=true; exit;
-      end;
-  end else begin
-   case dds.header.ddspf.dwFourCC of
-     FOURCC_DXT1: result:=true;
-     FOURCC_DXT2: result:=true;
-     FOURCC_DXT3: result:=true;
-     FOURCC_DXT4: result:=true;
-     FOURCC_DXT5: result:=true;
-     else result:=false;
-   end;
-  end;
-end;
-
-
-function BlockSize(const DDS: TDDSImage): integer;
-begin
-  if dds.header.ddspf.dwFourCC=FOURCC_DX10 then
-  case dds.header10.dxgiFormat of
-    DXGI_FORMAT_BC1_TYPELESS, DXGI_FORMAT_BC1_UNORM,
-    DXGI_FORMAT_BC1_UNORM_SRGB, DXGI_FORMAT_BC4_TYPELESS,
-    DXGI_FORMAT_BC4_UNORM, DXGI_FORMAT_BC4_SNORM: result:= 8;
-  else result:=16;
-  end else begin
-    if dds.header.ddspf.dwFourCC=FOURCC_DXT1
-    then result:=8 else result:=16;
-  end;
-end;
-
-function PitchSize(const DDS: TDDSImage): integer;
-begin
-  result:=-1;
-  if isCompressedFormat(dds) then begin
-    result:=trunc(max( 1, ((dds.header.dwWidth+3)/4))* BlockSize(dds));
-  end else begin
-    if (dds.header.ddspf.dwFourCC=FOURCC_DX10) then begin
-      if ((dds.header10.dxgiFormat=DXGI_FORMAT_R8G8_B8G8_UNORM)
-      or (dds.header10.dxgiFormat=DXGI_FORMAT_G8R8_G8B8_UNORM))
-      then result:=((dds.header.dwWidth+1) shr 1) * 4
-      else result:=trunc(( dds.header.dwWidth * dds.header.ddspf.dwRGBBitCount + 7 ) / 8);
-    end else begin
-      if (dds.header.ddspf.dwFourCC=$47424752)
-      or (dds.header.ddspf.dwFourCC=$42475247)
-      or (dds.header.ddspf.dwFourCC=$59565955)
-      or (dds.header.ddspf.dwFourCC=$32595559)
-      then result:=((dds.header.dwWidth+1) shr 1) * 4
-      else result:=trunc(( dds.header.dwWidth * dds.header.ddspf.dwRGBBitCount + 7 ) / 8);
-    end;
-  end;
-end;
-
-function BitsCount(Mask: cardinal): byte;
-var v: cardinal;
-    i,lb,hb: byte;
-begin
-  v:=Mask; lb:=255; hb:=254; i:=0;
-  while v>0 do begin
-    if (v and 1)=1 then begin
-      if lb=255 then lb:=i;
-      hb:=i;
-    end; inc(i); v:= v shr 1;
-  end;
-  result:=hb-lb+1;
-end;
-
-function BitsOrder(a,b,c,d: cardinal): boolean; overload;
-begin
-  if (a>b) and (b>c) and (c>d) then result:=true else result:=false;
-end;
-function BitsOrder(a,b,c: cardinal): boolean; overload;
-begin
-  if (a>b) and (b>c) then result:=true else result:=false;
-end;
-
-
-procedure DDSToOGLFormat(const dds: TDDSImage; var iFormat,cFormat,Prec: cardinal);
-var PixelFormat: (pfARGB, pfRGB, pfAlpha, pfYUV, pfLuminance);
-    PixelOrder: (poRGB,poRGBA,poBGR,poBGRA,poARGB,poABGR);
-    Rbits,Gbits,Bbits,ABits: byte;
-    Mask: cardinal;
-    AMask: cardinal;
-begin
-  if dds.header.ddspf.dwFlags=DDPF_FOURCC then with dds.header.ddspf do begin
-    case dwFourCC of
-      FOURCC_DXT1: begin
-        iFormat := GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
-      end;
-      FOURCC_DXT3: begin
-        iFormat := GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
-      end;
-      FOURCC_DXT5: begin
-        iFormat := GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-      end;
-    end;
-  end else with dds.header.ddspf do begin
-    if dwFlags and DDPF_ALPHAPIXELS>0 then PixelFormat:=pfARGB;
-    if dwFlags and DDPF_ALPHA>0 then PixelFormat:=pfAlpha;
-    if dwFlags and DDPF_RGB>0 then PixelFormat:=pfRGB;
-    if dwFlags and DDPF_YUV>0 then PixelFormat:=pfYUV;
-    if dwFlags and DDPF_LUMINANCE>0 then PixelFormat:=pfLuminance;
-    if dwRGBBitCount=8 then PixelFormat:=pfLuminance;
-    case PixelFormat of
-      pfARGB,pfRGB,pfYUV: begin
-        if (PixelFormat=pfRGB) or (PixelFormat=pfYUV) then begin
-          mask:=dwABitMask+dwRBitMask+dwGBitMask+dwBBitMask;
-          if (mask and $FF000000)>0 then AMask:=$000000FF
-          else AMask:=$FF000000;
-        end else AMask:=dwABitMask;
-
-        if BitsOrder(AMask,dwRBitMask,dwGBitMask,dwBBitMask)
-        then PixelOrder:=poARGB;
-        if BitsOrder(AMask,dwBBitMask,dwGBitMask,dwRBitMask)
-        then PixelOrder:=poABGR;
-        if BitsOrder(dwRBitMask,dwGBitMask,dwBBitMask,AMask)
-        then PixelOrder:=poRGBA;
-        if BitsOrder(dwBBitMask,dwGBitMask,dwRBitMask,AMask)
-        then PixelOrder:=poBGRA;
-        if not ((PixelOrder=poARGB) or (PixelOrder=poABGR))
-        then assert(false,'Not supported bit order');
-        if PixelOrder=poARGB then cFormat:=GL_BGRA else cFormat:=GL_RGBA;
-
-        Rbits:=BitsCount(dwRBitMask);
-        Gbits:=BitsCount(dwGBitMask);
-        Bbits:=BitsCount(dwBBitMask);
-        Abits:=BitsCount(dwABitMask);
-
-        if (Rbits=GBits) and (GBits=BBits) then begin
-          iFormat:=0;
-          case Rbits of
-            2: if ABits=2 then iFormat:=GL_RGBA2;
-            4: if ABits=4 then iFormat:=GL_RGBA4;
-            5: if ABits=1 then iFormat:=GL_RGB5_A1;
-            8: if ABits=8 then iFormat:=GL_RGBA8;
-           10: if ABits=2 then iFormat:=GL_RGB10_A2;
-           12: if ABits=12 then iFormat:=GL_RGBA12;
-           16: if ABits=16 then iFormat:=GL_RGBA16;
-          end;
-          assert(iFormat>0,'unsupported pixel format');
-        end else assert(false,'unsupported pixel format');
-      end;
-      pfAlpha, pfLuminance: begin
-        if PixelFormat=pfAlpha then cFormat:=GL_ALPHA else cFormat:=GL_LUMINANCE;
-        if PixelFormat=pfAlpha then iFormat:=GL_ALPHA4 else cFormat:=GL_LUMINANCE4;
-        case dwRGBBitCount of
-          8 : iFormat:=iFormat+1;
-          12: iFormat:=iFormat+2;
-          16: iFormat:=iFormat+3;
-        end;
-      end;
-    end;
-
-  end;
-
-end;
-
-
 function ReservCompMem(bs: integer; var desc: PDDSImageDesc): integer;
 var i,s: integer;
     mw,mh,ms,offset: integer;
@@ -791,7 +628,7 @@ var i,j,w,h,x,y,b: integer;
     pb: PByteArray;
     c: integer;
 begin
-  b:=desc.ElementSize div 8;
+  b:=desc.ElementSize;
   pb:=PByteArray(desc.Data);
   with desc^ do begin
     for i:=Levels to LodsCount-1 do begin
@@ -818,7 +655,7 @@ var i,s: integer;
 begin
   with desc^ do begin
     mw:=width; mh:=height;
-    offset:=0; s:=0; b:=(bpp div 8); i:=0;
+    offset:=0; s:=0; b:=(bpp); i:=0;
     repeat
       if mw=0 then mw:=1; if mh=0 then mh:=1;
       ms:=mw*mh*b; s:=s+ms;
@@ -875,6 +712,7 @@ asm
   jnz @loop;
 end;
 
+{$I DDSFormats.inc}
 
 function DDSLoadFromStream(aStream: TStream): PDDSImageDesc;
 var dds: TDDSImage;
@@ -906,129 +744,25 @@ begin
       or (dds.header10.miscFlag=DDS_RESOURCE_MISC_TEXTURECUBE);
     if CubeMap then assert(Width=Height,'Invalid cubemap');
     TextureArray:=(dds.header10.arraySize>1) and (not CubeMap);
-    Compressed:=isCompressedFormat(dds);
+    //Compressed:=isCompressedFormat(dds);
     if CubeMap then FaceCount:=6 else FaceCount:=1;
 
-    ElementSize:=ddspf.dwRGBBitCount;
-    if (not compressed) or (ddspf.dwFlags and DDPF_FOURCC=0)
-    then begin
-      if ddspf.dwFourCC<>0 then begin
-        case ddspf.dwFourCC of
-          FOURCC_A16B16G16R16F: begin
-            InternalFormat:=GL_RGBA16F;
-            DataType:=GL_HALF_FLOAT;
-            ColorFormat:=GL_RGBA;
-          end;
-        end;
-      end else
-      case ddspf.dwRGBBitCount of
-        32: begin
-          InternalFormat:=GL_RGBA8;
-          if ddspf.dwRBitMask<ddspf.dwBBitMask
-          then ColorFormat:=GL_RGBA
-          else ColorFormat:=GL_BGRA;
-          DataType:=GL_UNSIGNED_BYTE;
-        end;
-        24: begin
-          InternalFormat:=GL_RGB8;
-          if ddspf.dwRBitMask<ddspf.dwBBitMask
-          then ColorFormat:=GL_RGB
-          else ColorFormat:=GL_BGR;
-          DataType:=GL_UNSIGNED_BYTE;
-        end;
-        8: begin
-          if ddspf.dwFlags = DDPF_LUMINANCE then begin
-            InternalFormat:=GL_LUMINANCE8; ColorFormat:=GL_LUMINANCE;
-            DataType:=GL_UNSIGNED_BYTE;
-          end;
-          if ddspf.dwFlags = DDPF_ALPHA then begin
-            InternalFormat:=GL_ALPHA8; ColorFormat:=GL_ALPHA;
-            DataType:=GL_UNSIGNED_BYTE;
-          end;
-          if ddspf.dwFlags = DDPF_RGB then begin
-            InternalFormat:=GL_LUMINANCE8; ColorFormat:=GL_LUMINANCE;
-            DataType:=GL_UNSIGNED_BYTE;
-          end;
-        end;
-        else begin
-          Rbits:=BitsCount(ddspf.dwRBitMask);
-          Gbits:=BitsCount(ddspf.dwGBitMask);
-          Bbits:=BitsCount(ddspf.dwBBitMask);
-          Abits:=BitsCount(ddspf.dwABitMask);
+    DDSToGLFormats(dds,result);
 
-          assert(false,'Unsupported file format, bpp: '+inttostr(ddspf.dwRGBBitCount)+
-            '; RBits: '+inttostr(Rbits)+'; GBits: '+inttostr(Gbits)+
-            '; BBits: '+inttostr(Bbits)+'; ARBits: '+inttostr(Abits));
-        end;
-      end;
-      result.ElementSize:=GetTextureElementSize(ColorFormat,DataType);
-      //buffsize:=ReservUncompMem(ddspf.dwRGBBitCount,Result);
-      buffsize:=ReservUncompMem(result.ElementSize*8,Result);
-      //for i:=0 to FaceCount-1 do begin
-        aStream.Read(Result.Data^,buffSize*FaceCount);
-      //end;
-      if (ddspf.dwRGBBitCount=32) or (result.ElementSize=4)
-      then SwapARGB(data,buffSize div 4);
-      //if result.ElementSize=8 then SwapARGB16(data,buffSize div 8);
-    end else begin //assert(false,'only DXT1,3,5 format supported');
-      case ddspf.dwFourCC of
-        FOURCC_DXT1: glFormat := GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
-        FOURCC_DXT3: glFormat := GL_COMPRESSED_RGBA_S3TC_DXT3_EXT;
-        FOURCC_DXT5: glFormat := GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
-      else assert(false,'only DXT 1,3,5 format supported');
-      end; InternalFormat:=glFormat; ColorFormat:=glFormat; DataType:=glFormat;
-      result.ElementSize:=GetTextureElementSize(ColorFormat,DataType);
-      buffsize:=ReservCompMem(BlockSize(dds),result);
-      aStream.Read(data^,buffSize);
-    end;
+    if Compressed then
+      buffsize:=ReservCompMem(result.ElementSize,result)
+    else buffsize:=ReservUncompMem(result.ElementSize,Result);
+    aStream.Read(Result.Data^,buffSize*FaceCount);
+
     ReservedMem:=buffSize*FaceCount;
+    if (not Compressed) and ((ddspf.dwRGBBitCount=32) or (result.ElementSize=4))
+    then SwapARGB(data,buffSize div 4);
     //if not Cubemap then
-    for f:=0 to FaceCount-1 do begin
-      p:=pointer(integer(result.Data)+result.LODS[0].Offset+buffsize*f);
-      flipSurface(p,result.LODS[0].width,result.LODS[0].height,1,result);
+    for f:=0 to FaceCount-1 do
+    for i:=0 to result.Levels-1 do begin
+      p:=pointer(integer(result.Data)+result.LODS[i].Offset+buffsize*f);
+      flipSurface(p,result.LODS[i].width,result.LODS[i].height,1,result);
     end;
-(*
-  for face := 0 to faceCount - 1 do
-  begin
-    if offset > 0 then stream.Seek(offset, Ord(soCurrent));
-    for level := 0 to fLevelCount - 1 do begin
-      stream.Read(GetLevelAddress(level, face)^, GetLevelSizeInByte(level) div faceCount);
-      if not fCubeMap and vVerticalFlipDDS then
-        flipSurface(GetLevelAddress(level, face), FLOD[level].Width, FLOD[level].Height, FLOD[level].Depth);
-    end;
-  end; // for level
-
-  // Load the image
-  int size = getMipMappedSize(0, nMipMaps);
-  pixels = new ubyte[size];
-  if (isCube()){
-    for (int face = 0; face < 6; face++){
-      for (int mipMapLevel = 0; mipMapLevel < nMipMaps; mipMapLevel++){
-        int faceSize = getMipMappedSize(mipMapLevel, 1) / 6;
-        ubyte *src = getPixels(mipMapLevel) + face * faceSize;
-
-        fread(src, 1, faceSize, file);
-      }
-    }
-  } else {
-    fread(pixels, 1, size, file);
-  }
-
-*)
-
-{    if dwMipMapCount>0 then BuffSize:=dwPitchOrLinearSize*2
-    else BuffSize:=dwPitchOrLinearSize;
-    getmem(Data,BuffSize); aStream.Read(data^,buffSize);
-    bs:=BlockSize(dds); mw:=width; mh:=height; offset:=0;
-    for i:=0 to Levels-1 do begin
-      if mw=0 then mw:=1; if mh=0 then mh:=1;
-      ms:=trunc(max(1, mw / 4) * max(1, mh / 4)*bs);
-      LODS[i].Offset:=offset; offset := offset + ms;
-      LODS[i].Width:=mw; LODS[i].Height:=mh;
-      LODS[i].Size:=ms; LODS[i].Depth:=1;
-      mw:=mw shr 1; mh:=mh shr 1;
-    end;
-    }
   end;
 end;
 

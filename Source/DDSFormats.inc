@@ -1,9 +1,9 @@
-function DDSToGLFormats(const dds: TDDSImage;): PDDSImageDesc;
+procedure DDSToGLFormats(const dds: TDDSImage; var Descr: PDDSImageDesc);
 begin
-  with dds.dds.header,result^ do begin
+  with dds.header,Descr^ do begin
     Compressed := false; ElementSize:=0;
     // figure out what the image format is
-    if (ddspf.dwFlags and DDSF_FOURCC<>0) then begin
+    if (ddspf.dwFlags and DDPF_FOURCC<>0) then begin
         case ddspf.dwFourCC of
             FOURCC_DXT1: begin
                 ColorFormat := GL_COMPRESSED_RGBA_S3TC_DXT1_EXT;
@@ -185,18 +185,58 @@ begin
                 //these are unsupported for now
             else assert(false,'Unsupported format');
         end;
-    end else 
-    if (ddspf.dwFlags = DDSF_RGBA) and (ddspf.dwRGBBitCount = 32) then begin
+    end else begin
+      ElementSize := 0;
+      if ddspf.dwFourCC=0 then begin
+        case ddspf.dwRGBBitCount of
+          32: begin
+            InternalFormat:=GL_RGBA8;
+            if ddspf.dwRBitMask<ddspf.dwBBitMask
+            then ColorFormat:=GL_RGBA
+            else ColorFormat:=GL_BGRA;
+            DataType:=GL_UNSIGNED_BYTE;
+            ElementSize := 4;
+          end;
+          24: begin
+            InternalFormat:=GL_RGB8;
+            if ddspf.dwRBitMask<ddspf.dwBBitMask
+            then ColorFormat:=GL_RGB
+            else ColorFormat:=GL_BGR;
+            DataType:=GL_UNSIGNED_BYTE;
+            ElementSize := 3;
+          end;
+          8: begin
+            if ddspf.dwFlags = DDPF_LUMINANCE then begin
+              InternalFormat:=GL_LUMINANCE8; ColorFormat:=GL_LUMINANCE;
+              DataType:=GL_UNSIGNED_BYTE;
+              ElementSize := 1;
+            end;
+            if ddspf.dwFlags = DDPF_ALPHA then begin
+              InternalFormat:=GL_ALPHA8; ColorFormat:=GL_ALPHA;
+              DataType:=GL_UNSIGNED_BYTE;
+              ElementSize := 1;
+            end;
+            if ddspf.dwFlags = DDPF_RGB then begin
+              InternalFormat:=GL_LUMINANCE8; ColorFormat:=GL_LUMINANCE;
+              DataType:=GL_UNSIGNED_BYTE;
+              ElementSize := 1;
+            end;
+          end;
+        end;
+      end;
+      if ElementSize>0 then exit;
+    end;
+    if (ddspf.dwFlags = DDPF_RGBA) and (ddspf.dwRGBBitCount = 32) then begin
         ColorFormat := GL_BGRA;
         InternalFormat := GL_RGBA8;
         DataType := GL_UNSIGNED_BYTE;
         ElementSize := 4;
-    end else if (ddspf.dwFlags = DDSF_RGB) and (ddsh.ddspf.dwRGBBitCount = 32) then begin
+    end else if (ddspf.dwFlags = DDPF_RGB) and (ddspf.dwRGBBitCount = 32) then begin
         ColorFormat := GL_BGR;
         InternalFormat := GL_RGBA8;
         DataType := GL_UNSIGNED_BYTE;
         ElementSize := 4;
-    end else if (ddspf.dwFlags = DDSF_RGB) and (ddspf.dwRGBBitCount = 24) then begin
+    end else if (ddspf.dwFlags = DDPF_RGB) and (ddspf.dwRGBBitCount = 24) then begin
         ColorFormat := GL_BGR;
         InternalFormat := GL_RGB8;
         DataType := GL_UNSIGNED_BYTE;
