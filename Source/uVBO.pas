@@ -58,10 +58,17 @@ type
 
 
   TVertex = record
-    V,T,N: TaffineVector;
-    SG: integer;
+    V,T,N: TAffineVector;
+    SG,matId: integer;
     VHash,THash,NHash: word;
   end;
+
+  TTriFace = record
+    V1,V2,V3: TVertex;
+    SG,matId: integer;
+    FaceNormal: TAffineVector;
+  end;
+  PTriFace = ^TTriFace;
 
   TVertexHashData = record
     Vertex: TVertex;
@@ -384,6 +391,7 @@ procedure SaveVBOBuff(var Buff:TVBOBuffer;FileName:string);overload;
 procedure SaveVBOBuff(Const Buff:TVBOBuffer;FS:TStream);overload;
 procedure LoadVBOBuff(var Buff:TVBOBuffer;FileName:string);overload;
 procedure LoadVBOBuff(var Buff:TVBOBuffer;FS:TStream);overload;
+procedure SaveVBOAsText(var Buff: TVBOBuffer; FileName: string);
 procedure RenderVBOBuffer(var VBuff: TVBOBuffer);overload;
 procedure RenderVAO(const VAO: TVertexArrayObject);
 procedure RenderVBOBuffer(var VBuff: TVBOBuffer; MatList: TList);overload;
@@ -582,6 +590,64 @@ begin
   Temp.Free;
 end;
 
+procedure SaveVBOAsText(var Buff: TVBOBuffer; FileName: string);
+const br = #13+#10;
+var fs: TFileStream;
+    signature: string[19];
+    i,n: integer;
+    v: TAffineVector;
+    c: TVector;
+  procedure WriteString(s: string);
+  var t: ansistring;
+  begin
+    t:=ansistring(s);
+    fs.Write(t[1], length(t));
+  end;
+begin
+  signature:='#Debug VBO Output'+br;
+  fs := TFileStream.Create(FileName,fmCreate);
+  WriteString(Signature);
+  WriteString('#VBO Header:'+br+br);
+  WriteString('VertexCount: '+inttostr(buff.Vertexes.Count)+br);
+  WriteString('NormalsCount: '+inttostr(buff.Normals.Count)+br);
+  WriteString('TexCoordsCount: '+inttostr(buff.TexCoords.Count)+br);
+  WriteString('ColorsCount: '+inttostr(buff.Colors.Count)+br);
+  WriteString('IndiceCount: '+inttostr(buff.Indices.Count)+br);
+  WriteString(br);
+  WriteString('#VBO Data, Vertices (Index, x,y,z):'+br+br);
+  for i:=0 to buff.Vertexes.Count-1 do begin
+    v:=buff.Vertexes[i];
+    WriteString(inttostr(i)+': '+FloatTostr(v[0])+' '+FloatTostr(v[1])+' '+FloatTostr(v[2])+br);
+  end;
+  WriteString(br);
+  WriteString('#VBO Data, Normals (Index, x,y,z):'+br+br);
+  for i:=0 to buff.Normals.Count-1 do begin
+    v:=buff.Normals[i];
+    WriteString(inttostr(i)+': '+FloatTostr(v[0])+' '+FloatTostr(v[1])+' '+FloatTostr(v[2])+br);
+  end;
+  WriteString(br);
+  WriteString('#VBO Data, TexCoords (Index, s,t):'+br+br);
+  for i:=0 to buff.TexCoords.Count-1 do begin
+    v:=buff.TexCoords[i];
+    WriteString(inttostr(i)+': '+FloatTostr(v[0])+' '+FloatTostr(v[1])+br);
+  end;
+  WriteString(br);
+  WriteString('#VBO Data, Colors (Index, r,g,b,a):'+br+br);
+  for i:=0 to buff.Colors.Count-1 do begin
+    c:=buff.Colors[i];
+    WriteString(inttostr(i)+': '+FloatTostr(c[0])+' '+FloatTostr(c[1])
+      +' '+FloatTostr(c[2])+' '+FloatTostr(c[3])+br);
+  end;
+  WriteString(br);
+  WriteString('#VBO Data, Triangles (TrNum, V1,V2,V3):'+br+br);
+  for i:=0 to (buff.Indices.Count div 3)-1 do begin
+    WriteString(inttostr(i)+': ');
+    n:=buff.Indices[i*3]; WriteString(inttostr(n)+' ');
+    n:=buff.Indices[i*3+1]; WriteString(inttostr(n)+' ');
+    n:=buff.Indices[i*3+2]; WriteString(inttostr(n)+br);
+  end;
+  fs.free;
+end;
 
 Procedure SaveVBOBuff(var Buff:TVBOBuffer;FileName:string);
 var fs: TFileStream;
@@ -876,8 +942,7 @@ begin
 end;
 
 procedure GenVBOBuffers(List: TList; FreeBuffMem: boolean = true);
-var i,j: integer;
-    attr: PVBOAttribute;
+var j: integer;
     VBuff: PVBOBuffer;
 begin
   for j:=0 to List.Count-1 do begin
@@ -1676,10 +1741,8 @@ end;
 
 function GenVAO(var VBuff: TVBOBuffer): GLUInt; overload;
 var vao: GLUint;
-    i: integer;
-    attr: PVBOAttribute;
 begin
-  if (not VBuff.Builded) then exit;
+  result:=0; if (not VBuff.Builded) then exit;
   glGenVertexArrays(1, @vao);
   glBindVertexArray(vao);
   BindVBO(VBuff);
@@ -1731,9 +1794,7 @@ begin
 end;
 
 procedure RenderVBOBuffer(var VBuff: TVBOBuffer);
-var i,RCount:integer;
-    BaseTex: cardinal;
-    Attr: PVBOAttribute;
+var RCount:integer;
 begin
   if (not VBuff.Builded) then GenVBOBuff(VBuff,false);
   BindVBO(VBuff);
@@ -1753,7 +1814,6 @@ end;
 procedure RenderVBOBuffer(var VBuff: TVBOBuffer; MatList: TList);overload;
 var i,RCount:integer;
     m: PMatrix;
-    Attr: PVBOAttribute;
 begin
   if (not assigned(MatList)) or (MatList.Count=0) then exit;
   BindVBO(VBuff);
@@ -2517,7 +2577,7 @@ var i,j: integer;
     l,tl: single;
     ni: integer;
     nv: TAffineVector;
-    cv: TVector;
+//    cv: TVector;
     vc: integer;
 begin
   case buff.FaceType of
@@ -2644,9 +2704,9 @@ end;
 
 function RandomVector(Scale: single=1): TAffineVector; overload;
 begin
-  result[0]:=low(Integer)+random(High(Cardinal));
-  result[1]:=low(Integer)+random(High(Cardinal));
-  result[2]:=low(Integer)+random(High(Cardinal));
+  result[0]:=low(Integer)+random(High(Integer));
+  result[1]:=low(Integer)+random(High(Integer));
+  result[2]:=low(Integer)+random(High(Integer));
   NormalizeVector(Result); ScaleVector(Result,Scale);
 end;
 
@@ -2849,7 +2909,6 @@ var V,T,N: TAffineVectorList;
     MeshObjectIndices: TIntegerList;
     VertexList: TList;
     Buff: array[0..8] of single;
-    sIndex: integer;
 begin
   V:=TAffineVectorList.Create;
   T:=TAffineVectorList.Create;
@@ -2861,7 +2920,7 @@ begin
 
   ExtractTriangles(V,FGs,T,N);
   for i:=0 to FGs.Count-1 do begin
-    FG1:=FGs[i]; FG2:=FG1; hCount:=0;
+    FG1:=FGs[i]; hCount:=0;
     if assigned(FG1) then begin
       //sIndex:=Length(VertexHashTable);
       for k:=i to FGs.Count-1 do begin
@@ -2911,7 +2970,6 @@ var V,T,N: TAffineVectorList;
     MeshObjectIndices: TIntegerList;
     VertexList: TList;
     Buff: array[0..8] of single;
-    sIndex: integer;
     VBOBuff: PVBOBuffer;
     p: PVertexHashData;
 begin
@@ -2928,7 +2986,7 @@ begin
   for i:=0 to FGs.Count-1 do begin
     FG1:=FGs[i]; hCount:=0;
     if assigned(FG1) then begin
-      hCount:=0; setlength(VertexHashTable,hCount+FG1.vCount);
+      setlength(VertexHashTable,hCount+FG1.vCount);
       for j:=0 to FG1.vCount-1 do begin
         c:=j+FG1.vOffset;
         if vaTexCoords in FAttached then tv:=T[c] else tv:=NullVector;
@@ -3209,11 +3267,11 @@ end;
 
 function TInterleavedBuffer.AddFloatValue(Value: single): integer;
 begin
-  FList.Add(Value);
+  result:=FList.Add(Value);
 end;
 
 function TInterleavedBuffer.AddVertex: integer;
-var i,n: integer;
+var i: integer;
 begin
   if not FStructureLocked then begin
     FRecordSize:=0;

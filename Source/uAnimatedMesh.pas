@@ -6,7 +6,6 @@ uses classes, uFileSMD, File3DS, Types3DS, uMeshObjects, uVBO, uMiscUtils, uBase
      VectorGeometry, uMaterials, uTextures, uMaterialObjects,
      SysUtilsLite, VectorLists, OpenGL1x, OGLStateEmul;
 
-
 Type
   TKeyFrameHeader = record
     Value: TVector;
@@ -58,6 +57,22 @@ Type
 
   end;
 
+  THashArray = class
+  private
+    FCount: integer;
+    FList: array of pointer;
+    function getItem(index: integer): pointer;
+    procedure SetCount(const Value: integer);
+    procedure setItem(index: integer; const Value: pointer);
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property Count: integer read FCount write SetCount;
+    property Items[index: integer]: pointer read getItem write setItem; default;
+    function Add(const Value: pointer): integer;
+    procedure Clear;
+  end;
+
   TAnimatedMesh = class(TVBOMeshObject)
     private
       FKeyFrameList: TList;
@@ -66,6 +81,8 @@ Type
       FStartTime: double;
       FCurrentFrame: single;
       FCache: TIntegerBits;
+      FTime: double;
+      Fhash : array[0..65535] of THashArray;
       function Mat4x3To4x4(const M: TMeshMatrix):TMatrix;
       function Indexing3dsMesh(Buff: PVBOBuffer): PVBOBuffer;
       procedure IndexingHT(const HashTable: TVertexHashArray; Res: TList; Ind: TIntegerList);
@@ -73,6 +90,7 @@ Type
       procedure RenderAnimatedList(const ViewMatrix: TMatrix; MatList: TList=nil);
       procedure RenderAnimatedBuffer(Index: integer; const ViewMatrix: TMatrix; MatList: TList=nil);
       procedure SetFrame(const Value: single);
+      procedure BuildVBOSubMeshes(const Mesh3ds: TFile3DS);
     public
       constructor Create;
       destructor Destroy; override;
@@ -303,19 +321,245 @@ end;
 
 { TAnimatedMesh }
 
+procedure CalcVertexHash(Data: PVertexHashData);
+var hBuff: array[0..10] of single;
+    x: double;
+begin
+{  x:=Data.Vertex.T[0];
+  Data.Vertex.T[0]:=Data.Vertex.T[1];
+  Data.Vertex.T[0]:=x;
+}
+  hBuff[0]:=Data.Vertex.V[0];
+  hBuff[1]:=Data.Vertex.V[1];
+  hBuff[2]:=Data.Vertex.V[2];
+  hBuff[3]:=Data.Vertex.T[0];
+  hBuff[4]:=Data.Vertex.T[1];
+  hBuff[5]:=Data.Vertex.T[2];
+  hBuff[6]:=Data.Vertex.N[0];
+  hBuff[7]:=Data.Vertex.N[1];
+  hBuff[8]:=Data.Vertex.N[2];
+  hBuff[9]:=Data.Vertex.SG;
+  hBuff[10]:=Data.Vertex.matId;
+
+  Data.Hash:=BufferHash(hBuff,44);
+  with Data^ do begin
+    Vertex.VHash:=BufferHash(Vertex.V,sizeof(TAffineVector));
+    Vertex.THash:=BufferHash(Vertex.T,sizeof(TAffineVector));
+    Vertex.NHash:=0;
+  end;
+  with Data.Vertex do begin
+    x:=V[0]+V[1]+V[2]+T[0]+T[1]+T[2]+N[0]+N[1]+N[2]+SG+MatId;
+    Data.Summ:=x;
+  end;
+end;
+
+procedure TAnimatedMesh.BuildVBOSubMeshes(const Mesh3ds: TFile3DS);
+var VBO: PVBOBuffer;
+    obj: TObjectList;
+    PMesh: PMesh3DS;
+    SubMesh: PSubMesh;
+    i,j,k,l,t,idx: integer;
+    locmat: TMatrix;
+    lmIdent: boolean;
+    F: PFace3DS;
+    FaceCount: integer;
+    IndexList: array of integer;
+    TexCoordsPres: boolean;
+    MHT: array of record
+      HashTable: TVertexHashArray;
+      VertexCount: integer;
+      TexCoords: boolean;
+    end;
+
+  procedure VertexToVBO(var Vertex: uVBO.TVertex; var vbuff: PVBOBuffer; index: integer);
+  begin
+    vbuff.Vertexes[index]:=Vertex.V;
+    if TexCoordsPres then vbuff.TexCoords[index]:=Vertex.T;
+  end;
+
+  procedure Indexing(var vbuff: PVBOBuffer; var HashTable: TVertexHashArray);
+  var i,j,n: integer;
+      p: PVertexHashData;
+      f: boolean;
+      rescount: integer;
+      h: word;
+  begin
+    FCache.ResetBits; for i:=0 to high(FHash) do FHash[i].Clear;
+    n:=(length(HashTable) shr 16)+1;
+    vbuff.Indices.Count:=length(HashTable); vbuff.Indices[0]:=0;
+    vbuff.Vertexes.Count:=vbo.indices.Count;
+    if TexCoordsPres then vbuff.TexCoords.Count:=vbo.indices.Count;
+    VertexToVBO(HashTable[0].Vertex, vbuff,0);
+    //vbuff.Vertexes[0]:=HashTable[0].Vertex.V;
+    rescount:=1; n:=1;
+    FCache.Bits[HashTable[0].Hash]:=true;
+    HashTable[0].NewIndex:=0;
+    Fhash[HashTable[0].Hash].Add(@HashTable[0]);
+    for i:=1 to high(HashTable) do begin
+      h:=HashTable[i].Hash; f:=false;
+      if FCache.Bits[h] then begin
+        for j:=0 to Fhash[h].Count-1 do begin
+          p:=Fhash[h].Items[j];
+          if p.Summ=HashTable[i].Summ then
+            if  (p.Vertex.VHash=HashTable[i].Vertex.VHash)
+            and (p.Vertex.THash=HashTable[i].Vertex.THash)
+            and (p.Vertex.SG=HashTable[i].Vertex.SG)
+            then begin
+              if (VectorEquals(p.Vertex.V,HashTable[i].Vertex.V))
+              and(VectorEquals(p.Vertex.T,HashTable[i].Vertex.T))
+              then begin
+                vbuff.Indices[n]:=p.NewIndex; f:=true; Break;
+              end;
+            end;
+        end;
+      end;
+      if not f then begin
+        vbuff.Indices[n]:=rescount;
+        //vbuff.Vertexes[rescount]:=HashTable[i].Vertex.V;
+        VertexToVBO(HashTable[i].Vertex, vbuff, rescount);
+        Fhash[h].Add(@HashTable[i]); HashTable[i].NewIndex:=rescount;
+        inc(rescount); FCache.Bits[h]:=true;
+      end; inc(n);
+    end;
+    vbuff.Vertexes.Count:=rescount;
+    if TexCoordsPres then vbuff.TexCoords.Count:=vbuff.Vertexes.Count;
+    vbuff.Indices.Count:=n;
+  end;
+
+begin
+  Obj:=Mesh3ds.Objects;
+  FaceCount:=0; TexCoordsPres:=false;
+  Materials.Clear;
+  //Извлекаем список материалов
+  for i:=0 to obj.MeshCount-1 do begin
+    PMesh:=obj.Mesh[i]; FaceCount:=FaceCount+PMesh.NFaces;
+    with pMesh^ do for j:=0 to NMats-1 do begin
+      l:=Materials.IndexOf(MatArray[j].NameStr);
+      if l<0 then Materials.Add(MatArray[j].NameStr);
+    end;
+  end;
+  if Materials.Count=0 then Materials.Add('');
+
+  //Резервируем место под массивы вершин
+  SetLength(MHT,Materials.Count);
+  for i:=0 to high(MHT) do begin
+    FaceCount:=0;
+    for j:=0 to obj.MeshCount-1 do begin
+      PMesh:=obj.Mesh[j];
+      for k:=0 to PMesh.NMats-1 do begin
+        l:=Materials.IndexOf(PMesh.MatArray[k].NameStr);
+        if l<0 then l:=0;
+        if l=i then FaceCount:=FaceCount+PMesh.MatArray[k].NFaces;
+      end;
+    end;
+    SetLength(MHT[i].HashTable,FaceCount*3);
+    MHT[i].VertexCount:=0; MHT[i].TexCoords:=false;
+  end;
+
+  //Заполняем массивы вершин согласно материалам
+  for i:=0 to obj.MeshCount-1 do begin
+    PMesh:=obj.Mesh[i]; locmat:=Mat4x3To4x4(PMesh.LocMatrix);
+    lmIdent:=MatrixEquals(locmat,IdentityHmgMatrix);
+    with PMesh^ do
+    for j:=0 to NMats-1 do begin
+      l:=Materials.IndexOf(MatArray[j].NameStr);
+      if l<0 then l:=0;
+      for k:=0 to MatArray[j].NFaces-1 do begin
+        f:=@FaceArray[MatArray[j].FaceIndex[k]];
+        with MHT[l] do begin
+          idx:=MHT[l].VertexCount; HashTable[idx].Index:=idx;
+          HashTable[Idx].Vertex.V:=TAffineVector(VertexArray[f.V1]);
+          //if lmIdent then with HashTable[Idx].Vertex do V:=VectorTransform(V,locMat);
+          HashTable[Idx].Vertex.N:=NullVector;
+          if assigned(SmoothArray) then
+            HashTable[Idx].Vertex.SG:=SmoothArray[k]
+          else HashTable[Idx].Vertex.SG:=0;
+          HashTable[Idx].Vertex.matId:=l;
+          if assigned(TextArray) then begin
+            HashTable[Idx].Vertex.T:=AffineVectorMake(TextArray[f.V1].U,TextArray[f.V1].V,0);
+            TexCoords:=true;
+          end else HashTable[Idx].Vertex.T:=AffineVectorMake(0,0,0);
+          CalcVertexHash(@HashTable[Idx]);
+          MHT[l].VertexCount:=MHT[l].VertexCount+1;
+
+          idx:=MHT[l].VertexCount; HashTable[idx].Index:=idx;
+          HashTable[Idx].Vertex.V:=TAffineVector(VertexArray[f.V2]);
+          //if lmIdent then with HashTable[Idx].Vertex do V:=VectorTransform(V,locMat);
+          HashTable[Idx].Vertex.N:=NullVector;
+          if assigned(SmoothArray) then
+            HashTable[Idx].Vertex.SG:=SmoothArray[k]
+          else HashTable[Idx].Vertex.SG:=0;
+          HashTable[Idx].Vertex.matId:=l;
+          if assigned(TextArray) then begin
+            HashTable[Idx].Vertex.T:=AffineVectorMake(TextArray[f.V2].U,TextArray[f.V2].V,0);
+            TexCoords:=true;
+          end else HashTable[Idx].Vertex.T:=AffineVectorMake(0,0,0);
+          CalcVertexHash(@HashTable[Idx]);
+          MHT[l].VertexCount:=MHT[l].VertexCount+1;
+
+          idx:=MHT[l].VertexCount; HashTable[idx].Index:=idx;
+          HashTable[Idx].Vertex.V:=TAffineVector(VertexArray[f.V3]);
+          //if lmIdent then with HashTable[Idx].Vertex do V:=VectorTransform(V,locMat);
+          HashTable[Idx].Vertex.N:=NullVector;
+          if assigned(SmoothArray) then
+            HashTable[Idx].Vertex.SG:=SmoothArray[k]
+          else HashTable[Idx].Vertex.SG:=0;
+          HashTable[Idx].Vertex.matId:=l;
+          if assigned(TextArray) then begin
+            HashTable[Idx].Vertex.T:=AffineVectorMake(TextArray[f.V3].U,TextArray[f.V3].V,0);
+            TexCoords:=true;
+          end else HashTable[Idx].Vertex.T:=AffineVectorMake(0,0,0);
+          CalcVertexHash(@HashTable[Idx]);
+          MHT[l].VertexCount:=MHT[l].VertexCount+1;
+        end;
+      end;
+    end;
+  end;
+
+  //Индексируем вершины и формируем буфер VBO
+  for i:=0 to high(MHT) do begin
+    if length(MHT[i].HashTable)>0 then begin
+      new(vbo); InitVBOBuff(vbo^,GL_TRIANGLES,DrawElements);
+      vbo.RenderBuffs:=[uNormals,uIndices];
+      vbo.MaterialFunc:=MaterialSetter;
+      vbo.MatName:=Materials[i];
+      if MHT[i].TexCoords then include(vbo.RenderBuffs,uTexCoords);
+      TexCoordsPres:=MHT[i].TexCoords;
+      Indexing(vbo,MHT[i].HashTable);
+{     //Debug mode (Triangles)
+      for j:=0 to high(MHT[i].HashTable) do begin
+        vbo.Vertexes.Add(MHT[i].HashTable[j].Vertex.V);
+        if MHT[i].TexCoords then
+          vbo.TexCoords.Add(MHT[i].HashTable[j].Vertex.T);
+        vbo.Indices.Add(j);
+      end;}
+      vbo.Normals.Count:=vbo.Vertexes.Count;
+      RebuildNormals(vbo);
+  //    SaveVBOAsText(vbo^,'e:\vbo_'+Materials[i]+'.txt');
+      GenVBOBuff(vbo^,false);
+      Exclude(vbo.RenderBuffs,uVAO);
+      MeshList.Add(vbo);
+    end;
+  end;
+end;
+
 constructor TAnimatedMesh.Create;
+var i: integer;
 begin
   inherited;
   FCache:=TIntegerBits.Create; FCache.Size:=65536;
+  for i:=0 to high(FHash) do FHash[i]:=THashArray.Create;
   FKeyFrameList:= TList.Create;
   FStartTime:=-1;
   FPlaying := false;
 end;
 
 destructor TAnimatedMesh.Destroy;
+var i: integer;
 begin
   FreeObjectList(FKeyFrameList);
   FCache.Free;
+  for i:=0 to high(Fhash) do Fhash[i].Free;
   inherited;
 end;
 
@@ -415,46 +659,40 @@ var i,j,n: integer;
     p: PVertexHashData;
     f: boolean;
     rescount: integer;
-    hash : array of Tlist;
     h: word;
 begin
   FCache.ResetBits; n:=(length(HashTable) shr 16)+1;
-  setlength(hash, 65536);
-  for i:=0 to high(hash) do begin
-    hash[i]:=TList.Create;
-    hash[i].Clear;
-    hash[i].Capacity:=n;
-  end;
   ind.Count:=length(HashTable); Ind[0]:=0;
   Res.Count:=ind.Count;
   Res[0]:=@HashTable[0]; rescount:=1; n:=1;
   FCache.Bits[HashTable[0].Hash]:=true;
+  for i:=0 to high(FHash) do FHash[i].Clear;
   HashTable[0].NewIndex:=0;
-  hash[HashTable[0].Hash].Add(@HashTable[0]);
+  Fhash[HashTable[0].Hash].Add(@HashTable[0]);
   for i:=1 to high(HashTable) do begin
     h:=HashTable[i].Hash; f:=false;
     if FCache.Bits[h] then begin
-      for j:=0 to hash[h].Count-1 do begin
-        p:=hash[h].List[j];
+      for j:=0 to Fhash[h].Count-1 do begin
+        p:=Fhash[h].Items[j];
         if p.Summ=HashTable[i].Summ then
           if  (p.Vertex.VHash=HashTable[i].Vertex.VHash)
           and (p.Vertex.THash=HashTable[i].Vertex.THash)
           and (p.Vertex.SG=HashTable[i].Vertex.SG)
           then begin
-            if (VectorEquals(p.Vertex.V,HashTable[i].Vertex.V))
-            and(VectorEquals(p.Vertex.T,HashTable[i].Vertex.T))
-            then begin Ind.List[n]:=p.NewIndex; f:=true; Break; end;
+//            if (VectorEquals(p.Vertex.V,HashTable[i].Vertex.V))
+//            and(VectorEquals(p.Vertex.T,HashTable[i].Vertex.T))
+            //then begin
+              Ind.List[n]:=p.NewIndex; f:=true; Break;
+            //end;
           end;
       end;
     end;
     if not f then begin
       Ind.List[n]:=rescount; Res.List[rescount]:=@HashTable[i];
-      hash[h].Add(@HashTable[i]); HashTable[i].NewIndex:=rescount;
+      Fhash[h].Add(@HashTable[i]); HashTable[i].NewIndex:=rescount;
       inc(rescount); FCache.Bits[h]:=true;
     end; inc(n);
   end; Res.Count:=rescount; ind.Count:=n;
-  for i:=0 to high(hash) do hash[i].Free;
-  hash:=nil;
 {var i,j: integer;
     p: PVertexHashData;
     f: boolean;
@@ -520,39 +758,43 @@ end;
 
 procedure TAnimatedMesh.Load3dsMesh(Filename,TexPath: string);
 var Mesh3ds: TFile3DS;
-    obj: TObjectList;
-    PMesh: PMesh3DS;
+//    obj: TObjectList;
+//    PMesh: PMesh3DS;
     i,j,k,l,c:integer;
-    buff, temp: PVBOBuffer;
+{    buff, temp: PVBOBuffer;
     V: TPoint3DS;
     T: TTexVert3DS;
     F,f2,ft: TFace3DS;
     v1,v2,v3, d1,d2: TAffineVector;
     v4: TVector;
+}
     mat: TObjMat3DS;
     mat3ds: PMaterial3DS;
-    locmat: TMatrix;
+//    locmat: TMatrix;
     mId: integer;
-    Materials: TStringList;
+//    Materials: TStringList;
     glMat: TMaterial;
     glTex: TTexture;
     matObj: TMaterialObject;
     MMName: string;
     path: string;
     maxKeys: integer;
-    HashTable: TVertexHashArray;
+{    HashTable: TVertexHashArray;
 
     VertexList: TList;
     Vertex: PVertexHashData;
     FG1,FG2: PFaceGroup;
+}
     FS: TFileStream;
 begin
   FS:=TFileStream.Create(FileName,fmOpenRead);
   Mesh3ds:=TFile3DS.Create; Mesh3ds.LoadFromStream(fs);
 
-  Materials:=TStringList.Create;
+  //Materials:=TStringList.Create;
   FreeVBOList(MeshList);
-  Obj:=Mesh3ds.Objects;
+  BuildVBOSubMeshes(Mesh3ds);
+
+(*  Obj:=Mesh3ds.Objects;
   for i:=0 to obj.MeshCount-1 do begin
     PMesh:=obj.Mesh[i];
     locmat:=Mat4x3To4x4(PMesh.LocMatrix);
@@ -626,6 +868,7 @@ begin
       VertexList.Free;
     end;
   end;
+*)
 //-------------------------
 //-------Создаем материалы и загружаем текстуры
 //-------------------------
@@ -661,29 +904,33 @@ begin
        end;
 
        glTex:=FTextures.TextureByName(Materials[i]);
-       if not assigned(glTex) then gltex:=FTextures.AddNewTexture(Materials[i]);
-       with glTex do begin
-          SetTarget(ttTexture2D);
-          SetFilters(mnLinearMipmapLinear, mgLinear);
-          LoadFromFile(path+mat3ds.Texture.Map.NameStr);
-          if not assigned (TexDesc.Data) then glTex.Free
-          else begin
-            matObj.AttachTexture(glTex);
-            TextureMode := tcModulate;
-            TwoSides:=mat3ds.TwoSided;
-            with mat3ds.Texture.Map do begin
-              //if (UScale<>1) or (VScale<>1) or (UOffset<>0) or (VOffset<>0)then begin
-                TextureMatrix:=CreateScaleMatrix(AffineVectorMake(UScale, VScale, 1));
-                TextureMatrix:=MatrixMultiply(TextureMatrix,
-                  CreateTranslationMatrix(AffineVectorMake((1-frac(UOffset))*UScale, (frac(VOffset))*VScale, 0)));
-              //end;
+       if not assigned(glTex) then begin
+         gltex:=FTextures.AddNewTexture(Materials[i]);
+         with glTex do begin
+            SetTarget(ttTexture2D);
+            SetFilters(mnLinearMipmapLinear, mgLinear);
+            LoadFromFile(path+mat3ds.Texture.Map.NameStr);
+            if not assigned (TexDesc.Data) then begin
+              glTex.Free; glTex:=nil;
+            end else begin
+              TextureMode := tcModulate;
+              //TextureMode := tcReplace;
+              TwoSides:=mat3ds.TwoSided;
+              with mat3ds.Texture.Map do begin
+                //if (UScale<>1) or (VScale<>1) or (UOffset<>0) or (VOffset<>0)then begin
+                  TextureMatrix:=CreateScaleMatrix(AffineVectorMake(UScale, VScale, 1));
+                  TextureMatrix:=MatrixMultiply(TextureMatrix,
+                    CreateTranslationMatrix(AffineVectorMake((1-frac(UOffset))*UScale, (frac(VOffset))*VScale, 0)));
+  //              end;
+              end;
             end;
-          end;
+         end;
        end;
-
+       matObj.AttachTexture(glTex);
      end;
   end;
-  Materials.Free;
+(*
+  //Materials.Free;
   //KeyFrame Animations
   FKeyFrameList.Count:=MeshList.Count;
   for k:=0 to MeshList.Count-1 do FKeyFrameList[k]:=TKeyFrameList.Create;
@@ -711,6 +958,7 @@ begin
       end;
     end;
   end;
+*)
   FS.Free; Mesh3ds.Free;
 end;
 
@@ -786,38 +1034,7 @@ begin
   if FProxyList.Count>0 then RebuildProxyList(ViewMatrix, m);
 
   glPushMatrix;
-{
-  //Формируем список видимых прокси
-    if FProxyList.Count>0 then begin
-       glGetFloatv(GL_PROJECTION_MATRIX, @ProjMatrix);
-       F := ParentViewer.Frustum;//GetFrustum(ProjMatrix, ViewMatrix);
-       if assigned(FProxyMatrixList) then FProxyMatrixList.Clear
-       else FProxyMatrixList:=TList.Create;
-//       FreeList(FProxyMatrixList);
-//       FProxyMatrixList:=TList.Create;
-       if Visible then begin
-          if not IsVolumeClipped(Extents, F) then FProxyMatrixList.Add(@mv);
-       end;
-       for i:=0 to FProxyList.Count-1 do begin
-          ProxyObj:=FProxyList[i];
-          if ProxyObj.Visible then begin
-            if (not ProxyObj.WorldMatrixUpdated) then ProxyObj.UpdateWorldMatrix;
-            if not IsVolumeClipped(ProxyObj.Extents, F) then begin
-               new(pm); pm^:=MatrixMultiply(ProxyObj.Matrices.WorldMatrix,ViewMatrix);
-               FProxyMatrixList.Add(pm);
-            end;
-          end;
-       end;
-    end;
-}
 
-{    if FPlaying then begin
-
-    end else begin
-       m:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
-       glLoadMatrixf(PGLFloat(@m));
-    end;
-}
     glLoadMatrixf(PGLFloat(@m));
 
     if FBO.Active then FBO.Apply;
@@ -871,10 +1088,14 @@ begin
            //Render+++++++++++++++++
            if assigned(onBeforeRender) then onBeforeRender(self);
            P := MeshList[i];
-
+{
            if FProxyMatrixList.Count>0 then
               RenderAnimatedBuffer(i,ViewMatrix,FProxyMatrixList)
            else RenderAnimatedBuffer(i,ViewMatrix);
+}
+           if FProxyMatrixList.Count>0 then
+              RenderVBOBuffer(p^,FProxyMatrixList)
+           else RenderVBOBuffer(p^);
 
            if assigned(onAfterRender) then onAfterRender(self);
            //Render-----------------
@@ -942,6 +1163,46 @@ begin
   FPlaying := Value;
   FStartTime:=-1;
   FCurrentFrame:=0;
+end;
+
+{ THashArray }
+
+function THashArray.Add(const Value: pointer): integer;
+begin
+  FList[FCount]:=Value; SetCount(FCount+1);
+end;
+
+procedure THashArray.Clear;
+begin
+  FCount:=0;
+end;
+
+constructor THashArray.Create;
+begin
+  inherited;
+  setlength(FList,1); FCount:=0;
+end;
+
+destructor THashArray.Destroy;
+begin
+  FList:=nil;
+  inherited;
+end;
+
+function THashArray.getItem(index: integer): pointer;
+begin
+  result:=FList[Index]
+end;
+
+procedure THashArray.SetCount(const Value: integer);
+begin
+  FCount := Value;
+  if length(FList)<=FCount then SetLength(FList,FCount*2);
+end;
+
+procedure THashArray.setItem(index: integer; const Value: pointer);
+begin
+  FList[index]:=Value;
 end;
 
 end.

@@ -1,7 +1,7 @@
 {: uTextures - Модуль для работы с текстурами OpenGL
 
 	Historique:
-  28/12/11 - Fantom - Добавлена загрузка кубической тексутры из dds
+  28/12/11 - Fantom - Добавлена загрузка кубической текстуры из dds
                     - Добавлена установка режима генерации текстурных координат
         14/05/11 - Fantom - Добавлено создание 3D текстуры
   12/05/11 - Fantom - Добавлено создание кубической тексутры
@@ -13,9 +13,7 @@
   19/08/10 - Fantom - Добавлено создание текстуры из bmp
 }
 
-// Запланировано:
-// 1. Расширение поддерживаемых форматов текстур
-//
+
 unit uTextures;
 
 interface
@@ -41,6 +39,9 @@ Type
               tmReplace = GL_REPLACE, tmCombine = GL_COMBINE);}
   TTextureBlendingModes = (tbmOpaque, tbmTransparency, tbmAdditive, tbmAlphaTest50,
                     tbmAlphaTest100, tbmModulate, tbmMesh);
+  TMapTarget = (mtAmbient, mtDiffuse, mtSpecular, mtShininess, mtBumpMap,
+                mtNormalMap, mtAlpha, mtOpacity, mtReflection);
+  TMapTargets = set of TMapTarget;
 
 //  TCompositeTexFormat = ();
   TTextureDecription = record
@@ -111,6 +112,7 @@ Type
        FBlendingMode: TTextureBlendingModes;
        FTwoSides: boolean;
        FDisabled: boolean;
+       FMapTargets: TMapTargets;
 
        procedure UploadTexture;
        function GetReadPBO: GLUint;
@@ -144,6 +146,7 @@ Type
        property TextureMode: TTextureCombines read FTextureMode write FTextureMode;
        property TextureMatrix: TMatrix read FTextureMatrix write SetTextureMatrix;
        property BlendingMode: TTextureBlendingModes read FBlendingMode write FBlendingMode;
+       property MapTargets: TMapTargets read FMapTargets write FMapTargets;
 
        procedure ImportTextureParams(aTarget: GLEnum; TexId: GLUInt);
        procedure Assign(Texture: TTexture);
@@ -158,6 +161,7 @@ Type
        function  CreateRGBA8Texture2D(Width, Height: integer; Data: pointer=nil; UsePBO: Boolean=false): boolean;
        function  CreateBGRA8Texture2D(Width, Height: integer; Data: pointer=nil; UsePBO: Boolean=false): boolean;
        function  CreateRGB8Texture2D(Width, Height: integer; Data: pointer=nil; UsePBO: Boolean=false): boolean;
+       function  CreateBGR8Texture2D(Width, Height: integer; Data: pointer=nil; UsePBO: Boolean=false): boolean;
        function  CreateRGB16FTexture2D(Width, Height: integer; Data: pointer=nil; UsePBO: Boolean=false): boolean;
        function  CreateRGBA16FTexture2D(Width, Height: integer; Data: pointer=nil; UsePBO: Boolean=false): boolean;
        function  CreateRGB32FTexture2D(Width, Height: integer; Data: pointer=nil; UsePBO: Boolean=false): boolean;
@@ -355,7 +359,7 @@ begin
       TextureGenR:=0;
    end;
    FTextureMode:=tcModulate;
-
+   FMapTargets:=[mtDiffuse];
 end;
 
 function TTexture.CreateTexture: boolean;
@@ -372,6 +376,15 @@ begin
       FullSize:=width*height*depth*PixelSize;
     if not (stTarget in FSettedParams) then Target:=GL_TEXTURE_2D;
     glBindTexture(Target, Id);
+glPixelStorei ( GL_UNPACK_ALIGNMENT,   1 );
+glPixelStorei ( GL_UNPACK_ROW_LENGTH,  0 );
+glPixelStorei ( GL_UNPACK_SKIP_ROWS,   0 );
+glPixelStorei ( GL_UNPACK_SKIP_PIXELS, 0 );
+glPixelStorei ( GL_PACK_ALIGNMENT,   1 );
+glPixelStorei ( GL_PACK_ROW_LENGTH,  0 );
+glPixelStorei ( GL_PACK_SKIP_ROWS,   0 );
+glPixelStorei ( GL_PACK_SKIP_PIXELS, 0 );
+
     if stWraps in FSettedParams then begin
       glTexParameteri(Target, GL_TEXTURE_WRAP_S, WrapS);
       glTexParameteri(Target, GL_TEXTURE_WRAP_T, WrapT);
@@ -435,15 +448,15 @@ begin
   if FTexture.TextureGenS>0 then begin
     glEnable ( GL_TEXTURE_GEN_S );
     glTexGeni( GL_S, GL_TEXTURE_GEN_MODE, FTexture.TextureGenS );
-  end;
+  end else glDisable( GL_TEXTURE_GEN_S );
   if FTexture.TextureGenT>0 then begin
     glEnable ( GL_TEXTURE_GEN_T );
     glTexGeni( GL_T, GL_TEXTURE_GEN_MODE, FTexture.TextureGenT );
-  end;
+  end else glDisable( GL_TEXTURE_GEN_T );
   if FTexture.TextureGenR>0 then begin
     glEnable ( GL_TEXTURE_GEN_R );
     glTexGeni( GL_R, GL_TEXTURE_GEN_MODE, FTexture.TextureGenR );
-  end;
+  end else glDisable( GL_TEXTURE_GEN_R );
 
   glBindTexture(FTexture.Target,FTexture.Id);
   if ApplyCombiner then SetTextureMode;
@@ -1305,6 +1318,24 @@ begin
   UploadData(Data,UsePBO);
 end;
 
+function TTexture.CreateBGR8Texture2D(Width, Height: integer; Data: pointer;
+  UsePBO: Boolean): boolean;
+begin
+  if FTexture.Created then begin result:=false;exit;
+  end else result:=true;
+
+  SetOGLTextureFormat(GL_RGB8,GL_BGR,GL_UNSIGNED_BYTE);
+  FTexture.PixelSize:=3;
+  SetDimensions(width, height);
+//  SetInternalFormat(tfRGB8);
+  SetTarget(ttTexture2D);
+  if not (stFilters in FSettedParams) then
+    SetFilters(mnLinear, mgLinear);
+  FTexture.UsePBO:=UsePBO;
+  CreateTexture;
+  UploadData(Data,UsePBO);
+end;
+
 function TTexture.CreateBGR8TextureRECT(Width, Height: integer;
   Data: pointer; UsePBO: Boolean): boolean;
 begin
@@ -1842,14 +1873,38 @@ begin
    with FTexture do begin
      _Data:=LoadTexture(Filename,InternalFormat,ColorChanels,Precision,PixelSize,w,h);
      assert(assigned(_Data), 'Unsupported File Format: '+extractfilename(FileName));
-     SetOGLTextureFormat(InternalFormat,ColorChanels,Precision);
-     SetDimensions(w, h);
+     FSettedParams:=FSettedParams+[stFormats];
+     //SetOGLTextureFormat(InternalFormat,ColorChanels,Precision);
+     SetDimensions(w, h); FullSize:=w*h*PixelSize; Depth:=0;
+     //SetFilters(mnNearest, mgNearest);
      if not (stFilters in FSettedParams) then begin
-       if Precision=GL_UNSIGNED_BYTE then SetFilters(mnLinearMipmapLinear, mgLinear)
+       if Precision=GL_UNSIGNED_BYTE then
+       SetFilters(mnLinearMipmapLinear, mgLinear)
        else SetFilters(mnNearest, mgNearest);
      end;
+
      CreateTexture; UploadData(_Data,UsePBO); FreeMem(_Data);
    end;
+(*
+
+    _Data:=LoadDataFromFile(Filename,format, w,h);
+    SetFilters(mnLinearMipmapLinear, mgLinear);
+    case format of
+       GL_RGB: begin
+                 if TextureTarget = ttTexture2D then begin
+                    CreateRGB8Texture2D(w,h,_data);
+                 end;
+                 if TextureTarget = ttTextureRectangle then
+                    CreateRGB8TextureRECT(w,h,_data);
+               end;
+       GL_RGBA:begin
+                 if TextureTarget = ttTexture2D then
+                    CreateRGBA8Texture2D(w,h,_data);
+                 if TextureTarget = ttTextureRectangle then
+                    CreateRGBA8TextureRECT(w,h,_data);
+               end;
+    end;
+*)
 end;
 
 procedure TTexture.SaveAsBMP(FileName: String);
@@ -1866,11 +1921,11 @@ begin
   case PixelSize of
     1: pf:=pf8bit;
     3: pf:=pf24bit;
-    4: pf:= pf32bit;
+    4: pf:=pf32bit;
   end;
   bmp.PixelFormat:=pf;
   for i:=0 to Height-1 do begin
-    pb:=bmp.ScanLine[i];
+    pb:=bmp.ScanLine[Height-i-1];
     for j:=0 to Width-1 do begin
       for k:=0 to PixelSize-1 do
         pb[j*PixelSize+k]:=pbytearray(p)[i*Width*PixelSize+j*PixelSize+k];
@@ -1888,7 +1943,7 @@ begin
   case PixelSize of
     1: pf:=pf8bit;
     3: pf:=pf24bit;
-    4: pf:= pf32bit;
+    4: pf:=pf32bit;
   end;
   SaveTGAImage(FileName,p,Width,Height,pf);
   dispose(p);
