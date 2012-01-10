@@ -66,7 +66,9 @@ Type
     FNameChanged: boolean;
     FAdditionalTextures: array of TTexture;
     FUseAddTex: boolean;
+    FLastAddTex: integer;
     FNormalScale: single;
+
     function GetHash: integer;
     function CheckTransparency: boolean;
     procedure setUseMaterial(const Value: boolean);
@@ -86,9 +88,12 @@ Type
     procedure AttachTexture(tex: TTexture);
     procedure AttachMaterial(mat: TMaterial);
     procedure AttachShader(Shader: TShaderProgram);
+    procedure AddExTextures(tex: TTexture);
 
     function AddNewMaterial(aName: string=''): TMaterial;
     function AddNewTexture(aName: string=''): TTexture;
+
+    function TextureByMapTarget(Map: TMapTarget): TTexture;
 
     property Name: string read FName write setName;
     property Active: boolean read FActive write FActive;
@@ -273,6 +278,11 @@ end;
 
 { TMaterialObject }
 
+procedure TMaterialObject.AddExTextures(tex: TTexture);
+begin
+  TextureSlot[FLastAddTex+1]:=tex;
+end;
+
 function TMaterialObject.AddNewMaterial(aName: string): TMaterial;
 begin
   if assigned(FMaterial) and (FMaterial.Owner=self) then FMaterial.Free;
@@ -301,7 +311,7 @@ begin
   FBlending.Apply;
   if assigned(FTexture) and FUseTexture then FTexture.Apply;
   if FUseAddTex then begin
-    for i:=0 to high(FAdditionalTextures) do
+    for i:=0 to FLastAddTex-1 do // high(FAdditionalTextures) do
       if assigned(FAdditionalTextures[i]) then
         FAdditionalTextures[i].Apply(i+1);
   end;
@@ -314,6 +324,7 @@ begin
 end;
 
 procedure TMaterialObject.Assign(MaterialObject: TMaterialObject);
+var i: integer;
 begin
   FBlending.Assign(MaterialObject.FBlending);
   FTexture:=MaterialObject.FTexture;
@@ -324,6 +335,10 @@ begin
   FUseShader:=assigned(FShader);
   if assigned(FShader) then FSpId:=FShader.ProgramId;
   FActive:=MaterialObject.Active;
+  for i:=0 to MaterialObject.FLastAddTex-1 do
+    FAdditionalTextures[i]:=MaterialObject.FAdditionalTextures[i];
+  FLastAddTex:=MaterialObject.FLastAddTex;
+  UseAddinionalTextures:=MaterialObject.UseAddinionalTextures;
 end;
 
 procedure TMaterialObject.AttachMaterial(mat: TMaterial);
@@ -379,6 +394,7 @@ begin
   setlength(FAdditionalTextures,mtc); FUseAddTex:=false;
   if mtc>1024 then mtc:=1024;
   for i:=0 to length(FAdditionalTextures)-1 do FAdditionalTextures[i]:=nil;
+  FLastAddTex:=0;
   FActive:=false; FTexture:=nil; FMaterial:=nil; FShader:=nil;
   FTwoSideLighting:=False;
   FIgnoreLighting:=False;
@@ -418,6 +434,7 @@ begin
   assert (index<length(FAdditionalTextures),'Not enough texture units');
   assert(index>0,'Use Main texture for slot 0');
   FAdditionalTextures[index-1]:=Value;
+  if (Value<>nil) and (index>FLastAddTex) then FLastAddTex:=Index;
 end;
 
 procedure TMaterialObject.setIgnoreLighting(const Value: boolean);
@@ -452,6 +469,18 @@ procedure TMaterialObject.setUseTexture(const Value: boolean);
 begin
   if assigned(FTexture) then FUseTexture := Value
   else FUseTexture := false;
+end;
+
+function TMaterialObject.TextureByMapTarget(Map: TMapTarget): TTexture;
+var i: integer;
+begin
+  if Map=mtDiffuse then begin result:=FTexture; Exit; end;
+  for i:=0 to FLastAddTex-1 do begin
+    if assigned(FAdditionalTextures[i]) then
+      if Map in FAdditionalTextures[i].MapTargets then begin
+        result:=FAdditionalTextures[i]; exit;
+      end;
+  end; result:=nil;
 end;
 
 procedure TMaterialObject.UnApply(UnApplyProc: TMaterialProc);
