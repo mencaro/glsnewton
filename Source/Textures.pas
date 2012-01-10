@@ -530,7 +530,7 @@ begin
     end else begin
       result:=LoadJPGTexture(Filename, cFormat, Width, Height);
       iFormat:=GL_RGB8; dType:=GL_UNSIGNED_BYTE; pSize:=3;
-      flipSurface(result,Width,Height,pSize);
+      //flipSurface(result,Width,Height,pSize);
     end;
 
   end;
