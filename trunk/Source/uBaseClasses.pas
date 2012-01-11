@@ -94,6 +94,7 @@ Type
     FXRotationAngle: single;
     FYRotationAngle: single;
     FZRotationAngle: single;
+    FParentMatrix: TMatrix;
     function getParent: TMovableObject;
     procedure SetParent(const Value: TMovableObject);
     procedure SetPosition(const Value: TVector);
@@ -117,6 +118,8 @@ Type
 
     //установка родител€, из которого будет братьс€ базова€ матрица трансформаций
     Property Parent: TMovableObject read getParent write SetParent;
+    //ѕр€ма€ установка родительской матрицы
+    Property ParentMatrix: TMatrix read FParentMatrix write FParentMatrix;
     //”становка/чтение локального положени€
     Property Position: TVector read FPosition write SetPosition;
     //„тение абсолютного положени€
@@ -141,7 +144,8 @@ Type
     //ѕередвигает объект вдоль оси Up
     Procedure MoveUp(Step:single);
     //формирует матрицу поворота, при AbsoluteRotation=false модифицируетс€ существующа€
-    Procedure RotateObject(Axis: TVector; Angle: single; AbsoluteRotation: boolean=true);
+    Procedure RotateObject(const Axis: TVector; Angle: single; AbsoluteRotation: boolean=true);
+    procedure RotateAround(const Pivot, Axis: TVector; Angle: single);
     Procedure RotateAroundX(Angle: single; AbsoluteRotation: boolean=true);
     Procedure RotateAroundY(Angle: single; AbsoluteRotation: boolean=true);
     Procedure RotateAroundZ(Angle: single; AbsoluteRotation: boolean=true);
@@ -169,8 +173,45 @@ Type
     //ѕереводит точку из локальной системы координат в глобальную
     Function LocalToAbsolute(P: TVector): TVector;
   end;
-implementation
 
+  TJoint = class (TVBOMeshItem)
+  private
+    FNode: TMovableObject;
+    FParentNode: TMovableObject;
+    FName: string;
+    FIndex: integer;
+    procedure SetNode(const Value: TMovableObject);
+    procedure setParent(const Value: TMovableObject);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    procedure Notification(Sender: TVBOMeshItem; aMessage: TNotification); override;
+    procedure Process; override;
+
+    property Name: string read FName write FName;
+    property Index: integer read FIndex;
+    property Node: TMovableObject read FNode write SetNode;
+    property ParentNode: TMovableObject read FParentNode write setParent;
+  end;
+
+  TLinkedObjects = class (TVBOMeshItem)
+  private
+    FJoints: TList;
+    function getJoint(index: integer): TJoint;
+    procedure setJoint(index: integer; const Value: TJoint);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    function NewJoint(aNode,aParent: TMovableObject; aName: string=''): TJoint;
+    function JointByName(aName: string): TJoint;
+    function JointIndex(aName: string): integer;
+
+    property Joints[index: integer]: TJoint read getJoint write setJoint; default;
+  end;
+
+implementation
 
 { TVBOMeshItem }
 
@@ -212,7 +253,6 @@ begin
       if i>=0 then FSubscribers.Delete(i);
       if Sender=FChilde then FChilde:=nil;
       if Sender=FParent then FParent:=nil;
-
     end;
   end;
 end;
@@ -323,7 +363,7 @@ begin
   end;
 end;
 
-procedure TMovableObject.RotateObject(Axis: TVector; Angle: single;
+procedure TMovableObject.RotateObject(const Axis: TVector; Angle: single;
   AbsoluteRotation: boolean);
 var mr:TMatrix;
 begin
@@ -357,7 +397,7 @@ var wm: TMatrix;
 begin
  with Matrices do begin
   wm:=IdentityHmgMatrix;
-  if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
+{  if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
      if not Parent.WorldMatrixUpdated then parent.UpdateWorldMatrix;
      wm:=parent.Matrices.WorldMatrix;
      wm:=MatrixMultiply(wm, ModelMatrix);
@@ -365,11 +405,15 @@ begin
 
   if (not (ttModel in UseMatrix)) and (not(ttAll in UseMatrix))
   then wm:=IdentityHmgMatrix;
-
-
+}
   if (ttScale in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, ScaleMatrix);
   if (ttRotation in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, RotationMatrix);
   if (ttPosition in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, TranslationMatrix);
+
+  if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
+     if not Parent.WorldMatrixUpdated then parent.UpdateWorldMatrix;
+     wm:=MatrixMultiply(wm, parent.Matrices.WorldMatrix);
+  end else wm := MatrixMultiply(wm, ModelMatrix);
 
   WorldMatrix:=wm;
   FLeft:=WorldMatrix[0];NormalizeVector(FLeft);
@@ -487,6 +531,26 @@ begin
  end;
 end;
 
+procedure TMovableObject.RotateAround(const Pivot, Axis: TVector; Angle: single);
+var np: TVector;
+    mr,mp,mnp,m: TMatrix;
+begin
+  mr:=CreateRotationMatrix(Axis,Angle);
+
+  np:=VectorNegate(Pivot); np[3]:=1;
+  mp:=CreateTranslationMatrix(Pivot);
+  mnp:=CreateTranslationMatrix(np);
+
+  m:=Matrices.ModelMatrix;
+
+  //ѕоворот вокруг заданной точки
+  m:=MatrixMultiply(m,mp);
+  m:=MatrixMultiply(m,mr);
+  m:=MatrixMultiply(m,mnp);
+  Matrices.ModelMatrix:=m;
+  UpdateWorldMatrix;
+end;
+
 procedure TMovableObject.SetParent(const Value: TMovableObject);
 begin
   inherited Parent:=Value;
@@ -595,6 +659,125 @@ end;
 procedure TMovableObject.Process;
 begin
   if not WorldMatrixUpdated then UpdateWorldMatrix;
+end;
+
+{ TLinkedObjects }
+
+constructor TLinkedObjects.Create;
+begin
+  inherited;
+  FJoints:=TList.Create;
+end;
+
+destructor TLinkedObjects.Destroy;
+begin
+  FreeObjectList(FJoints);
+  inherited;
+end;
+
+function TLinkedObjects.getJoint(index: integer): TJoint;
+begin
+  if (index<FJoints.Count) and (index>=0)
+  then result:=FJoints[index] else result:=nil;
+end;
+
+function TLinkedObjects.JointByName(aName: string): TJoint;
+var i: integer;
+begin
+  i:=JointIndex(aName);
+  if i>=0 then result:=FJoints[i] else result:=nil;
+
+end;
+
+function TLinkedObjects.JointIndex(aName: string): integer;
+var i: integer;
+    J: TJoint;
+begin
+  result:=-1;
+  for i:=0 to FJoints.Count-1 do begin
+    J:=FJoints[i];
+    if assigned(J) then
+      if J.Name=aName then begin result:=i; exit; end;
+  end;
+end;
+
+function TLinkedObjects.NewJoint(aNode, aParent: TMovableObject;
+  aName: string): TJoint;
+var J: TJoint;
+begin
+  J:=TJoint.Create;
+  J.Name:=aName;
+  J.ParentNode:=aParent;
+  J.Node:=aNode;
+  J.Owner:=self;
+  J.FIndex:=FJoints.Add(J);
+  result:=J;
+end;
+
+procedure TLinkedObjects.setJoint(index: integer; const Value: TJoint);
+var J: TJoint;
+begin
+  if index>=FJoints.Count then exit;
+  J:=FJoints[index];
+  if Value=J then exit;
+  if assigned(J) and (J.Owner=self) then J.Free;
+  FJoints[index]:=J;
+end;
+
+{ TJoint }
+constructor TJoint.Create;
+begin
+  inherited;
+  FNode:=nil;
+  FParentNode:=nil;
+  FName:='';
+  FIndex:=0;
+end;
+
+destructor TJoint.Destroy;
+begin
+  if assigned(FParent) then FParent.Notification(self,ntRemoved);
+  inherited;
+end;
+
+procedure TJoint.Notification(Sender: TVBOMeshItem; aMessage: TNotification);
+begin
+  if Sender=FParentNode then begin
+    case aMessage of
+      ntUnsibscribe, ntRemoved: begin
+        FParentNode:=nil;
+      end;
+      ntTransformationsChanged: begin
+        FNode.Matrices.ModelMatrix:=FParentNode.Matrices.WorldMatrix;
+        FNode.UpdateWorldMatrix;
+      end;
+    end;
+  end;
+  inherited;
+end;
+
+procedure TJoint.Process;
+begin
+  if assigned(FNode) then begin
+    if assigned(FParentNode) then
+       FNode.Matrices.ModelMatrix:=FParentNode.Matrices.WorldMatrix
+    else FNode.Matrices.ModelMatrix:=IdentityHmgMatrix;
+    FNode.UpdateWorldMatrix;
+  end;
+end;
+
+procedure TJoint.SetNode(const Value: TMovableObject);
+begin
+  if assigned(FNode) and assigned(FParentNode) then FParentNode.Notification(self,ntUnsibscribe);
+  FNode := Value;
+  if assigned(FNode) and assigned(FParentNode) then FParentNode.Subscribe(self);
+end;
+
+procedure TJoint.setParent(const Value: TMovableObject);
+begin
+  if assigned(FNode) and assigned(FParentNode) then FParentNode.Notification(self,ntUnsibscribe);
+  FParentNode := Value;
+  if assigned(FNode) and assigned(FParentNode) then FParentNode.Subscribe(self);
 end;
 
 end.
