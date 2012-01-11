@@ -1,4 +1,5 @@
   { TODO 1 :
+ - Научить работать с сабмешами тесселяцию и извлечение полигонов
  - Реализовать клас скелетки через паттерн Observer, кость как TMovableObject
  - Переработать ХУД-спрайт
  - Считать Extents для коллекций, контейнеров и чаилдов. Добавить проверку
@@ -8,15 +9,16 @@
  - Пересмотреть рендер 3ds
  - Источник света как MovableObject
  - Реализовать работу с группами мешей из 3ds/obj
- - Переписать загрузчики 3ds/obj на использование сабмешей
  - Для Instance "Master" реализовать расчет AABB по его инстансам
  - Реализовать сохранение/загрузку графа сцены
  - Доработать систему ЛОДов
  - Добавить ко всем классам уникальный идентификатор
  - Реализовать сериализацию (запись чанка в поток + таблица чанков)
  - Упаковка коллекции в сабмеши одного буфера
- - Сортировка сабмешей перед рендерингом по материалам
  - FBO - реализовать рендеринг в слои/мип-уровни текстуры
+ + Сортировка сабмешей по материалам при генерации буфера VBO
+ + Переписать загрузчики 3ds/obj, реализовать групировку мешей по материалам
+ + Реализовать упаковку списка мешей в сабмеши
  + Создание/Установка проекционной матрицы у CameraController
  + Добавить FStructureChanged ко всем методам Add*
  + Проверить работоспособность TVolumetricLine
@@ -56,7 +58,10 @@
 
 {: vboMesh
 	Historique:
-
+  10/01/12 - Fantom -
+                    - Добавлен метод TVBOMeshObject.PackToSubMeshes (упаковка списка мешей в сабмеши)
+                    - Сортировка сабмешей по материалам при генерации буфера VBO
+                    - Оптимизирован загрузчик 3ds/obj, меши группируются по материалам
   04/01/12 - Fantom - Добавлен метод TVBOMeshObject.ChangeProxy для смены мастер-объекта существующего прокси
                     - Добавлено свойство TVBOMeshObject.MasterProxy для миены мастер-прокси и превращения объекта в прокси
   26/12/11 - Fantom - TVolumetricLine - добавлена возможность задавать отрезки(BreakLine)
@@ -97,6 +102,8 @@ Type
     FContainers: TList;
     FOpaqueMeshObjects: TList;
     FProxyObjects: TList;
+    FEnvObjects: TList;
+    FFGObjects: TList;
     FTransparencyMeshObjects: TList;
     FLowPriorityIndex: integer;
   public
@@ -131,6 +138,8 @@ Type
     procedure ProcessTransparency;
     procedure ProcessProxys;
     procedure ProcessDiffObjects;
+    procedure ProcessEnvObjects;
+    procedure ProcessFGObjects;
     procedure setHeight(const Value: integer);
     procedure setWidth(const Value: integer);
     procedure UpdateRenderTarget;
@@ -566,7 +575,7 @@ begin
       if (mo.Visible) or (mo.ProxyList.Count>0) then begin
         if assigned(mo.onBeforeCheckVisibility) then mo.onBeforeCheckVisibility(self);
         if not ((mo.MeshType=mtHUDSprite) or (mo.MeshType=mtSphericalSprite) or
-               (mo.MeshType=mtCylindricalSprite))
+               (mo.MeshType=mtCylindricalSprite) or (mo.MeshType=mtScreenQuad))
         then begin
           if (mo.MeshType=mtActor) or (mo.MeshType=mtActorProxy) then
             mo.Culled:=TUniformSMDRender(mo).CheckVisibility(Frustum)
@@ -1544,7 +1553,7 @@ begin
           b:=j*db; rx:=rxz*cos(b); rz:=rxz*sin(b);
           vi:=i*(HSegments)+j;
           Vertexes.Add(rx,ry,rz);
-          TexCoords.Add((1-j*ks)*TileS,(1-i*kt)*TileT);
+          TexCoords.Add((1-j*ks)*TileS,(i*kt)*TileT);
           norm:=affinevectormake(rx/Radius,ry/Radius,rz/Radius);
           if NormalInside then NegateVector(norm);
           Normals.Add(norm);
@@ -1657,7 +1666,7 @@ begin
     MeshList.Add(Temp); MeshType:=mtScreenQuad; Visible:=true;
     Name:='VBOScreenQuad'+inttostr(FMeshList.Count); Parent:=nil;
     UpdateExtents; UpdateWorldMatrix; UpdateMaterialList;
-    Pickable:=false;
+    Pickable:=false; MeshPlacement:=mpForeground;
   end; result:=mo;
   if AddToMesh then begin
     mo.IndexInMesh:=FMeshList.Add(mo); mo.Owner:=self;
@@ -2036,19 +2045,7 @@ begin
     Name:='VBOProxy'+inttostr(FMeshList.Count);
     MasterProxy:=MasterObject;
   end;
-{  with mo do begin
-    OctreeList.Free; MeshList.Free; LodList.Free;
-//    MeshType:=mtProxy;
-    MeshType:=MasterObject.MeshType;
-    Params:=MasterObject;
-    MeshList:=MasterObject.MeshList;
-    OctreeList:=MasterObject.OctreeList;
-    LodList:=MasterObject.LodList;
-    UseLods:=MasterObject.UseLods;
-    BaseExtents:=MasterObject.BaseExtents;
-    MatObjLib:=MasterObject.MatObjLib;
-    UpdateWorldMatrix; UpdateMaterialList;
-  end;}
+  mo.MaterialObject.Assign(MasterObject.MaterialObject);
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.Owner:=self;
@@ -2357,6 +2354,8 @@ begin
   FContainers.Clear;
   FOpaqueMeshObjects.Clear;
   FTransparencyMeshObjects.Clear;
+  FEnvObjects.Clear;
+  FFGObjects.Clear;
 end;
 
 constructor TSceneParser.Create;
@@ -2367,6 +2366,8 @@ begin
   FOpaqueMeshObjects:=TList.Create;
   FTransparencyMeshObjects:=TList.Create;
   FProxyObjects:=TList.Create;
+  FEnvObjects:=TList.Create;
+  FFGObjects:=TList.Create;
   FLowPriorityIndex:=-1;
 end;
 
@@ -2377,6 +2378,8 @@ begin
   FOpaqueMeshObjects.Free;
   FTransparencyMeshObjects.Free;
   FProxyObjects.Free;
+  FEnvObjects.Free;
+  FFGObjects.Free;
   inherited;
 end;
 
@@ -2392,7 +2395,10 @@ begin
     case mi.MeshItemType of
       mcCollection,mcContainer: FContainers.Add(mi);
       mcMeshObject: begin
-        if TVBOMeshObject(mi).MeshType=mtProxy then FProxyObjects.Add(mi)
+        if TVBOMeshObject(mi).MeshPlacement=mpBackground then FEnvObjects.Add(mi)
+        else if TVBOMeshObject(mi).MeshPlacement=mpForeground then FFGObjects.Add(mi)
+//        if TVBOMeshObject(mi).MeshType=mtScreenQuad then FEnvObjects.Add(mi)
+        else if TVBOMeshObject(mi).MeshType=mtProxy then FProxyObjects.Add(mi)
         else if TVBOMeshObject(mi).MaterialObject.IsTransparency
         then FTransparencyMeshObjects.Add(mi)
         else FOpaqueMeshObjects.Add(mi);
@@ -2484,7 +2490,7 @@ begin
       if (mo.Visible) or (mo.ProxyList.Count>0) then begin
         if assigned(mo.onBeforeCheckVisibility) then mo.onBeforeCheckVisibility(nil);
         if not ((mo.MeshType=mtHUDSprite) or (mo.MeshType=mtSphericalSprite) or
-               (mo.MeshType=mtCylindricalSprite))
+               (mo.MeshType=mtCylindricalSprite) or (mo.MeshType=mtScreenQuad))
         then begin
           if (mo.MeshType=mtActor) or (mo.MeshType=mtActorProxy) then
             mo.Culled:=TUniformSMDRender(mo).CheckVisibility(Frustum)
@@ -2506,6 +2512,9 @@ begin
   end;
   FSceneViewer.CurrentTime:=GetTime;
 
+  //Process Background objects
+  ProcessEnvObjects;
+
   //Process containers before mesh objects
   ProcessCollection(true);
   if FRenderBuffer=rtFrameBuffer then
@@ -2526,6 +2535,8 @@ begin
   ProcessCollection(false);
   //Process different mesh items
   ProcessDiffObjects;
+  //Process Foreground objects
+  ProcessFGObjects;
 
   if FRenderBuffer=rtFrameBuffer then FFBO.UnApply;
 end;
@@ -2561,6 +2572,38 @@ begin
     mi:=FSceneParser.FDiffItems[i];
     mi.Process;
     if mi.UseParentViewer then mi.ParentViewer:=@FSceneViewer;
+  end;
+end;
+
+procedure TRenderShell.ProcessEnvObjects;
+var i: integer;
+    mo: TVBOMeshObject;
+begin
+  for i:=0 to FSceneParser.FEnvObjects.Count-1 do begin
+    mo:=FSceneParser.FEnvObjects[i];
+    if mo.Visible then begin
+      mo.Matrices.ViewMatrix:=FSceneViewer.ViewMatrix;
+      mo.Matrices.ProjectionMatrix:=FSceneViewer.ProjectionMatrix;
+      mo.Time:=FSceneViewer.CurrentTime;
+      mo.ParentViewer:=@FSceneViewer;
+      mo.Process;
+    end;
+  end;
+end;
+
+procedure TRenderShell.ProcessFGObjects;
+var i: integer;
+    mo: TVBOMeshObject;
+begin
+  for i:=0 to FSceneParser.FFGObjects.Count-1 do begin
+    mo:=FSceneParser.FFGObjects[i];
+    if mo.Visible then begin
+      mo.Matrices.ViewMatrix:=FSceneViewer.ViewMatrix;
+      mo.Matrices.ProjectionMatrix:=FSceneViewer.ProjectionMatrix;
+      mo.Time:=FSceneViewer.CurrentTime;
+      mo.ParentViewer:=@FSceneViewer;
+      mo.Process;
+    end;
   end;
 end;
 

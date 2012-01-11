@@ -1053,7 +1053,7 @@ begin
                singleMat:=true;
          end else begin
            if FMaterialObject.Active then begin
-           FMaterialObject.Apply(nil);
+           FMaterialObject.Apply(onMaterialApply);
            singleMat:=true;
            end else FMaterialObject.Blending.Apply;
          end;
@@ -1071,7 +1071,7 @@ begin
         end;
 
         if assigned(onAfterRender) then onAfterRender(self);
-        FMaterialObject.UnApply(nil);
+        FMaterialObject.UnApply(onMaterialUnApply);
 //          if assigned(FMaterial) then FMaterial.UnApply;
 //          if assigned(FTexture) then FTexture.UnApply;
         ResetBlending;
@@ -1082,8 +1082,12 @@ begin
         ActiveMaterial:=''; i:=0;
         mat:=SetMaterialName(CMName); ActiveMaterial:=CMName;
         if assigned(mat) then begin
-          if mat.Active then mat.Apply;
-        end else mat.Blending.Apply;
+          if mat.Active then mat.Apply(onMaterialApply);
+        end else begin
+          mat.Blending.Apply;
+          GLStateCache.MaterialCache.Reset;
+          glDisable(GL_TEXTURE_2D);
+        end;
         repeat
            //Render+++++++++++++++++
            if assigned(onBeforeRender) then onBeforeRender(self);
@@ -1106,16 +1110,20 @@ begin
            if ((i=rcount) or (CMName<>ActiveMaterial)) then
            if assigned(mat) then begin
              if FMaterialObject.Active then begin
-               FMaterialObject.UnApply;
+               FMaterialObject.UnApply(onMaterialUnApply);
                ResetBlending;
-             end else ResetBlending;
+             end else begin
+               ResetBlending;
+               GLStateCache.MaterialCache.Reset;
+               glDisable(GL_TEXTURE_2D);
+             end;
            end;
            if CMName<>ActiveMaterial then begin
              if CMName<>'' then begin
                mat:=SetMaterialName(CMName); ActiveMaterial:=CMName;
                if assigned(mat) then begin
                  if mat.Active then begin
-                   mat.Apply;
+                   mat.Apply(onMaterialApply);
                  end else mat.Blending.Apply;
                end else glDisable(GL_TEXTURE_2D);
              end else begin

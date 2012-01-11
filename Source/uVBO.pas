@@ -368,19 +368,25 @@ procedure GenVBOBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
 procedure GenVBOBuffers(List: TList; FreeBuffMem: boolean = true);
 procedure GenVBOSolidBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
 procedure GenVBOPackBuff(var VBuff: TPackedVBO; FreeBuffMem: boolean = true);
-Procedure RebuildVBOBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
-Procedure UpdateVBOBuff(BuffId:integer; data: pointer; offset, size:integer; MapBuffer:Boolean=false);
-Procedure BindVBO(var Buff: TVBOBuffer);
-Procedure UnBindVBO(var Buff: TVBOBuffer);
+procedure RebuildVBOBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
+procedure UpdateVBOBuff(BuffId:integer; data: pointer; offset, size:integer; MapBuffer:Boolean=false);
+procedure BindVBO(var Buff: TVBOBuffer);
+procedure UnBindVBO(var Buff: TVBOBuffer);
 
-Procedure RebuildNormals(var vbo: PVBOBuffer);
-Function GenVAO(VBuff: PVBOBuffer): TVertexArrayObject;overload;
-Function GenVAO(var VBuff: TVBOBuffer): GLUInt; overload;
+procedure FreeVBOBuffer(var VBuff: TVBOBuffer; ClearBuffs: boolean = true);
+procedure FreeVBOMem(var VBuff: TVBOBuffer);
+procedure FreeVBOList(var List:TList;ClearBuffs: boolean = true);
+
+procedure RebuildNormals(var vbo: PVBOBuffer);
+function PackVBOListToSubmesh(MeshList: TList): PVBOBuffer;
 
 function  GenIndices(var Indices: TIntegerList): GLUInt;
 function  GenSingleVBOBuffer(var List: TAffineVectorList; target: GLUInt = GL_STATIC_DRAW): GLUInt; overload;
 function  GenSingleVBOBuffer(var List: TVectorList; target: GLUInt = GL_STATIC_DRAW): GLUInt; overload;
 function  GenSingleVBOBuffer(var buff: PVBOAttribute; target: GLUInt = GL_STATIC_DRAW): GLUInt; overload;
+function  GenVAO(VBuff: PVBOBuffer): TVertexArrayObject;overload;
+function  GenVAO(var VBuff: TVBOBuffer): GLUInt; overload;
+
 function  GetAttribByName(var buff: TVBOBuffer; const Name: string): PVBOAttribute;
 procedure AttributeFromList(list: TAffineVectorList; var attr: TVBOAttribute);overload;
 procedure AttributeFromList(list: TVectorList; var attr: TVBOAttribute);overload;
@@ -403,10 +409,6 @@ procedure RenderVBOList(List: TList; MatList: TList);overload;
 
 function  RenderVBOListWithCulling(List: TList; var WorldMatrix: TMatrix; bounds: boolean = false): integer;
 procedure RenderVBOPackBuff(var VBuff: TPackedVBO);
-
-procedure FreeVBOBuffer(var VBuff: TVBOBuffer; ClearBuffs: boolean = true);
-procedure FreeVBOMem(var VBuff: TVBOBuffer);
-procedure FreeVBOList(var List:TList;ClearBuffs: boolean = true);
 
 procedure AttachBuffer(var FromBuff, ToBuff: TVBOBuffer; AttachIndice: boolean = true);
 procedure AttachBufferInPos(var FromBuff, ToBuff: TVBOBuffer; vPos,iPos:integer);
@@ -432,6 +434,8 @@ function GetFrustum: TFrustum;overload;
 function GetFrustum(const projMat, mvMat: TMatrix): TFrustum;overload;
 procedure OptimizeIndices(CacheSize: integer; BuffSize: integer; var Buff: TVBOBuffer; var BuffList: TList; GenBuff: boolean = true);
 procedure ExtractTriangles(var Buff: TVBOBuffer; var Triangles: TAffineVectorList);
+procedure ExtractTrianglesTexCoords(var Buff: TVBOBuffer; var trTexCoords: TAffineVectorList);
+
 //Procedure CreateInterleavedArray(var VBuff:TVBOBuffer;var IBuff:TInterleavedBuff;FreeBuffMem:boolean=true);
 
 procedure RenderBounds(emin, emax: TAffinevector; w, r, g, b: single);
@@ -730,6 +734,38 @@ begin
   end; vbo.Normals.Normalize;
 end;
 
+function PackVBOListToSubmesh(MeshList: TList): PVBOBuffer;
+var i: integer;
+    buff: PVBOBuffer;
+    vPos,iPos: integer;
+    submesh: PSubMesh;
+    VBO: PVBOBuffer;
+begin
+  vPos:=0; iPos:=0;
+  New(VBO); result:=VBO;
+  InitVBOBuff(VBO^,GL_TRIANGLES,DrawElements);
+  VBO.Visible:=true;
+  for i:=0 to MeshList.Count-1 do begin
+    buff:=MeshList[i];
+    assert(buff.Indices.Count>0,'Indices not found in buff '+buff.Name);
+    vbo.RenderBuffs:=vbo.RenderBuffs+buff.RenderBuffs;
+  end;
+  for i:=0 to MeshList.Count-1 do begin
+    buff:=MeshList[i]; new(SubMesh); VBO.SubMeshes.Add(SubMesh);
+
+    AttachBufferInPos(buff^,VBO^,vPos,iPos);
+    SubMesh.Name:=buff.Name;
+    SubMesh.PrimType:=buff.FaceType;
+    SubMesh.VertexCount:=buff.Vertexes.Count;
+    SubMesh.StartingVertex:=vPos;
+    SubMesh.StartingIndex:=iPos;
+    SubMesh.PrimitiveCount:=buff.Indices.Count;
+    SubMesh.MaterialName:=buff.MatName;
+    buff.Vertexes.GetExtents(SubMesh.Extents.emin, SubMesh.Extents.emax);
+    iPos:=VBO.Indices.Count; vPos:=VBO.Vertexes.Count;
+  end;
+end;
+
 procedure InitVBOBuff;
 begin
   with VBuff do begin
@@ -880,8 +916,10 @@ end;
 
 
 procedure GenVBOBuff(var VBuff: TVBOBuffer; FreeBuffMem: boolean = true);
-var i: integer;
+var i,j: integer;
     attr: PVBOAttribute;
+    sm1,sm2: PSubMesh;
+    nh1,nh2: integer;
 begin
   with VBuff do begin
     Vertexes.GetExtents(emin, emax);
@@ -913,6 +951,23 @@ begin
 
     MaxElements := ElementsCount;
     VertexCount := Vertexes.Count;
+    //Sort SubMeshes by Material
+    if SubMeshes.Count>0 then begin
+      for i:=0 to SubMeshes.Count-2 do begin
+        sm1:=SubMeshes[i]; nh1:=StringHashKey(sm1.MaterialName);
+        if assigned(sm1) then
+        for j:=i+1 to SubMeshes.Count-1 do begin
+          sm2:=SubMeshes[j];
+          if assigned(sm2) then begin
+            nh2:=StringHashKey(sm2.MaterialName);
+            if nh2<nh1 then begin
+              SubMeshes.Exchange(i,j); sm1:=sm2;
+            end;
+          end;
+        end;
+      end;
+    end;
+
     if FreeBuffMem then begin
       Vertexes.Clear; Normals.Clear; TexCoords.Clear; Colors.Clear;
       for i := 0 to ExTexCoords.Count - 1 do begin
@@ -935,6 +990,7 @@ begin
     end else Cleared := false;
     Builded := true;
   end;
+
   //if GL_ARB_vertex_array_object then GenVAO(VBuff);
   if (GL_ARB_vertex_array_object) and (VBuff.AttribList.Count=0) then begin
     GenVAO(VBuff); include(VBuff.RenderBuffs,uVAO);
@@ -1760,7 +1816,7 @@ begin
     SubMesh:=SubMeshes[i];
     assert(SubMesh.PrimType>=0,'Unknown Pimitive type');
     if assigned(VBuff.MaterialFunc) then VBuff.MaterialFunc(SubMesh.MaterialName,maApply);
-    glDrawElements(SubMesh.PrimType, SubMesh.PrimitiveCount*3,
+    glDrawElements(SubMesh.PrimType, SubMesh.PrimitiveCount,
       GL_UNSIGNED_INT, pointer(SubMesh.StartingIndex*4));
     if assigned(VBuff.MaterialFunc) then VBuff.MaterialFunc(SubMesh.MaterialName,maUnApply);
   end;
@@ -2294,6 +2350,75 @@ begin
   end;
 end;
 
+procedure ExtractTrianglesTexCoords(var Buff: TVBOBuffer; var trTexCoords: TAffineVectorList);
+var i,n: integer;
+  v, v1, v2, v3: TAffineVector;
+begin
+  if not assigned(trTexCoords) then trTexCoords := TAffineVectorList.Create;
+  with Buff do begin
+   if (TexCoords.Count = 0) then exit;
+   if uIndices in RenderBuffs then begin
+    if Indices.Count=0 then exit;
+    case FaceType of
+      GL_TRIANGLES: begin
+          n:=trTexCoords.Count;
+          trTexCoords.Count:=n+Indices.Count;
+          for i := 0 to Indices.Count - 1 do begin
+            v := TexCoords[Indices[i]];
+            trTexCoords[n+i]:=v;//.Add(v);
+          end;
+        end;
+      GL_TRIANGLE_STRIP: begin
+          v1 := TexCoords[Indices[0]];
+          v2 := TexCoords[Indices[1]];
+          for i := 2 to Indices.Count - 1 do begin
+            v := TexCoords[Indices[i]];
+            if odd(i) then trTexCoords.Add(v2, v1, v)
+            else trTexCoords.Add(v1, v2, v);
+            v1 := v2; v2 := v;
+          end;
+        end;
+      GL_QUADS: begin
+          for i := 0 to (Indices.Count div 4) - 1 do begin
+            v  := TexCoords[Indices[i*4]];
+            v1 := TexCoords[Indices[i*4+1]];
+            v2 := TexCoords[Indices[i*4+2]];
+            v3 := TexCoords[Indices[i*4+3]];
+            trTexCoords.Add(v,v1,v2);
+            trTexCoords.Add(v2,v3,v);
+          end;
+      end;
+    end;
+   end else begin
+    case FaceType of
+      GL_TRIANGLES: begin
+          trTexCoords.Add(TexCoords);
+        end;
+      GL_TRIANGLE_STRIP: begin
+          v1 := TexCoords[Indices[0]];
+          v2 := TexCoords[Indices[1]];
+          for i := 2 to TexCoords.Count - 1 do begin
+            v := TexCoords[i];
+            if odd(i) then trTexCoords.Add(v2, v1, v)
+            else trTexCoords.Add(v1, v2, v);
+            v1 := v2; v2 := v;
+          end;
+        end;
+      GL_QUADS: begin
+          for i := 0 to (TexCoords.Count div 4) - 1 do begin
+            v  := TexCoords[i*4];
+            v1 := TexCoords[i*4+1];
+            v2 := TexCoords[i*4+2];
+            v3 := TexCoords[i*4+3];
+            trTexCoords.Add(v,v1,v2);
+            trTexCoords.Add(v2,v3,v);
+          end;
+      end;
+    end;
+   end;
+  end;
+end;
+
 procedure RenderBounds(emin, emax: TAffinevector; w, r, g, b: single);
 begin
   glColor3f(r, g, b);
@@ -2458,7 +2583,7 @@ var i,j: integer;
     TriList: TAffineVectorList;
     pBuff: PVBOBuffer;
 begin
-  assert(Buff.Indices.Count=0,'Only for unIndexinx buffer');
+  assert(Buff.Indices.Count=0,'Only for unIndexing buffer');
   new(pBuff); InitVBOBuff(pBuff^,GL_TRIANGLES,DrawElements);
   pBuff.RenderBuffs:=buff.RenderBuffs;
   Temp:=TAffineVectorList.Create;

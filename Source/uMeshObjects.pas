@@ -13,6 +13,7 @@ Type
   TMeshTypes = (mtPlane, mtBox, mtSphere, mtFreeForm, mtHUDSprite, mtSprite, mtBBox,
                 mtSphericalSprite, mtCylindricalSprite, mtScreenQuad, mtPoints,
                 mtGrid, mtProxy, mtInstance, mtUser, mtParticles, mtActor, mtActorProxy);
+  TMeshPlacement = (mpBackground, mpForeground, mpOrdinary);
   TMeshTypeSet = set of TMeshTypes;
   TSpriteType = (stSpherical, stCylindrical);
 
@@ -103,7 +104,9 @@ Type
     FTime: Double;
     FOctreeBuilded: boolean;
     FBaseExtents: TExtents; //базовый Extents
-    FMeshType: TMeshTypes; //тип объекта, совместно с именем только для информации
+    FMeshType: TMeshTypes; //тип объекта
+    FMeshPlacement: TMeshPlacement; //расположение объекта на сцене (фон, передний план, обычное)
+
     FMaterial: TMaterial;
     FTexture: TTexture;
     FMaterialObject: TMaterialObject;
@@ -179,8 +182,10 @@ Type
     Property IndexInMesh: integer read FIndexInMesh write FIndexInMesh;
     //Доступ к буферу кадра
     Property FBO: TFrameBufferObject read FFBO;
-    //Возвращает тип объекта
+    //Тип объекта
     Property MeshType: TMeshTypes read FMeshType write FMeshType;
+    //Расположение объекта на сцене (задний/передний план, обычное)
+    Property MeshPlacement: TMeshPlacement read FMeshPlacement write FMeshPlacement;
     //Возвращает трансформированные координаты окаймляющего бокса
     Property Extents: TExtents read FExtents;
     //Возвращает координаты исходного окаймляющего бокса
@@ -230,6 +235,7 @@ Type
     Procedure BuildOctreeList(Level:integer=3);
     //Упаковывает все меши в один буфер
     Procedure PackMeshes(FreeOldBuffers:boolean=false; BuffSize:integer=-1);
+    Procedure PackToSubMeshes;
     //Упаковывает меш в текстуру, x,y,z-координаты вершины, w-текстурная координата p
     Procedure PackMeshesToTexture(var vtex,ntex: TTexture);
     //Упаковывает tri-list в текстуру, 3 последовательных пикселя задают вершины
@@ -730,6 +736,7 @@ begin
   FHandle:=inherited Create;
   FItemType:=mcMeshObject;
   FIsProxy:=false;
+  FMeshPlacement:=mpOrdinary;
 
   MeshList:=TList.Create;
   Materials:=TStringList.Create;
@@ -1087,7 +1094,7 @@ begin
      glLoadIdentity;
      glMatrixMode(GL_PROJECTION);
      glPushMatrix;glLoadIdentity;
-     glDisable(GL_DEPTH_TEST);
+     //glDisable(GL_DEPTH_TEST);
      glDisable(GL_LIGHTING);
     end;
     mtHudSprite: begin
@@ -1137,6 +1144,7 @@ begin
   end;
   if NoZWrite then glDepthMask(False) else glDepthMask(True);
   if NoDepthTest then glDisable(GL_DEPTH_TEST) else glEnable(GL_DEPTH_TEST);
+
   if FTwoSides then begin
     //glCullFace(GL_FRONT); glDisable(GL_CULL_FACE);
     //glCullFace(GL_BACK);
@@ -1468,6 +1476,17 @@ begin
   for i:=0 to MeshList.Count-1 do begin
      p:=MeshList[i]; ExtractTriangles(p^,TriMesh);
   end;
+end;
+
+procedure TVBOMeshObject.PackToSubMeshes;
+var vbo: PVBOBuffer;
+begin
+  vbo:=PackVBOListToSubmesh(MeshList);
+  GenVBOBuff(vbo^,false);
+  //exclude(vbo.RenderBuffs,uVao);
+  vbo.MaterialFunc:=MaterialSetter;
+  FreeVBOList(MeshList,false);
+  MeshList.Add(vbo);
 end;
 
 procedure TVBOMeshObject.PackTriListToTexture(var vtex: TTexture);
