@@ -397,6 +397,12 @@ procedure TMovableObject.UpdateWorldMatrix;
 var wm: TMatrix;
 begin
  with Matrices do begin
+
+  if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
+   if not Parent.WorldMatrixUpdated then parent.UpdateWorldMatrix;
+   FParentMatrix:=parent.Matrices.WorldMatrix;
+  end;
+
   wm:=IdentityHmgMatrix;
   if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
      if not Parent.WorldMatrixUpdated then parent.UpdateWorldMatrix;
@@ -412,13 +418,9 @@ begin
   if (ttPosition in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, TranslationMatrix);
 
   wm:=MatrixMultiply(wm, FParentMatrix);
-{
-  if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
-     if not Parent.WorldMatrixUpdated then parent.UpdateWorldMatrix;
-     wm:=MatrixMultiply(wm, parent.Matrices.WorldMatrix);
-  end else wm := MatrixMultiply(wm, ModelMatrix);
-}
+
   WorldMatrix:=wm;
+
   FLeft:=WorldMatrix[0];NormalizeVector(FLeft);
   FUp:=WorldMatrix[1];  NormalizeVector(FUp);
   FDirection:=WorldMatrix[2]; NormalizeVector(FDirection);
