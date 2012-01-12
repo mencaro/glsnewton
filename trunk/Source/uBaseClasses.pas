@@ -312,6 +312,7 @@ begin
     WorldMatrixT:=IdentityHmgMatrix;
     InvWorldMatrix:=IdentityHmgMatrix;
   end;
+  FParentMatrix:=IdentityHmgMatrix;
 
   FRollAngle:=0;
   FTurnAngle:=0;
@@ -397,7 +398,7 @@ var wm: TMatrix;
 begin
  with Matrices do begin
   wm:=IdentityHmgMatrix;
-{  if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
+  if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
      if not Parent.WorldMatrixUpdated then parent.UpdateWorldMatrix;
      wm:=parent.Matrices.WorldMatrix;
      wm:=MatrixMultiply(wm, ModelMatrix);
@@ -405,16 +406,18 @@ begin
 
   if (not (ttModel in UseMatrix)) and (not(ttAll in UseMatrix))
   then wm:=IdentityHmgMatrix;
-}
+
   if (ttScale in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, ScaleMatrix);
   if (ttRotation in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, RotationMatrix);
   if (ttPosition in UseMatrix) or (ttAll in UseMatrix) then wm := MatrixMultiply(wm, TranslationMatrix);
 
+  wm:=MatrixMultiply(wm, FParentMatrix);
+{
   if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
      if not Parent.WorldMatrixUpdated then parent.UpdateWorldMatrix;
      wm:=MatrixMultiply(wm, parent.Matrices.WorldMatrix);
   end else wm := MatrixMultiply(wm, ModelMatrix);
-
+}
   WorldMatrix:=wm;
   FLeft:=WorldMatrix[0];NormalizeVector(FLeft);
   FUp:=WorldMatrix[1];  NormalizeVector(FUp);
@@ -748,7 +751,7 @@ begin
         FParentNode:=nil;
       end;
       ntTransformationsChanged: begin
-        FNode.Matrices.ModelMatrix:=FParentNode.Matrices.WorldMatrix;
+        FNode.FParentMatrix:=FParentNode.Matrices.WorldMatrix;
         FNode.UpdateWorldMatrix;
       end;
     end;
@@ -760,8 +763,8 @@ procedure TJoint.Process;
 begin
   if assigned(FNode) then begin
     if assigned(FParentNode) then
-       FNode.Matrices.ModelMatrix:=FParentNode.Matrices.WorldMatrix
-    else FNode.Matrices.ModelMatrix:=IdentityHmgMatrix;
+       FNode.FParentMatrix:=FParentNode.Matrices.WorldMatrix
+    else FNode.FParentMatrix:=IdentityHmgMatrix;
     FNode.UpdateWorldMatrix;
   end;
 end;
