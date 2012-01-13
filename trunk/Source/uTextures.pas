@@ -885,7 +885,8 @@ var i: integer;
     p: pointer;
 begin
   glBindTexture(GL_TEXTURE_2D, FTexture.Id);
-  p:=dds.Data;
+  SetDimensions(dds.Width,dds.Height);
+  p:=dds.Data; FTexture.Data:=dds.Data;
   //glTexParameteri(TEXTURE_2D, TEXTURE_MAX_LEVEL, level-1); //TEXTURE_BASE_LEVEL
   for i:=0 to 0{dds.Levels-1} do begin
     p:=pointer(integer(dds.Data)+dds.LODS[i].Offset);
@@ -911,7 +912,6 @@ begin
   FTexture.magFilter:=GL_LINEAR;
   glTexParameteri(FTexture.Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   SetWraps(twRepeat,twRepeat);
-  SetDimensions(dds.Width,dds.Height);
   glBindTexture(GL_TEXTURE_2D, 0);
 end;
 
@@ -920,7 +920,8 @@ var i: integer;
     p: pointer;
 begin
   glBindTexture(GL_TEXTURE_2D, FTexture.Id);
-  p:=dds.Data;
+  SetDimensions(dds.Width,dds.Height);
+  p:=dds.Data; FTexture.Data:=dds.Data;
   //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, dds.Levels-1); //TEXTURE_BASE_LEVEL
   for i:=0 to dds.Levels-1 do begin
     p:=pointer(integer(dds.Data)+dds.LODS[i].Offset);
@@ -947,7 +948,6 @@ begin
   FTexture.magFilter:=GL_LINEAR;
   glTexParameteri(FTexture.Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   SetWraps(twRepeat,twRepeat);
-  SetDimensions(dds.Width,dds.Height);
   glBindTexture(GL_TEXTURE_2D, 0);
 end;
 
@@ -971,7 +971,8 @@ CubeMapTarget: array[0..5] of cardinal = (
 
 begin
   glBindTexture(GL_TEXTURE_CUBE_MAP, FTexture.Id);
-  p:=dds.Data; offs:=0;
+  SetDimensions(dds.Width,dds.Height);
+  p:=dds.Data; offs:=0; FTexture.Data:=dds.Data;
   for f:=0 to 5 do begin
     //glTexParameteri(GL_TEXTURE_CUBE_MAP_POSITIVE_X+f, GL_TEXTURE_MAX_LEVEL, 1); //TEXTURE_BASE_LEVEL
     for i:=0 to 0{dds.Levels-1} do begin
@@ -1000,7 +1001,6 @@ begin
   glTexParameteri(FTexture.Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 //  SetWraps(twRepeat,twRepeat);
     SetWraps(twClampToEdge,twClampToEdge);
-  SetDimensions(dds.Width,dds.Height);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
 end;
 
