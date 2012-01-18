@@ -87,7 +87,7 @@ Uses
      GLRenderContextInfo, Octree, GeometryBB,
      uVBO, PFXManager, uTextures, uFBO, uShaders, MTLLoader, SysUtilsLite, uCamera,
      uFileSMD, uFileObj, uAnimatedMesh, uMaterials, uMaterialObjects, uMiscUtils,
-     uVectorLists, uBaseClasses, uMeshObjects, OGLStateEmul;
+     uVectorLists, uBaseClasses, uMeshObjects, uGUI, OGLStateEmul;
 
 Type
   TRenderBuffer = (rtNone, rtCurrent, rtFrameBuffer);
@@ -226,6 +226,7 @@ Type
     Function AddMeshFromFile(FileName: string; aMatLib: string=''): TVBOMeshObject;
     Function AddBBox(Corners: THmgBoundingBox; Color: TVector): TVBOMeshObject;overload;
     Function AddBBox(Extents: TExtents; Color: TVector): TVBOMeshObject;overload;
+    Function AddGUI: TGUIRender;
     Function AddInstanceToObject(MasterObject: TVBOMeshObject): TVBOMeshObject;
     Function AddProxyObject(MasterObject: TVBOMeshObject): TVBOMeshObject;
     Function AddUserObject(Name: string; VBOMeshList: TList): TVBOMeshObject;overload;
@@ -563,13 +564,19 @@ end;
 function TVBOMesh.GetVisibleObjects(const Frustum: TFrustum): TList;
 var //QueryObjectList: TList;
     mo: TVBOMeshObject;
+    mi: TVBOMeshItem;
     i: integer;
 begin
 //  QueryObjectList:=TList.Create;
 //  QueryObjectList.Capacity:=FMeshList.Count*2;
   FQueryObjectList.Count:=0;
   for i:=0 to FMeshList.Count-1 do begin
-    mo:=FMeshList[i]; mo.ParentViewer:=@FRender.FSceneViewer;
+    mi:=FMeshList[i];
+    if mi.MeshItemType=mcMeshObject then mo:=TVBOMeshObject(mi) else begin
+      FQueryObjectList.Add(mi); continue;
+    end;
+    //mo:=FMeshList[i];
+    mo.ParentViewer:=@FRender.FSceneViewer;
     if assigned(mo) and (mo.MeshItemType=mcMeshObject) then begin
       if mo.Culled then mo.Occluded:=false; mo.Culled:=False;
       if (mo.Visible) or (mo.ProxyList.Count>0) then begin
@@ -612,6 +619,7 @@ end;
 Procedure TVBOMesh.DoRender;
 var i{,n}: integer;
     mo,lod,master: TVBOMeshObject;
+    mi: TVBOMeshItem;
     F: TFrustum;
     time{,t1,t2}: Double;
     QueryObjectList: TList;
@@ -672,7 +680,12 @@ begin
     glGenQueriesARB(QueryObjectList.Count, @queries[0]);
   end;
   for i:=0 to QueryObjectList.Count-1 do begin
-    mo:=QueryObjectList[i];
+    mi:=QueryObjectList[i];
+    if mi.MeshItemType<>mcMeshObject then begin
+      mi.Process; continue;
+    end else begin mo:=TVBOMeshObject(mi); end;
+
+    //mo:=QueryObjectList[i];
     if assigned(mo.Params)
     and ((mo.MeshType<>mtPoints)and(mo.MeshType<>mtParticles))
     then master:=mo.Params else master:=mo;
@@ -735,7 +748,9 @@ begin
 //    assert(false,FloatTostr(t2-t1)+' : '+inttostr(n));
     for i:=0 to QueryObjectList.Count-1 do begin
       glGetQueryObjectuivARB(queries[i], GL_QUERY_RESULT_ARB, @sampleCount);
-      mo:=QueryObjectList[i];
+      mi:=QueryObjectList[i];
+      if mi.MeshItemType=mcMeshObject then mo:=TVBOMeshObject(mi) else continue;
+      //mo:=QueryObjectList[i];
       if (sampleCount>0) then mo.Occluded:=false else mo.Occluded:=true;
     end;
     glDeleteQueriesARB(QueryObjectList.Count,@queries[0]);
@@ -2011,6 +2026,16 @@ begin
   end; result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
   mo.Owner:=self;
+  FStructureChanged:=true;
+end;
+
+function TMeshCollection.AddGUI: TGUIRender;
+var gui: TGUIRender;
+begin
+  gui:=TGUIRender.Create;
+  gui.Owner:=self;
+  FMeshList.Add(gui);
+  result:=gui;
   FStructureChanged:=true;
 end;
 

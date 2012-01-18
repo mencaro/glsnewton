@@ -7,7 +7,8 @@ uses Classes,VectorGeometry, uMiscUtils;
 Type
   TTransformsTypes = (ttPosition, ttScale, ttRotation, ttModel, ttParent, ttFollow, ttAll);
   TTransforms = set of TTransformsTypes;
-  TMeshCollectionItem = (mcMeshObject, mcContainer, mcCollection, mcEffect, mcCommands, mcRender, mcUnknown);
+  TMeshCollectionItem = (mcMeshObject, mcContainer, mcCollection, mcEffect,
+    mcCommands, mcRender, mcGUI, mcUnknown);
   TProcessChilds = (pcNone, pcBefore, pcAfter);
   TSortDirection = (sdFrontToBack, sdBackToFront, sdNone);
   TNotification = (ntTransformationsChanged, ntRemoved, ntUnsibscribe);

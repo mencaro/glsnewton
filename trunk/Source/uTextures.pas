@@ -1053,6 +1053,7 @@ begin
    with FTexture do begin
      _Data:=LoadTexture(Filename,InternalFormat,ColorChanels,Precision,PixelSize,w,h);
      assert(assigned(_Data), 'Unsupported File Format: '+extractfilename(FileName));
+     FLocation:=FileName;
      SetOGLTextureFormat(InternalFormat,ColorChanels,Precision);
      SetDimensions(w, h);
      if not (stFilters in FSettedParams) then begin
@@ -1496,6 +1497,7 @@ function TTexture.LoadDataFromFile(Filename: String; var PixelFormat: GLEnum; va
 begin
   result:=LoadTexture(Filename, PixelFormat, Width, Height);
   assert(assigned(result),'Unsupported File Format: '+extractfilename(FileName));
+  FLocation:=FileName;
 end;
 
 function TTexture.SetOGLTextureFormat(InternalFormat, PixelFormat,
@@ -1873,6 +1875,7 @@ begin
    with FTexture do begin
      _Data:=LoadTexture(Filename,InternalFormat,ColorChanels,Precision,PixelSize,w,h);
      assert(assigned(_Data), 'Unsupported File Format: '+extractfilename(FileName));
+     FLocation:=FileName;
      FSettedParams:=FSettedParams+[stFormats];
      //SetOGLTextureFormat(InternalFormat,ColorChanels,Precision);
      SetDimensions(w, h); FullSize:=w*h*PixelSize; Depth:=0;
