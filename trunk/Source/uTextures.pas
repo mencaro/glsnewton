@@ -43,7 +43,6 @@ Type
                 mtNormalMap, mtAlpha, mtOpacity, mtReflection);
   TMapTargets = set of TMapTarget;
 
-//  TCompositeTexFormat = ();
   TTextureDecription = record
      InternalFormat: GLUInt;
      Precision: GLUInt;

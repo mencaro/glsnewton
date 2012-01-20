@@ -3639,7 +3639,7 @@ initialization
   vCubicOccluder:=CreateCubicOccluder(false);
 
 finalization
-  FreeVBOBuffer(vCubicOccluder^);
-  dispose(vCubicOccluder);
+  if vCubicOccluder.Builded then FreeVBOBuffer(vCubicOccluder^)
+  else FreeVBOMem(vCubicOccluder^); dispose(vCubicOccluder);
 end.
 

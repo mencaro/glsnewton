@@ -54,13 +54,14 @@ Type
     FChilde: TVBOMeshItem;
     FProcessChilds: TProcessChilds;
     FSubscribers: TList;
+    FActive: boolean;
     procedure Subscribe(aItem: TVBOMeshItem); virtual;
     procedure Notification(Sender: TVBOMeshItem; aMessage: TNotification); virtual;
     procedure DispatchNotification(aMessage: TNotification); virtual;
   public
     constructor Create;
     destructor Destroy;override;
-    procedure Process; virtual;abstract;
+    procedure Process; virtual;
     property MeshItemType: TMeshCollectionItem read FItemType;
     property Name: string read FName write FName;
     property ProcessChilds: TProcessChilds read FProcessChilds write FProcessChilds;
@@ -69,6 +70,7 @@ Type
     property Childe: TVBOMeshItem read FChilde write setChilde;
     property Parent: TVBOMeshItem read FParent write setParent;
     property Owner: TVBOMeshItem read FOwner write FOwner;
+    property Active: boolean read FActive write FActive;
   end;
 
   TRenderEventItem = class (TVBOMeshItem)
@@ -219,6 +221,7 @@ implementation
 constructor TVBOMeshItem.Create;
 begin
   inherited;
+  FActive:=true;
   FItemType:=mcUnknown;
   FParent:=nil; FOwner:=nil;
   FName:=''; FChilde:=nil;
@@ -258,6 +261,12 @@ begin
   end;
 end;
 
+procedure TVBOMeshItem.Process;
+begin
+  if not FActive then exit;
+
+end;
+
 procedure TVBOMeshItem.setChilde(const Value: TVBOMeshItem);
 begin
   FChilde := Value;
@@ -282,6 +291,7 @@ end;
 
 procedure TRenderEventItem.Process;
 begin
+  inherited;
   if assigned(FRenderEvent) then FRenderEvent(self);
 end;
 
@@ -664,6 +674,7 @@ end;
 
 procedure TMovableObject.Process;
 begin
+  inherited;
   if not WorldMatrixUpdated then UpdateWorldMatrix;
 end;
 

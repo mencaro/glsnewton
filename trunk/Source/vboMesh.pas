@@ -910,6 +910,7 @@ end;
 
 procedure TVBOMesh.Process;
 begin
+  inherited;
   DoRender;
 end;
 
@@ -2811,6 +2812,7 @@ end;
 
 procedure TMeshContainer.Process;
 begin
+  inherited;
   //Apply Lights
   if FApplyLights then FLights.Apply;
 

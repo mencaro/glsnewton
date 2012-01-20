@@ -438,6 +438,8 @@ Type
       procedure SetFrameRate(const Value: single);
 
     public
+      OnEndFrameReached : procedure of Object;
+      property AnimationMode:TSpriteAnimationMode read FAnimationMode;
       //указывает в каком направлении увеличивается номер кадра в кинограме
       property FramesDirection: TFramesDirection read FFramesDir write FFramesDir;
       //количество кадров в кинограмме
@@ -1635,7 +1637,7 @@ end;
 
 procedure TVBOMeshObject.Process;
 begin
-  inherited;
+  inherited Process;
   if assigned(FChilde) then begin
     if FChilde.UseParentViewer then
         FChilde.ParentViewer:=FParentViewer;
@@ -2741,8 +2743,17 @@ begin
   n:=Value;
   case FAnimationMode of
     samNone: FAnimated:=False;
-    samPlayOnce: if n=FFramesCount then FAnimated:=False;
-    samLoop: if n=FFramesCount then n:=0;
+    samPlayOnce:
+      if n>=FFramesCount then
+      begin
+        FAnimated:=False; FAnimationMode:=samNone;
+        if Assigned(OnEndFrameReached) then OnEndFrameReached;
+      end;
+    samLoop: if n=FFramesCount then
+    begin
+     n:=0;
+     if Assigned(OnEndFrameReached) then OnEndFrameReached;
+    end;
     samLoopBackward: begin
         if (n=FFramesCount) or (n=-1) then FPlayDir:=-FPlayDir;
         n:=n+FPlayDir;
