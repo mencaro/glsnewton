@@ -750,7 +750,8 @@ end;
 
 procedure TGUIRender.Process;
 begin
-  inherited;
+  if not Active then exit;
+  
   if assigned(FChilde) then begin
     if FChilde.UseParentViewer then
         FChilde.ParentViewer:=FParentViewer;

@@ -172,8 +172,9 @@ begin
     CloseHandle(BitmapFile);
 
   // Bitmaps are stored BGR and not RGB, so swap the R and B bytes.
-  SwapRGB(Result, Width*Height);
-   Format:=GL_RGB;
+  if bpp=3 then begin SwapRGB(Result, Width*Height); Format:=GL_RGB; end;
+  if bpp=4 then begin Format:=GL_RGBA; end;
+
 end;
 
 
