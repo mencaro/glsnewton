@@ -1,7 +1,9 @@
 {: Textures - Предназначен для загрузки текстур в формате bmp, tga, jpg, png и dds.
 
 	Historique:
-        05/01/12 - Fantom - Добавлен загрузчик текстур в формате зтп
+        09/03/12 - Fantom - Переписан загрузчик jpg на использование Synopse jpegdec
+                 - Fantom - Исправлена загрузка 32-битных bmp
+        05/01/12 - Fantom - Добавлен загрузчик текстур в формате png
         05/01/12 - Fantom - Переписан загрузчик текстур в формате jpg
         08/05/11 - Fantom - Исправлен баг с загрузкой 256-цветных bmp (хак)
         21/08/10 - Fantom - Исправлен баг с загрузкой jpeg
@@ -11,7 +13,7 @@ unit Textures;
 interface
 
 uses
-  Windows, Graphics, Classes, JPEG, SysUtils;
+  Windows, Graphics, Classes, JPEG, SysUtils, jpegdec;
 
 function LoadTexture(Filename: String; var Format: Cardinal; var Width, Height: integer) : pointer;overload;
 function LoadTexture(Filename: String; var iFormat,cFormat,dType,pSize: Cardinal; var Width, Height: integer) : pointer; overload;
@@ -36,6 +38,7 @@ const
   GL_RGBA  = $1908;
   GL_RGBA16 = $805B;
   GL_RGBA8 = $8058;
+  GL_BGRA  = $80E1;
 
 Type
    TTGAHeader = packed record
@@ -173,7 +176,7 @@ begin
 
   // Bitmaps are stored BGR and not RGB, so swap the R and B bytes.
   if bpp=3 then begin SwapRGB(Result, Width*Height); Format:=GL_RGB; end;
-  if bpp=4 then begin Format:=GL_RGBA; end;
+  if bpp=4 then begin Format:=GL_BGRA; end;
 
 end;
 
@@ -512,11 +515,19 @@ end;
 function LoadTexture(Filename: String; var iFormat,cFormat,dType,pSize: Cardinal;
   var Width, Height: integer): pointer; overload;
 var ext: string;
+    Img: PJpegDecode;
+    i: integer;
+    ps,pd: Pinteger;
+    p: pointer;
 begin
   result:=nil; ext:=copy(Uppercase(filename), length(filename)-3, 4);
   if ext = '.BMP' then begin
     result:=LoadBMPTexture(Filename, cFormat, Width, Height);
-    iFormat:=GL_RGB8; dType:=GL_UNSIGNED_BYTE; pSize:=3;
+    if cFormat=GL_BGRA then begin
+      iFormat:=GL_RGBA8; dType:=GL_UNSIGNED_BYTE; pSize:=4;
+    end else begin
+      iFormat:=GL_RGB8; dType:=GL_UNSIGNED_BYTE; pSize:=3;
+    end;
   end;
   if ext = '.JPG' then begin
     if ImgLibHandle=0 then InitImgLoader;
@@ -529,9 +540,41 @@ begin
       flipSurface(result,Width,Height,pSize);
       dType:=GL_UNSIGNED_BYTE;
     end else begin
-      result:=LoadJPGTexture(Filename, cFormat, Width, Height);
-      iFormat:=GL_RGB8; dType:=GL_UNSIGNED_BYTE; pSize:=3;
-      //flipSurface(result,Width,Height,pSize);
+      with TMemoryStream.Create do
+        try
+          LoadFromFile(FileName);
+          if not (JpegDecode(Memory,Size,img)=JPEG_SUCCESS)
+          then begin
+            result:=LoadJPGTexture(Filename, cFormat, Width, Height);
+            iFormat:=GL_RGB8; dType:=GL_UNSIGNED_BYTE; pSize:=3;
+            //assert('Not supported Jpeg format')
+          end else begin
+            Width:=img.width; Height:=img.height;
+            pSize:=img.bitsPixel div 8;
+            getmem(p,width*Height*pSize);
+            ps:=Pinteger(img.pRGB); pd:=pinteger(p);
+            for i:=0 to Height-1 do begin
+              CopyMemory(pd,ps,img.width*pSize);
+              inc(pd,img.width); inc(ps,img.scanlength);
+            end;
+            result:=p; dType:=GL_UNSIGNED_BYTE;
+            case img.bitsPixel of
+              32: begin
+                iFormat:=GL_RGBA8; cFormat:=GL_BGRA;
+                end;
+              24: begin
+                iFormat:=GL_RGB8; cFormat:=GL_BGR;
+                end;
+              8: begin
+                iFormat:=GL_LUMINANCE8; cFormat:=GL_LUMINANCE;
+              end;
+            end;
+            img.Free;
+          end;
+        finally
+          Free;
+        end;
+//      //flipSurface(result,Width,Height,pSize);
     end;
 
   end;
