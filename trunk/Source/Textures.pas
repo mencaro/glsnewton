@@ -412,6 +412,50 @@ begin
 end;
 
 
+function LoadSynopseJpeg(Filename: String; var cFormat,iFormat,dType,pSize : Cardinal;
+  var Width, Height: integer): pointer;
+var
+    Img: PJpegDecode;
+    i: integer;
+    ps,pd: Pinteger;
+    p: pointer;
+begin
+  with TMemoryStream.Create do
+    try
+      LoadFromFile(FileName);
+      if not (JpegDecode(Memory,Size,img)=JPEG_SUCCESS)
+      then begin
+        result:=LoadJPGTexture(Filename, cFormat, Width, Height);
+        iFormat:=GL_RGB8; dType:=GL_UNSIGNED_BYTE; pSize:=3;
+        //assert('Not supported Jpeg format')
+      end else begin
+        Width:=img.width; Height:=img.height;
+        pSize:=img.bitsPixel div 8;
+        getmem(p,width*Height*pSize);
+        ps:=Pinteger(img.pRGB); pd:=pinteger(p);
+        for i:=0 to Height-1 do begin
+          CopyMemory(pd,ps,img.width*pSize);
+          inc(pd,img.width); inc(ps,img.scanlength);
+        end;
+        result:=p; dType:=GL_UNSIGNED_BYTE;
+        case img.bitsPixel of
+          32: begin
+            iFormat:=GL_RGBA8; cFormat:=GL_BGRA;
+            end;
+          24: begin
+            iFormat:=GL_RGB8; cFormat:=GL_BGR;
+            end;
+          8: begin
+            iFormat:=GL_LUMINANCE8; cFormat:=GL_LUMINANCE;
+          end;
+        end;
+        img.Free;
+      end;
+    finally
+      Free;
+    end;
+end;
+
 
 procedure SaveTGAImage(FileName: string; data: pointer; Width,Height: integer;
   PixelFormat: TPixelFormat);
@@ -515,10 +559,6 @@ end;
 function LoadTexture(Filename: String; var iFormat,cFormat,dType,pSize: Cardinal;
   var Width, Height: integer): pointer; overload;
 var ext: string;
-    Img: PJpegDecode;
-    i: integer;
-    ps,pd: Pinteger;
-    p: pointer;
 begin
   result:=nil; ext:=copy(Uppercase(filename), length(filename)-3, 4);
   if ext = '.BMP' then begin
@@ -540,41 +580,8 @@ begin
       flipSurface(result,Width,Height,pSize);
       dType:=GL_UNSIGNED_BYTE;
     end else begin
-      with TMemoryStream.Create do
-        try
-          LoadFromFile(FileName);
-          if not (JpegDecode(Memory,Size,img)=JPEG_SUCCESS)
-          then begin
-            result:=LoadJPGTexture(Filename, cFormat, Width, Height);
-            iFormat:=GL_RGB8; dType:=GL_UNSIGNED_BYTE; pSize:=3;
-            //assert('Not supported Jpeg format')
-          end else begin
-            Width:=img.width; Height:=img.height;
-            pSize:=img.bitsPixel div 8;
-            getmem(p,width*Height*pSize);
-            ps:=Pinteger(img.pRGB); pd:=pinteger(p);
-            for i:=0 to Height-1 do begin
-              CopyMemory(pd,ps,img.width*pSize);
-              inc(pd,img.width); inc(ps,img.scanlength);
-            end;
-            result:=p; dType:=GL_UNSIGNED_BYTE;
-            case img.bitsPixel of
-              32: begin
-                iFormat:=GL_RGBA8; cFormat:=GL_BGRA;
-                end;
-              24: begin
-                iFormat:=GL_RGB8; cFormat:=GL_BGR;
-                end;
-              8: begin
-                iFormat:=GL_LUMINANCE8; cFormat:=GL_LUMINANCE;
-              end;
-            end;
-            img.Free;
-          end;
-        finally
-          Free;
-        end;
-//      //flipSurface(result,Width,Height,pSize);
+      result:=LoadSynopseJpeg(FileName,cFormat,iFormat,dType,pSize,Width,Height);
+      flipSurface(result,Width,Height,pSize);
     end;
 
   end;
