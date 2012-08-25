@@ -1,4 +1,8 @@
   { TODO 1 :
+ - Добавить еще перегруженную процедуру VBORender(VBO: TVBOBuffer; Shader: TShaderProgramm) и привязать 
+   работу с атрибутами к этому шейдеру (в будущем - реализовать фидбэк и передачу блока юниформ)
+ - Реализовать формирование хешированного списка активных ниформ и атрибут при компиляции шейдера, 
+   получать локацию нужных атрибутов через выборку из списка активного шейдера
  - Научить работать с сабмешами тесселяцию и извлечение полигонов
  - Переработать ХУД-спрайт
  - Считать Extents для коллекций, контейнеров и чаилдов. Добавить проверку
@@ -15,6 +19,7 @@
  - Реализовать сериализацию (запись чанка в поток + таблица чанков)
  - Упаковка коллекции в сабмеши одного буфера
  - FBO - реализовать рендеринг в слои/мип-уровни текстуры
+ - FBO - реализовать использование разделяемых буферов, добавить копирование и мультисэмплинг
  + Реализовать клас скелетки через паттерн Observer, кость как TMovableObject
  + Сортировка сабмешей по материалам при генерации буфера VBO
  + Переписать загрузчики 3ds/obj, реализовать групировку мешей по материалам
@@ -126,7 +131,7 @@ Type
     FTextures: TTextureLibrary;
     FActive: Boolean;
     FAttachments: array of TFBOTarget;
-
+    FPolyCount: integer;
     procedure setProjMatrix(const Value: TMatrix);
     procedure setViewMatrix(const Value: TMatrix);
     function GetVisibleObjects(MeshList: TList;
@@ -152,6 +157,7 @@ Type
     procedure AttachTexture(aTexture: TTexture; aTarget: TMRTTarget);
 
     property Active: boolean read FActive write FActive;
+    property PolyCount: integer read FPolyCount;
     property ViewMatrix: TMatrix read FSceneViewer.ViewMatrix write setViewMatrix;
     property ProjectionMatrix: TMatrix read FSceneViewer.ProjectionMatrix write setProjMatrix;
     property Frustum: TFrustum read FSceneViewer.Frustum;
@@ -169,9 +175,12 @@ Type
   protected
     FMeshList: TList;
     FExtentsBuilded: Boolean;
+    FExtents: TExtents;
     FSortDirection: TSortDirection;
     FMaterials: TMaterialLibrary;
     FTextures: TTextureLibrary;
+    FShaders: TShaders;
+    FLights: TLightLibrary;
     FMaterialObjects: TMaterialObjectsLib;
     FStructureChanged: boolean;
     FExpand: boolean;
@@ -195,6 +204,7 @@ Type
     property ObjectsList[Index: Integer]: TVBOMeshItem read GetMesh;default;
     property Materials: TMaterialLibrary read FMaterials write FMaterials;
     property Textures: TTextureLibrary read FTextures write FTextures;
+    property Lights: TLightLibrary read FLights write FLights;
     property MaterialObjects: TMaterialObjectsLib read FMaterialObjects;
 
     property SortDirection: TSortDirection read FSortDirection write FSortDirection;
@@ -239,6 +249,7 @@ Type
     Function AddNewCollection: TMeshCollection;
     Function AddCollection(MeshCollection: TMeshCollection; Expand: boolean = false): integer;
     Function AddNewContainer: TMeshContainer;
+    Function AddRenderEvent(REvent: TObjectRenderEvents): TRenderEventItem;
 
     Function  GetObjectByName(Name: string): TVBOMeshItem;
     Procedure GetObjectListByType(ObjType: TMeshTypes; var List: TList);
@@ -253,6 +264,7 @@ Type
     //Сортирует список объектов по расстоянию до камеры
     Procedure SortByDistance(const ViewMatrix: TMatrix; List: TList=nil;
                              SortDirection: TSortDirection=sdFrontToBack);
+    Function GetExtents: TExtents;
   end;
 
   TMeshContainer = class (TVBOMeshItem)
@@ -292,7 +304,6 @@ Type
       FonBeforeRender: TVBOMeshRenderEvents;
       FonAfterRender: TVBOMeshRenderEvents;
       FOccluder: PVBOBuffer;
-      FLights: TLightLibrary;
       FQueryObjectList: TList;
       FSceneOctree: TSceneOctree;
       FRenderPass: integer;
@@ -321,7 +332,6 @@ Type
       property SceneOctree: TSceneOctree read FSceneOctree;
       property ViewMatrix: TMatrix read FViewMatrix write SetViewMatrix;
       property Camera: TCameraController read FCamera write FCamera;
-      property Lights: TLightLibrary read FLights write FLights;
       property OldRender: boolean read FOldRender write FOldRender;
 
       Procedure DoRender;
@@ -359,10 +369,10 @@ Type
       Procedure UpdateSceneMatrix;
   end;
 
-  TOctreeLod = class
+  TxTreeNode = class
   public
-    Parent: TOctreeLod;
-    Lods: array of TOctreeLod;
+    Parent: TxTreeNode;
+    Lods: array of TxTreeNode;
     Extents: TExtents;
     ObjList: TList;
     BigList: TList;
@@ -372,21 +382,21 @@ Type
     destructor Destroy; override;
   end;
 
-  TOctreeCallback = procedure (var Lod: TOctreeLod; var stop: boolean) of object;
+  TOctreeCallback = procedure (var Lod: TxTreeNode; var stop: boolean) of object;
 
   TSceneOctree = class
   private
     FMaxXLods, FMaxYLods,
     FMaxZLods: integer;
-    FRoot: TOctreeLod;
+    FRoot: TxTreeNode;
     FOctreeCallback: TOctreeCallback;
     FBuilded: boolean;
     FTempList: TList;
 
-    procedure BuildLeaf(var Lod: TOctreeLod; Offs,Size: TAffineVector);
-    procedure ClearLeaf(var Leaf: TOctreeLod);
-    procedure ByPassLod(var Lod: TOctreeLod);
-    procedure FrustumCulling(var Lod: TOctreeLod; const Frustum: TFrustum);
+    procedure BuildLeaf(var Lod: TxTreeNode; Offs,Size: TAffineVector);
+    procedure ClearLeaf(var Leaf: TxTreeNode);
+    procedure ByPassLod(var Lod: TxTreeNode);
+    procedure FrustumCulling(var Lod: TxTreeNode; const Frustum: TFrustum);
   public
     procedure Clear;
     procedure BuildOctree(MeshList: TList; XLods, YLods, ZLods: integer);
@@ -396,7 +406,7 @@ Type
     constructor Create;
     destructor Destroy; override;
 
-    property Root: TOctreeLod read FRoot;
+    property Root: TxTreeNode read FRoot;
     property OctreeCallback: TOctreeCallback read FOctreeCallback write FOctreeCallback;
     property Builded: boolean read FBuilded;
   end;
@@ -493,7 +503,6 @@ begin
   Visible:=true;
   FOcclusionCulling:=false;
   FOccluder:=CreateCubicOccluder;
-  FLights:=TLightLibrary.Create;
   FSortDirection:=sdNone;
   FQueryObjectList:=TList.Create;
   FQueryObjectList.Capacity:=100000;
@@ -599,7 +608,7 @@ end;
 destructor TVBOMesh.Destroy;
 begin
   FreeVBOBuffer(FOccluder^); Dispose(FOccluder);
-  FLights.Free; FQueryObjectList.Free;
+  FQueryObjectList.Free;
   FSceneOctree.Free;
   FGLSceneMeshAdapter.Free;
   FRender.Free;
@@ -658,6 +667,7 @@ begin
     Lights.Apply;
     if assigned(onBeforeRender) then onBeforeRender;
     FRender.Process;
+    FPolyCount:=FRender.PolyCount;
     if assigned(onAfterRender) then onAfterRender;
     OGLStateEmul.GLStateCache.PopStates;
     exit;
@@ -1109,14 +1119,14 @@ begin
    glGetIntegerv(GL_VIEWPORT, @FViewPort);
 end;
 
-constructor TOctreeLod.Create;
+constructor TxTreeNode.Create;
 begin
   inherited;
   ObjList:=TList.Create;
   BigList:=TList.Create;
 end;
 
-destructor TOctreeLod.Destroy;
+destructor TxTreeNode.Destroy;
 begin
   ObjList.Free; BigList.Free;
   inherited;
@@ -1140,7 +1150,7 @@ begin
   for i:=0 to 7 do if PointInAABB(c[i],TAABB(bb1)) then inc(Result);
 end;
 
-procedure TSceneOctree.BuildLeaf(var Lod: TOctreeLod; Offs,Size: TAffineVector);
+procedure TSceneOctree.BuildLeaf(var Lod: TxTreeNode; Offs,Size: TAffineVector);
 var i,j,k: integer;
     mo: TVBOMeshObject;
     nOffs, hSize: TAffineVector;
@@ -1178,7 +1188,7 @@ begin
 
   Setlength(Lod.Lods,x*y*z); Lod.LodsCount:=x*y*z;
   for k:=0 to y-1 do for j:=0 to x-1 do for i:=0 to z-1 do begin
-    n:=k*x*z+j*z+i; Lod.Lods[n]:=TOctreeLod.Create;
+    n:=k*x*z+j*z+i; Lod.Lods[n]:=TxTreeNode.Create;
     Lod.Lods[n].Parent:=Lod;
     nOffs:=VectorAdd(Lod.Extents.emin,VectorScale(hSize,AffineVectorMake(j,k,i)));
     BuildLeaf(Lod.Lods[n],nOffs,hsize);
@@ -1201,7 +1211,7 @@ var i,j,k: integer;
 begin
   if (not assigned(MeshList)) or (MeshList.Count=0) then exit;
   FMaxXLods:=XLods; FMaxYLods:=YLods; FMaxZLods:=ZLods;
-  FRoot:=TOctreeLod.Create;
+  FRoot:=TxTreeNode.Create;
   FRoot.ObjList.Assign(MeshList);
   mo:=MeshList[0]; FRoot.Parent:=nil;
   FRoot.Extents:=mo.Extents;
@@ -1218,7 +1228,7 @@ begin
   Setlength(FRoot.Lods,x*y*z); FRoot.LodsCount:=x*y*z;
 
   for k:=0 to y-1 do for j:=0 to x-1 do for i:=0 to z-1 do begin
-    n:=k*x*z+j*z+i; FRoot.Lods[n]:=TOctreeLod.Create;
+    n:=k*x*z+j*z+i; FRoot.Lods[n]:=TxTreeNode.Create;
     FRoot.Lods[n].Parent:=FRoot;
     offs:=VectorAdd(FRoot.Extents.emin,VectorScale(hSize,AffineVectorMake(j,k,i)));
     BuildLeaf(FRoot.Lods[n],offs,hsize);
@@ -1226,7 +1236,7 @@ begin
   FBuilded:=true;
 end;
 
-procedure TSceneOctree.ByPassLod(var Lod: TOctreeLod);
+procedure TSceneOctree.ByPassLod(var Lod: TxTreeNode);
 var i: integer;
     stop: boolean;
 begin
@@ -1250,7 +1260,7 @@ begin
   end; FRoot.Free; FRoot:=nil;
 end;
 
-procedure TSceneOctree.ClearLeaf(var Leaf: TOctreeLod);
+procedure TSceneOctree.ClearLeaf(var Leaf: TxTreeNode);
 var i: integer;
 begin
   for i:=0 to Leaf.LodsCount-1 do begin
@@ -1272,7 +1282,7 @@ begin
   inherited;
 end;
 
-procedure TSceneOctree.FrustumCulling(var Lod: TOctreeLod;
+procedure TSceneOctree.FrustumCulling(var Lod: TxTreeNode;
   const Frustum: TFrustum);
 var i: integer;
     mo: TVBOMeshObject;
@@ -1357,6 +1367,24 @@ begin
   result:=FMeshList.Count;
 end;
 
+function TMeshCollection.GetExtents: TExtents;
+var mo: TVBOMeshObject;
+    mi: TVBOMeshItem;
+    i: integer;
+begin
+   for i:=0 to FMeshList.Count-1 do begin
+     mi:=FMeshList[i];
+     if mi is TVBOMeshObject then begin
+       mo:=TVBOMeshObject(mi);
+       if i=0 then result:=mo.Extents
+       else begin
+         AABBInclude(TAABB(result),mo.Extents.emin);
+         AABBInclude(TAABB(result),mo.Extents.emax);
+       end;
+     end;
+   end;
+end;
+
 procedure TMeshCollection.BuildOctree(level: integer);
 var mo:TVBOMeshObject;
     i:integer;
@@ -1376,9 +1404,13 @@ begin
   FMeshList:=TList.Create;
   FMaterials:=TMaterialLibrary.Create;
   FTextures:=TTextureLibrary.Create;
+  FShaders:=TShaders.Create;
+  FLights:=TLightLibrary.Create;
   FMaterialObjects:=TMaterialObjectsLib.Create;
   FMaterialObjects.MatLib:=FMaterials;
   FMaterialObjects.TexLib:=FTextures;
+  FMaterialObjects.Shaders:=FShaders;
+  FMaterialObjects.LightLib:=FLights;
 
   FExtentsBuilded:=false;
   OctreeBuilded:=false;
@@ -1603,7 +1635,7 @@ begin
   FMeshList.Free; FMeshList:=nil;
 //  FreeObjectList(FMeshList);
 
-  FMaterials.Free; FTextures.Free;
+  FMaterials.Free; FTextures.Free; FShaders.Free; FLights.Free;
   FMaterialObjects.Free;
 
   inherited;
@@ -1654,6 +1686,7 @@ begin
     MeshType:=mtFreeForm; Visible:=true;
     Name:='VBOFreeForm'+inttostr(FMeshList.Count); Parent:=nil;
     UpdateExtents; UpdateWorldMatrix; Pickable:=true;
+    SortMeshByTransparency;
   end; result:=mo;
   mo.IndexInMesh:=FMeshList.Add(mo);
   mo.Owner:=self;
@@ -2078,6 +2111,17 @@ begin
   FStructureChanged:=true;
 end;
 
+function TMeshCollection.AddRenderEvent(
+  REvent: TObjectRenderEvents): TRenderEventItem;
+var mi: TRenderEventItem;
+begin
+  mi:=TRenderEventItem.Create;
+  mi.Name:='RenderEvent'+inttostr(FMeshList.Count); Parent:=nil;
+  mi.RenderEvent:=REvent;
+  result:=mi; FMeshList.Add(mi);
+  FStructureChanged:=true;
+end;
+
 function TMeshCollection.AddUserObject(Name: string;
   VBOMeshList: TList): TVBOMeshObject;
 var mo: TVBOMeshObject;
@@ -2087,9 +2131,9 @@ begin
   if (GetObjectByName(name)=nil) then mo.Name:=Name
   else mo.Name:=Name+inttostr(FMeshList.Count);
   with mo do begin
-    MeshType:=mtUser; UpdateExtents;
+    MeshType:=mtUser; 
     if Assigned(VBOMeshList) then MeshList.Assign(VBOMeshList);
-    Visible:=true;
+    Visible:=true; UpdateExtents; 
     UpdateWorldMatrix; UpdateMaterialList;
   end;
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
@@ -2108,11 +2152,12 @@ var mo: TUniformSMDRender;
     mat: TMaterialObject;
 begin
   FStructureChanged:=true;
-  assert(MeshFile<>'','Need Mesh');
+//  assert(MeshFile<>'','Need Mesh');
   mo:=TUniformSMDRender.Create; mo.Owner:=self;
   mo.Name:='UniformSMDAnimation'+inttostr(FMeshList.Add(mo));
   result:=mo; mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
-  with mo do begin
+  mo.MatObjLib:=FMaterialObjects;
+  if MeshFile<>'' then with mo do begin
     //Load Mesh File
     Anim.Mesh:=SMDLoad(MeshFile);
     BonesCount:=Anim.Mesh.NodesCount;
@@ -2124,7 +2169,6 @@ begin
     UpdateExtents; UpdateWorldMatrix;
     NodeRadius:=BaundedRadius/10;
     //Load Materials
-    MatObjLib:=FMaterialObjects;
     path:=ExtractFilePath(MeshFile);
     if path<>'' then if path[length(path)]<>'\' then path:=path+'\';
     for i:=0 to mo.Anim.Mesh.Mesh.Textures.Count-1 do begin
@@ -2179,12 +2223,14 @@ begin
   else mo.Name:=Name+inttostr(FMeshList.Count);
   with mo do begin
     MeshType:=mtUser;
-    MeshList.Add(VBOBuffer);
-    UpdateExtents;
+    if assigned(VBOBuffer) then begin
+      MeshList.Add(VBOBuffer);
+      VBOBuffer.MaterialFunc:=mo.MaterialSetter;
+      UpdateExtents; UpdateMaterialList;
+    end;
     Visible:=true; Parent:=nil;
-    UpdateWorldMatrix; UpdateMaterialList;
+    UpdateWorldMatrix;
   end;
-  VBOBuffer.MaterialFunc:=mo.MaterialSetter;
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
   mo.MatObjLib:=FMaterialObjects;
@@ -2532,6 +2578,7 @@ end;
 
 procedure TRenderShell.Process;
 begin
+  FPolyCount:=0;
   if FCollection.FStructureChanged then begin
     FSceneParser.ParseCollection(FCollection);
     FCollection.FStructureChanged:=false;
@@ -2613,6 +2660,7 @@ begin
       mo.Time:=FSceneViewer.CurrentTime;
       mo.ParentViewer:=@FSceneViewer;
       mo.Process;
+      if not mo.Culled then FPolyCount:=FPolyCount+mo.PolygonsCount;
     end;
   end;
 end;
@@ -2629,6 +2677,7 @@ begin
       mo.Time:=FSceneViewer.CurrentTime;
       mo.ParentViewer:=@FSceneViewer;
       mo.Process;
+      if not mo.Culled then FPolyCount:=FPolyCount+mo.PolygonsCount;
     end;
   end;
 end;
@@ -2655,7 +2704,7 @@ begin
     mo.Matrices.ProjectionMatrix:=FSceneViewer.ProjectionMatrix;
     mo.Time:=FSceneViewer.CurrentTime;
     //if mo.UseParentViewer then
-    mo.ParentViewer:=@FSceneViewer;
+    mo.ParentViewer:=@FSceneViewer; FPolyCount:=FPolyCount+mo.PolygonsCount;
     if (not FCollection.FOcclusionCulling) or (mo.IgnoreOcclusion)
     or (mo.PolygonsCount<100) or (mo.MeshType=mtGrid) then mo.Process
     else begin
@@ -2700,7 +2749,7 @@ begin
     else mo.SortProxyByDistance(sdFrontToBack);
     //if mo.UseParentViewer then
     mo.ParentViewer:=@FSceneViewer;
-    mo.Process;
+    mo.Process; FPolyCount:=FPolyCount+mo.PolygonsCount;
   end;
 end;
 
@@ -2719,7 +2768,7 @@ begin
     mo.Time:=FSceneViewer.CurrentTime;
     //if mo.UseParentViewer then
     mo.ParentViewer:=@FSceneViewer;
-    mo.Process;
+    mo.Process; FPolyCount:=FPolyCount+mo.PolygonsCount;
   end; VisList.Free;
 end;
 

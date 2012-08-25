@@ -5,7 +5,7 @@ interface
 uses Classes, Types, SysUtilsLite,
      OpenGL1x, GeometryBB, VectorGeometry, VectorLists, Octree,
      VectorTypes, uVectorLists, uMiscUtils, uBaseClasses, uFileSMD,
-     PFXManager, uTextures, uFBO, uVBO, uShaders,
+     PFXManager, uTextures, uFBO, uVBO, uShaders, uStorage, uBaseResource,
      uMaterials, uMaterialObjects, OGLStateEmul;
 
 Type
@@ -132,6 +132,11 @@ Type
     NoZWrite: boolean; //отключение режима записи в буфер глубины
     NoDepthTest: boolean; //отключение режима записи в буфер глубины
 
+    procedure SaveToStream(s: TStream); override;
+    procedure LoadFromStream(s: TStream); override;
+    procedure SaveToStorage(const DataStorage: TDataStorage; const aGuid: TGUID);
+
+
     procedure MaterialSetter(const MatName: string; Action: TMatAction);
     property MatLib: TMaterialLibrary read FMaterials write FMaterials;
     property TexLib: TTextureLibrary read FTextures write FTextures;
@@ -253,7 +258,8 @@ Type
                       rayVector: TVector; iPoint:PVector=nil): boolean;
     //Проверяет попадание точки в окаймляющий бокс объекта
     Function PointInExtents(p: TVector): boolean;
-
+    //Переносит буферы VBO с прозрачностью в конец списка
+    Procedure SortMeshByTransparency;
     //Добавляет LOD
     Procedure AddLod(LOD: TVBOMeshObject; MaxViewDistance:single);
     //Меняет мастер-объект прокси
@@ -388,7 +394,8 @@ Type
                                              write FPointParam.DistanceAttenuation;
       property FadeTresholdSize: single read FPointParam.FadeTresholdSize
                                        write FPointParam.FadeTresholdSize;
-      property MinPointSize:single read FPointParam.MinPointSize;
+      property MinPointSize:single read FPointParam.MinPointSize
+                                   write FPointParam.MinPointSize;
       property PointSize:single read FPointParam.PointSize
                                write FPointParam.PointSize;
       property PointSmooth: boolean read FPointParam.PointSmooth
@@ -572,6 +579,8 @@ Type
       property onUserCulling: TVBOVisibilityEvents read FonUserCulling write FonUserCulling;
       property Anim: PAnimations read FAnim write FAnim;
 
+      procedure SaveToFile(FileName: string);
+      procedure LoadFromFile(FileName: string);
   end;
 
   TVolumetricLines = class (TVBOMeshObject)
@@ -606,6 +615,19 @@ Type
 //    procedure Delete
 //    procedure Exchange
     procedure Clear;
+  end;
+
+  TAnimatedMeshResource = class (TPersistentResource)
+  private
+    FSMD: TUniformSMDRender;
+    procedure WriteVector4f(const Value: TVector; const stream: TStream);
+    procedure WriteMatrix(const Value: TMatrix; const stream: TStream);
+    function ReadVector4f(const stream: TStream): TVector;
+    function ReadMatrix(const stream: TStream): TMatrix;
+  public
+    constructor Create(SMD: TUniformSMDRender);
+    procedure SaveToStream(s: TStream); override;
+    procedure LoadFromStream(s: TStream); override;
   end;
 
 procedure QuadFromCount (count: integer; var size: integer);
@@ -978,6 +1000,48 @@ end;
 procedure TVBOMeshObject.SetParent(const Value: TVBOMeshObject);
 begin
   FParent := Value; UpdateWorldMatrix;
+end;
+
+procedure TVBOMeshObject.SortMeshByTransparency;
+var i,j: integer;
+    buff,temp: PVBOBuffer;
+    mat: TMaterialObject;
+    trList,opList: TList;
+  procedure SortListByMaterial(var List: TList);
+  var i,j,l: integer;
+      buff,temp: PVBOBuffer;
+  begin
+    if List.Count<=2 then exit;
+    for j:=0 to List.Count-2 do begin
+      buff:=List[j];l:=j+1;
+      for i:=j+1 to List.Count-1 do begin
+        temp:=List[i];
+        if buff.MatName=temp.MatName then begin
+          if i<>l then List.Exchange(i,l);
+          inc(l);
+        end;
+      end;
+    end;
+  end;
+
+begin
+  trList:=TList.Create; opList:=TList.Create;
+  trList.Capacity:=MeshList.Count;
+  opList.Capacity:=MeshList.Count;
+  for i:=0 to MeshList.Count-1 do begin
+    buff:=MeshList[i];
+    mat:=FMatObjLib.MaterialByName(buff.MatName);
+    if assigned(mat) then begin
+      if mat.IsTransparency then trList.Add(buff) else opList.Add(buff);
+    end;
+  end;
+  SortListByMaterial(trList);
+  SortListByMaterial(opList);
+  j:=MeshList.Count; MeshList.Clear;
+  MeshList.Capacity:=j;
+  for i:=0 to opList.Count-1 do MeshList.Add(opList[i]);
+  for i:=0 to trList.Count-1 do MeshList.Add(trList[i]);
+  trList.Free; opList.Free;
 end;
 
 procedure TVBOMeshObject.SortProxyByDistance(SortDirection: TSortDirection);
@@ -1353,10 +1417,12 @@ begin
 end;
 
 function TVBOMeshObject.GetPolyCount: integer;
-var i,j,k,n,count: integer;
+var i,j,k,n,count, pmcount: integer;
     P: PVBOBuffer;
 begin
-   if FPolyCount<>-1 then result:=FPolyCount*FProxyMatrixList.Count;
+   pmcount:=FProxyMatrixList.Count; if pmcount=0 then pmcount:=1;
+
+   if FPolyCount<>-1 then result:=FPolyCount*pmcount;
    count:=0;n:=0;
    for i:=0 to MeshList.Count-1 do begin
       p:=MeshList[i];
@@ -1383,7 +1449,8 @@ begin
       end;
       count:=count+n;
    end;
-   Result:=Count*FProxyMatrixList.Count; FPolyCount:=Count;
+
+   Result:=Count*pmCount; FPolyCount:=Count;
 end;
 
 function TVBOMeshObject.getShader: TShaderProgram;
@@ -1526,6 +1593,23 @@ begin
   end;
   vtex.UploadData(data);
   freemem(Data,size*size);
+end;
+
+procedure TVBOMeshObject.SaveToStorage(const DataStorage: TDataStorage;
+  const aGuid: TGUID);
+begin
+  DataStorage.AddObject(Self,aGuid);
+end;
+
+procedure TVBOMeshObject.SaveToStream(s: TStream);
+begin
+  inherited;
+end;
+
+procedure TVBOMeshObject.LoadFromStream(s: TStream);
+begin
+  inherited;
+
 end;
 
 function TVBOMeshObject.ScreenToLocal(P: TVector): TVector;
@@ -1906,6 +1990,21 @@ begin
    end else result:=-1;
 end;
 
+procedure TUniformSMDRender.LoadFromFile(FileName: string);
+var f: TFileStream;
+    sam: TAnimatedMeshResource;
+begin
+  f:=TFileStream.Create(FileName,fmOpenRead);
+    sam:=TAnimatedMeshResource.Create(Self);
+    sam.LoadFromStream(f);
+    UpdateExtents; UpdateWorldMatrix;
+    NodeRadius:=BaundedRadius/10;
+    RotateAroundX(-pi/2);
+    Smoothed:=false;
+    CreatSMDShader;
+  f.Free; sam.Free;
+end;
+
 procedure TUniformSMDRender.NextFrame(n: single);
 begin
   if FramePosition+n>=FFramesCount then FSetFrame(FramePosition+n-FFramesCount)
@@ -1916,6 +2015,16 @@ procedure TUniformSMDRender.RenderObject(const ViewMatrix: TMatrix);
 begin
   inherited;
 
+end;
+
+procedure TUniformSMDRender.SaveToFile(FileName: string);
+var f: TFileStream;
+    sam: TAnimatedMeshResource;
+begin
+  f:=TFileStream.Create(FileName,fmCreate);
+  sam:=TAnimatedMeshResource.Create(Self);
+  sam.SaveToStream(f);
+  f.Free; sam.Free;
 end;
 
 procedure TUniformSMDRender.setBone(Index: Integer; const Value: TVector);
@@ -2566,12 +2675,12 @@ begin
     if upVertex in UpdBuff then begin
        offs:=Index*sizeof(TAffinevector);
        size:=Count*sizeof(TAffinevector);
-       UpdateVBOBuff(Buff.vId,FSortedPositions.List,offs,size,true);
+       UpdateVBOBuff(Buff.vId,FSortedPositions.List,offs,size,false);
     end;
     if FPointParam.UseColors and (upColor in UpdBuff) then begin
        offs:=Index*sizeof(TVector);
        size:=Count*sizeof(TVector);
-       UpdateVBOBuff(Buff.cId,FSortedColors.List,offs,size,true);
+       UpdateVBOBuff(Buff.cId,FSortedColors.List,offs,size,false);
     end;
   end;
 end;
@@ -2587,12 +2696,12 @@ begin
     if upVertex in UpdBuff then begin
        offs:=Index*sizeof(TAffinevector);
        size:=Count*sizeof(TAffinevector);
-       UpdateVBOBuff(Buff.vId,FPositions.List,offs,size,true);
+       UpdateVBOBuff(Buff.vId,FPositions.List,offs,size,false);
     end;
     if FPointParam.UseColors and (upColor in UpdBuff) then begin
        offs:=Index*sizeof(TVector);
        size:=Count*sizeof(TVector);
-       UpdateVBOBuff(Buff.cId,FColors.List,offs,size,true);
+       UpdateVBOBuff(Buff.cId,FColors.List,offs,size,false);
     end;
   end;
 end;
@@ -3572,6 +3681,193 @@ begin
        end;
      end;
    until t>1;
+end;
+
+{ TAnimatedMeshResource }
+
+constructor TAnimatedMeshResource.Create(SMD: TUniformSMDRender);
+begin
+  inherited Create;
+  assert(assigned(SMD), 'SMD Mesh is not assigned');
+  FSMD:=SMD;
+end;
+
+procedure TAnimatedMeshResource.WriteVector4f(const Value: TVector;
+  const stream: TStream);
+begin
+  stream.WriteBuffer(Value,sizeof(TVector));
+end;
+
+procedure TAnimatedMeshResource.WriteMatrix(const Value: TMatrix; const stream: TStream);
+begin
+  WriteVector4f(Value[0],Stream);
+  WriteVector4f(Value[1],Stream);
+  WriteVector4f(Value[2],Stream);
+  WriteVector4f(Value[3],Stream);
+end;
+
+procedure TAnimatedMeshResource.LoadFromStream(s: TStream);
+var i,j,k,n,count: integer;
+    P: PVBOBuffer;
+    Mat: TMaterialObject;
+    anim: PSMDFile;
+    np: PSMDNodePos;
+    t: string;
+    tex: TTexture;
+begin
+  inherited LoadFromStream(s);
+  t:=ReadString(s); //сигнатура
+  assert (t='SAM','Unknown file format.');
+  Count:=ReadInt(s);
+  FSMD.MeshList.Count:=Count;
+
+  //Грузим геометрию
+  for i:=0 to Count-1 do begin
+    new(p); InitVBOBuff(p^,GL_TRIANGLES,DrawElements);
+    FSMD.MeshList[i]:=p;
+    p.Vertexes.LoadFromStream(s);
+    p.Normals.LoadFromStream(s);
+    p.TexCoords.LoadFromStream(s);
+    p.Colors.LoadFromStream(s);
+    p.Indices.LoadFromStream(s);
+    p.MatName:=ReadString(s);
+    p.UseTwoTexturesCoord:=false;
+    GenVBOBuff(p^,false);
+    mat:=fsmd.MatObjLib.MaterialByName(p.MatName);
+    t:='';
+//    FillChar(t,length(t),0);
+    t:=ReadString(s); //Texture FileName
+    if t<>'' then
+    if not assigned(mat) then begin
+       Tex:=TTexture.CreateFromFile(t);
+       Tex.Name:=p.MatName;
+       fsmd.TexLib.Add(Tex);
+       mat:=TMaterialObject.Create;
+       mat.AttachTexture(tex);
+       mat.Name:=p.MatName;
+       fsmd.MatObjLib.Add(mat);
+    end;
+  end;
+  //Грузим скелет
+
+  Count:=ReadInt(s); fsmd.Anim.Mesh.NodesCount:=Count;
+  setlength(fsmd.Anim.Mesh.Nodes,Count);
+  for i:=0 to Count-1 do begin
+    fsmd.Anim.Mesh.Nodes[i].index:=ReadInt(s);
+    fsmd.Anim.Mesh.Nodes[i].name:=ReadString(s);
+    fsmd.Anim.Mesh.Nodes[i].parent:=ReadInt(s);
+  end;
+
+  //Грузим анимацию
+
+  Count:=ReadInt(s);
+  fsmd.Anim.Animations.Count:=Count;
+  for i:=0 to Count-1 do begin
+    new(anim); fsmd.Anim.Animations[i]:=anim;
+    anim.Name:=ReadString(s);
+    anim.NodesCount:=ReadInt(s); fsmd.BonesCount:=anim.NodesCount;
+    anim.FramesCount:=ReadInt(s);
+    setlength(anim.Frames,anim.FramesCount,anim.NodesCount);
+    for j:=0 to anim.FramesCount-1 do begin
+      n:=ReadInt(s);
+      for k:=0 to anim.NodesCount-1 do begin
+        np:=@anim.Frames[j][k];
+        np.index:=ReadInt(s);
+        np.name:=ReadString(s);
+        np.parent:=ReadInt(s);
+        np.x:=ReadFloat(s);
+        np.y:=ReadFloat(s);
+        np.z:=ReadFloat(s);
+        np.rx:=ReadFloat(s);
+        np.ry:=ReadFloat(s);
+        np.rz:=ReadFloat(s);
+        np.LocalMatrix:=ReadMatrix(s);
+        np.GlobalMatrix:=ReadMatrix(s);
+        np.Quaternion:=TQuaternion(ReadVector4f(s));
+        np.GlobalPos:=ReadVector4f(s);
+        np.LocalPos:=ReadVector4f(s);
+      end;
+    end;
+  end;
+end;
+
+function TAnimatedMeshResource.ReadMatrix(const stream: TStream): TMatrix;
+begin
+  result[0]:=ReadVector4f(Stream);
+  result[1]:=ReadVector4f(Stream);
+  result[2]:=ReadVector4f(Stream);
+  result[3]:=ReadVector4f(Stream);
+end;
+
+function TAnimatedMeshResource.ReadVector4f(const stream: TStream): TVector;
+begin
+  stream.ReadBuffer(result,sizeof(TVector));
+end;
+
+procedure TAnimatedMeshResource.SaveToStream(s: TStream);
+var i,j,k,count: integer;
+    P: PVBOBuffer;
+    Mat: TMaterialObject;
+    anim: PSMDFile;
+    np: PSMDNodePos;
+    t: string;
+begin
+  inherited SaveToStream(s);
+  WriteString('SAM',s); //сигнатура
+  Count:=FSMD.MeshList.Count;
+  WriteInt(Count,s); //Mesh Count
+  //Сохраняем геометрию
+  for i:=0 to Count-1 do begin
+    P:=FSMD.MeshList[i];
+    p.Vertexes.SaveToStream(s);
+    p.Normals.SaveToStream(s);
+    p.TexCoords.SaveToStream(s);
+    p.Colors.SaveToStream(s);
+    p.Indices.SaveToStream(s);
+    WriteString(p.MatName,s);
+    mat:=fsmd.MatObjLib.MaterialByName(p.MatName);
+    t:='';
+    if assigned(mat) then //mat.SaveToStream(s);
+      t:=mat.Texture.FileName;
+    WriteString(t,s);
+  end;
+  //Сохраняем скелет
+  Count:=fsmd.Anim.Mesh.NodesCount;
+  WriteInt(Count,s);
+  for i:=0 to Count-1 do begin
+    WriteInt(fsmd.Anim.Mesh.Nodes[i].index,s);
+    WriteString(fsmd.Anim.Mesh.Nodes[i].name,s);
+    WriteInt(fsmd.Anim.Mesh.Nodes[i].parent,s);
+  end;
+  //Сохраняем анимацию
+  Count:=fsmd.AnimationsCount;
+  WriteInt(Count,s);
+  for i:=0 to Count-1 do begin
+    anim:=fsmd.Anim.Animations[i];
+    WriteString(anim.Name,s);
+    WriteInt(anim.NodesCount,s);
+    WriteInt(anim.FramesCount,s);
+    for j:=0 to anim.FramesCount-1 do begin
+      WriteInt(j,s);
+      for k:=0 to anim.NodesCount-1 do begin
+        np:=@anim.Frames[j][k];
+        WriteInt(np.index,s);
+        WriteString(np.name,s);
+        WriteInt(np.parent,s);
+        WriteFloat(np.x,s);
+        WriteFloat(np.y,s);
+        WriteFloat(np.z,s);
+        WriteFloat(np.rx,s);
+        WriteFloat(np.ry,s);
+        WriteFloat(np.rz,s);
+        WriteMatrix(np.LocalMatrix,s);
+        WriteMatrix(np.GlobalMatrix,s);
+        WriteVector4f(TVector(np.Quaternion),s);
+        WriteVector4f(np.GlobalPos,s);
+        WriteVector4f(np.LocalPos,s);
+      end;
+    end;
+  end;
 end;
 
 end.

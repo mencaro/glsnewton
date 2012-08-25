@@ -218,6 +218,9 @@ type
     TexCoords: TAffineVectorList;
     Colors: TVectorList;
     Indices: TintegerList;
+
+    WeightsCount: integer;
+    CompactWeights: boolean; //BoneIndex1,BoneIndex2,Weights1,Weights2
     UseTwoTexturesCoord: boolean;
     ExTexCoords: TList;
     AttribList: TList;
@@ -332,10 +335,13 @@ type
     FStructureLocked: boolean;
     FRecordSize: integer;
     FOffset: integer;
+    FExtents: TExtents;
+    FExtBuilded: boolean;
     function GetAttribPos(DescrIndex: byte): integer;
     function getBuffData: pointer;
     function getDescr(Index: byte): TInterleavedAttrib;
     procedure SetDescr(Index: byte; const Value: TInterleavedAttrib);
+    function getExtents: TExtents;
   public
     constructor Create;
     destructor Destroy; override;
@@ -361,6 +367,7 @@ type
     property RecordSize: integer read FRecordSize;
     property BufferData: pointer read getBuffData;
     property Descriptors[Index: byte]: TInterleavedAttrib read getDescr write SetDescr;
+    property Extents: TExtents read getExtents;
   end;
 
 procedure InitVBOBuff(var VBuff: TVBOBuffer; FType: GLUInt; RType: TVBORenderType);
@@ -401,6 +408,7 @@ procedure SaveVBOAsText(var Buff: TVBOBuffer; FileName: string);
 procedure RenderVBOBuffer(var VBuff: TVBOBuffer);overload;
 procedure RenderVAO(const VAO: TVertexArrayObject);
 procedure RenderVBOBuffer(var VBuff: TVBOBuffer; MatList: TList);overload;
+procedure RenderMeshes(const VBuff: TVBOBuffer; SubMeshes: TList);
 procedure RenderVBOMultiBuffer(var Buffs: TMultiBuffer; SingleCall:boolean=true);
 procedure RenderVBOMultiList(RenderList: TList; SingleCall:boolean=true);
 procedure RenderVBOMultiPart(Description: PMultiRenderDescr; BindBuffer:TBindState; SingleCall:boolean=true);
@@ -3497,6 +3505,8 @@ begin
   Attr.AttrType:=atInterleaved;
   attr.Location:=-1;
   attr.tag:='';
+  vbo.emin:=TInterleavedBuffer(attr.DataHandler).Extents.emin;
+  vbo.emax:=TInterleavedBuffer(attr.DataHandler).Extents.emax;
   GenVBOBuff(VBO,false);
   for i:=0 to high(FDescriptors) do begin
     case FDescriptors[i].vaType of
@@ -3525,6 +3535,7 @@ begin
   FOffset:=0;
   FStructureLocked:=false;
   FRecordSize:=-1;
+  FExtBuilded:=false;
 end;
 
 function TInterleavedBuffer.CreateDescriptor(aSize: cardinal;
@@ -3566,6 +3577,25 @@ end;
 function TInterleavedBuffer.getDescr(Index: byte): TInterleavedAttrib;
 begin
   result:=FDescriptors[Index];
+end;
+
+function TInterleavedBuffer.getExtents: TExtents;
+var i,j,k: integer;
+    v: single;
+begin
+  for i:=0 to length(FDescriptors)-1 do begin
+    if FDescriptors[i].vaType=atVertex then begin
+      for j:=0 to FCount-1 do begin
+        for k:=0 to FDescriptors[i].size-1 do begin
+          v:=FList[j*FRecordSize+FDescriptors[i].offset+k];
+          FExtents.emin[k]:=min(FExtents.emin[k],v);
+          FExtents.emax[k]:=max(FExtents.emax[k],v);
+        end;
+      end;
+    end;
+  end;
+  FExtBuilded:=true;
+  result:=FExtents;
 end;
 
 procedure TInterleavedBuffer.LockBuffer;

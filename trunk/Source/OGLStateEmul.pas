@@ -198,6 +198,23 @@ Type
 
    end;
 
+   TGLShaderCache = class
+   private
+     FShadersStack: array [0..32] of cardinal;
+     FStackTop: integer;
+     procedure Clear;
+   public
+     procedure Push(ShaderId: Cardinal);
+     function Pop: cardinal;
+     function Last: cardinal;
+     constructor Create;
+     procedure Reset;
+     procedure GetCurrentGLStates;
+     procedure Assign(ShaderCache: TGLShaderCache);
+     procedure StoreTo(ShaderCache: TGLShaderCache);
+   end;
+
+
    TGLStencilCache = record
      StencilMask: GLUint;
      StencilFunc: GLEnum;
@@ -243,6 +260,7 @@ Type
      TextureGenS: boolean;
      TextureGenT: boolean;
    end;
+
 
    TFFPAttrType = (ffVertex, ffNormal,ffColor,ffTexCoord0,ffTexCoord1,ffTexCoord2,
      ffTexCoord3,ffTexCoord4,ffTexCoord5,ffTexCoord6,ffTexCoord7);
@@ -329,6 +347,7 @@ Type
       FDepthCache   : TGLDepthCache;
       FTextureCache : TGLTextureCache;
       FLightingCache: TGLLightingCache;
+      FShaderCache  : TGLShaderCache;
       StencilCache : TGLStencilCache;
       LineChache   : TGLLineChache;
       MapCache     : TGLMapCache;
@@ -353,6 +372,7 @@ Type
       property DepthCache   : TGLDepthCache read FDepthCache;
       property TextureCache : TGLTextureCache read FTextureCache;
       property LightingCache: TGLLightingCache read FLightingCache;
+      property ShaderCache : TGLShaderCache read FShaderCache;
       property ActiveProgram: cardinal read FActiveProgram;
       property GLVBOManager: TGLVBOManager read FGLVBOManager;
     end;
@@ -426,6 +446,8 @@ procedure glClientActiveTexture(target: TGLenum);
 
 procedure glPushMatrix;
 procedure glPopMatrix;
+procedure glPushShader;
+procedure glPopShader;
 
 procedure glUseProgram(_program: TGLuint);
 
@@ -467,6 +489,20 @@ begin
   dec(MatrixStackDepth);
   assert(MatrixStackDepth>=0,'Matrix Stack is Empty');
   Opengl1x.glPopMatrix;
+end;
+
+procedure glPushShader;
+begin
+  GLStateCache.ShaderCache.Push(GLStateCache.FActiveProgram);
+end;
+
+procedure glPopShader;
+var spId: cardinal;
+begin
+  spId:=GLStateCache.ShaderCache.Pop;
+  if spId<>GLStateCache.FActiveProgram then begin
+    OpenGL1x.glUseProgram(spId); GLStateCache.FActiveProgram:=spId;
+  end;
 end;
 
 function GetActiveContext: LongInt;
@@ -570,7 +606,8 @@ begin
   MaterialCache.Assign(StateCache.MaterialCache);
   LightingCache.Assign(StateCache.LightingCache);
   TextureCache.Assign(StateCache.TextureCache);
-  glUseProgram(FActiveProgram);
+  ShaderCache.Assign(StateCache.ShaderCache);
+  glUseProgram(StateCache.FActiveProgram);
 end;
 
 procedure TGLStateCache.CheckStates;
@@ -587,6 +624,7 @@ begin
   MaterialCache.GetCurrentGLStates;
   LightingCache.GetCurrentGLStates;
   TextureCache.GetCurrentGLStates;
+  ShaderCache.GetCurrentGLStates;
   FChecked:=true;
 end;
 
@@ -1798,6 +1836,7 @@ begin
   FMaterialCache:=TGLMaterialCache.Create;
   FLightingCache:=TGLLightingCache.Create;
   FTextureCache:=TGLTextureCache.Create;
+  FShaderCache:=TGLShaderCache.Create;
   FActiveProgram:=0;
   FGLVBOManager:=TGLVBOManager.Create;
 //  MatrixCache:=TGLMatrixCache.Create;
@@ -1813,6 +1852,7 @@ begin
     FMaterialCache.Free; FMaterialCache:=nil;
     FLightingCache.Free;
     FTextureCache.Free;
+    FShaderCache.Free;
     FGLVBOManager.Free;
 //    MatrixCache.Free;
     inherited;
@@ -1839,6 +1879,7 @@ begin
    MaterialCache.StoreTo(Temp.MaterialCache);
    LightingCache.StoreTo(Temp.LightingCache);
    TextureCache.StoreTo(Temp.TextureCache);
+   ShaderCache.StoreTo(Temp.ShaderCache);
    Temp.FChecked:=FChecked;
    Temp.States:=States;
    Temp.FActiveProgram:=FActiveProgram;
@@ -1859,6 +1900,7 @@ begin
     MaterialCache.Reset;
     LightingCache.Reset;
     TextureCache.Reset;
+    ShaderCache.Reset;
 end;
 
 procedure TGLLightingCache.StoreTo(LightingCache: TGLLightingCache);
@@ -2455,6 +2497,61 @@ procedure TFFPVertexAttrib.Vertex3fv(v: PAffineVector);
 begin
   fVertex:=v^; include(FUsed,ffVertex);
   if vcCount<3 then vcCount:=3;
+end;
+
+{ TGLShaderCache }
+
+procedure TGLShaderCache.Assign(ShaderCache: TGLShaderCache);
+begin
+  FShadersStack:=ShaderCache.FShadersStack;
+  FStackTop:=ShaderCache.FStackTop;
+end;
+
+procedure TGLShaderCache.Clear;
+var i: integer;
+begin
+  FStackTop:=-1;
+  for i:=0 to high(FShadersStack) do FShadersStack[i]:=0;
+end;
+
+constructor TGLShaderCache.Create;
+begin
+  Clear;
+end;
+
+procedure TGLShaderCache.GetCurrentGLStates;
+begin
+  OpenGL1x.glGetIntegerv(GL_CURRENT_PROGRAM,@GLStateCache.FActiveProgram);
+end;
+
+function TGLShaderCache.Last: cardinal;
+begin
+  assert(FStackTop>=0,'Shader stack empty');
+  result:=FShadersStack[FStackTop];
+end;
+
+function TGLShaderCache.Pop: cardinal;
+begin
+  assert(FStackTop>=0,'Shader stack empty');
+  result:=FShadersStack[FStackTop];
+  FShadersStack[FStackTop]:=0; dec(FStackTop);
+end;
+
+procedure TGLShaderCache.Push(ShaderId: Cardinal);
+begin
+  assert(FStackTop<32,'Shader stack full');
+  inc(FStackTop); FShadersStack[FStackTop]:=ShaderId;
+end;
+
+procedure TGLShaderCache.Reset;
+begin
+  Clear; glUseProgram(0);
+end;
+
+procedure TGLShaderCache.StoreTo(ShaderCache: TGLShaderCache);
+begin
+  ShaderCache.FShadersStack:=FShadersStack;
+  ShaderCache.FStackTop:=FStackTop;
 end;
 
 initialization

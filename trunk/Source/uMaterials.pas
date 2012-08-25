@@ -15,7 +15,7 @@ Type
   TColor = record
     Red, Green, Blue, Alpha: single;
   end;
-  TLightModels = (lmGouraud, lmPhong);
+  TLightModels = (lmNone, lmGouraud, lmPhong, lmBlinn, lmLambert, lmDeferred);
   TColorReplacing = (crDisable, crEmission, crAmbient, crDiffuse, crSpecular, crAmbientAndDiffuse);
 
   TMaterialType = (mtFFP, mtShader);

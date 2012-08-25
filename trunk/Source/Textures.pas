@@ -581,7 +581,7 @@ begin
       dType:=GL_UNSIGNED_BYTE;
     end else begin
       result:=LoadSynopseJpeg(FileName,cFormat,iFormat,dType,pSize,Width,Height);
-      flipSurface(result,Width,Height,pSize);
+      //flipSurface(result,Width,Height,pSize);
     end;
 
   end;

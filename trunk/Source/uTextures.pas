@@ -393,7 +393,7 @@ glPixelStorei ( GL_PACK_SKIP_PIXELS, 0 );
       glTexParameteri(Target, GL_TEXTURE_MAG_FILTER, magFilter);
       glTexParameteri(Target, GL_TEXTURE_MIN_FILTER, minFilter);
     end;
-    if Target = GL_TEXTURE_2D then begin
+    if (Target = GL_TEXTURE_2D) or (Target = GL_TEXTURE_RECTANGLE) then begin
        glTexParameteri(Target, GL_GENERATE_MIPMAP, byte(GenerateMipMaps));
        glTexImage2D(Target, 0, InternalFormat, WIDTH, HEIGHT, 0, ColorChanels, Precision, nil);
     end;
@@ -1045,7 +1045,8 @@ begin
        FTexture.Created:=true;
        CreateUnCompressedTextureCube(dds);
      end;
-     dispose(dds.Data); Dispose(dds); exit;
+     dispose(dds.Data); Dispose(dds);
+     FLocation:=FileName; exit;
    end;
    //Data:=LoadDataFromFile(Filename,format, w,h);
    SetTarget(target);
@@ -1885,7 +1886,7 @@ begin
        else SetFilters(mnNearest, mgNearest);
      end;
 
-     CreateTexture; UploadData(_Data,UsePBO); FreeMem(_Data);
+     CreateTexture; UploadData(_Data,UsePBO); FreeMem(_Data,FullSize);
    end;
 (*
 
