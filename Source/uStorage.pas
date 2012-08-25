@@ -68,6 +68,9 @@ Type
     destructor Destroy; override;
   end;
 
+procedure CompressStream(inStream, outStream: TStream; const Level: TCompressionLevel = clMax);
+procedure DecompressStream(inStream, outStream: TStream; Offs: Int64 = 0);
+
 implementation
 
 procedure CompressStream(inStream, outStream: TStream; const Level: TCompressionLevel = clMax);
@@ -81,10 +84,10 @@ begin
   end;
 end;
 
-procedure DecompressStream(inStream, outStream: TStream);
+procedure DecompressStream(inStream, outStream: TStream; Offs: Int64 = 0);
 var unzip: TDecompressionStream;
 begin
-  outStream.Position:=0; inStream.Position:=0;
+  outStream.Position:=0; inStream.Position:=Offs;
   unzip:=TDecompressionStream.Create(instream);
   try
     outStream.CopyFrom(UnZip, UnZip.Size);
