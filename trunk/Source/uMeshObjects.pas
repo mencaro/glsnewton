@@ -579,7 +579,7 @@ Type
       property onUserCulling: TVBOVisibilityEvents read FonUserCulling write FonUserCulling;
       property Anim: PAnimations read FAnim write FAnim;
 
-      procedure SaveToFile(FileName: string);
+      procedure SaveToFile(FileName: string; compressed: boolean=false);
       procedure LoadFromFile(FileName: string);
   end;
 
@@ -1992,11 +1992,20 @@ end;
 
 procedure TUniformSMDRender.LoadFromFile(FileName: string);
 var f: TFileStream;
+    t,s: TMemoryStream;
     sam: TAnimatedMeshResource;
+    compressed: boolean;
 begin
   f:=TFileStream.Create(FileName,fmOpenRead);
     sam:=TAnimatedMeshResource.Create(Self);
-    sam.LoadFromStream(f);
+    f.ReadBuffer(Compressed,sizeof(Boolean));
+    if Compressed then begin
+      t:=TMemoryStream.Create;
+      s:=TMemoryStream.Create;
+      s.CopyFrom(f,f.Size-f.Position);
+      DecompressStream(s,t); s.Free;
+      sam.LoadFromStream(t); t.Free;
+    end else sam.LoadFromStream(f);
     UpdateExtents; UpdateWorldMatrix;
     NodeRadius:=BaundedRadius/10;
     RotateAroundX(-pi/2);
@@ -2017,13 +2026,20 @@ begin
 
 end;
 
-procedure TUniformSMDRender.SaveToFile(FileName: string);
+procedure TUniformSMDRender.SaveToFile(FileName: string; compressed: boolean);
 var f: TFileStream;
     sam: TAnimatedMeshResource;
+    t: TMemoryStream;
 begin
   f:=TFileStream.Create(FileName,fmCreate);
   sam:=TAnimatedMeshResource.Create(Self);
-  sam.SaveToStream(f);
+  f.WriteBuffer(Compressed,sizeof(Boolean));
+  if Compressed then begin
+    t:=TMemoryStream.Create;
+    sam.SaveToStream(t);
+    CompressStream(t,f);
+    t.Free;
+  end else sam.SaveToStream(f);
   f.Free; sam.Free;
 end;
 

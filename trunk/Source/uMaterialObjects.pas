@@ -92,6 +92,7 @@ Type
 
     function AddNewMaterial(aName: string=''): TMaterial;
     function AddNewTexture(aName: string=''): TTexture;
+    function AddNewShader(aName: string=''): TShaderProgram;
 
     function TextureByMapTarget(Map: TMapTarget): TTexture;
 
@@ -129,9 +130,13 @@ Type
     FHashList: TIntegerList;
     FMatLib: TMaterialLibrary;
     FTexLib: TTextureLibrary;
+    FShaderLib: TShaderLibrary;
+    FLightLib: TLightLibrary;
     FOnAdding: TNotifyEvent;
     function Get(Index: Integer): TMaterialObject;
     procedure Put(Index: Integer; Item: TMaterialObject);
+    function getShaders: TShaders;
+    procedure setShaders(const Value: TShaders);
   public
     property Items[Index: Integer]: TMaterialObject read Get write Put; default;
     function AddNewMaterialObject(Name: string=''): TMaterialObject;
@@ -147,9 +152,52 @@ Type
 
     property MatLib: TMaterialLibrary read FMatLib write FMatLib;
     property TexLib: TTextureLibrary read FTexLib write FTexLib;
+    property ShaderLib: TShaderLibrary read FShaderLib write FShaderLib;
+    property LightLib: TLightLibrary read FLightLib write FLightLib;
+    property Shaders: TShaders read getShaders write setShaders;
     property OnAdding: TNotifyEvent read FOnAdding write FonAdding;
   end;
 
+  TTextureMaps = class
+    AmbTex: TTexture;
+    DifTex: TTexture;
+    SpecTex: TTExture;
+    GlosTex: TTexture;//mtShininess
+    BumpTex: TTexture;
+    NormTex: TTexture;
+    AlphaTex: TTexture;
+    OpacTex: TTexture;
+    Refl: TTexture;
+  end;
+//TMapTarget = (mtAmbient, mtDiffuse, mtSpecular, mtShininess, mtBumpMap,
+//                mtNormalMap, mtAlpha, mtOpacity, mtReflection);
+
+  TTangentVectors = (tbTangent, tbNormal, tbBinormal);
+  TTangents = set of TTangentVectors;
+
+  TFragShaderOuts = (fsFragColor, fsAlbedo, fsNormal, fsTangent, fsBinormal,
+    fsFragDepth, fsZeye, fsLinDepth, fsPosision, fsTexCoords, fsTexCoordsMipMatId);
+
+  TShaderMaterial = class(TMaterialObject)
+  private
+    FLightModel: TLightModels;
+    FSkeletal: boolean;
+    FSkelNodesCount: integer;
+    FSkeletalWeightsCount: byte;
+    FTangents: TTangents;
+    FUsedMaps: TMapTargets;
+    FUseGLUniforms: boolean;
+    FNoSpecular: boolean;
+    FMRT: array of TFragShaderOuts;
+    function BuildShaderName(ShaderType: TShaderType=stProgram): string; virtual;
+    procedure BuildShader; virtual;
+  public
+    function BuildVertexText: ansistring; virtual;
+    function BuildFragmentText: ansistring; virtual;
+    function BuildGeometryText: ansistring; virtual;
+
+
+  end;
 
 implementation
 
@@ -294,6 +342,18 @@ begin
   FActive:=true;
 end;
 
+function TMaterialObject.AddNewShader(aName: string): TShaderProgram;
+var sl: TShaders;
+begin
+  if assigned(FOwner) and (FOwner is TMaterialObjectsLib) then
+    sl:=TMaterialObjectsLib(FOwner).FShaderLib.ShadersCollection else sl:=nil;
+  FShader:=TShaderProgram.Create(sl);
+  FShader.Name:=aName;
+  FUseShader:=true;
+  result:=FShader;
+  FActive:=true;
+end;
+
 function TMaterialObject.AddNewTexture(aName: string): TTexture;
 begin
   if assigned(FTexture) and (FTexture.Owner=self) then FTexture.Free;
@@ -390,7 +450,7 @@ begin
   FOwner:=nil;
   FName:='MeterialObject';
   FNameChanged:=true;
-  glGetIntegerv(GL_MAX_TEXTURE_UNITS,@mtc);
+  glGetIntegerv( GL_MAX_TEXTURE_IMAGE_UNITS,@mtc);
   setlength(FAdditionalTextures,mtc); FUseAddTex:=false;
   if mtc>1024 then mtc:=1024;
   for i:=0 to length(FAdditionalTextures)-1 do FAdditionalTextures[i]:=nil;
@@ -406,6 +466,8 @@ begin
   FBlending.Free;
   if assigned(FMaterial) and (FMaterial.Owner=self) then FMaterial.Free;
   if assigned(FTexture) and (FTexture.Owner=self) then FTexture.Free;
+  if assigned(FShader) and (FShader.Owner=self) then FShader.Free;
+
   inherited;
 end;
 
@@ -549,6 +611,8 @@ begin
   inherited;
   OwnsObjects:=false;
   FHashList:=TIntegerList.Create;
+  FMatLib:=nil; FTexLib:=nil; FLightLib:=nil;
+  FShaderLib:=TShaderLibrary.Create;
 end;
 
 procedure TMaterialObjectsLib.Delete(Index: Integer);
@@ -582,6 +646,11 @@ end;
 function TMaterialObjectsLib.Get(Index: Integer): TMaterialObject;
 begin
   result := inherited Get(index);
+end;
+
+function TMaterialObjectsLib.getShaders: TShaders;
+begin
+  result:=FShaderLib.ShadersCollection;
 end;
 
 procedure TMaterialObjectsLib.Insert(Index: Integer; MatObj: TMaterialObject);
@@ -620,6 +689,343 @@ begin
   inherited Put(Index, Item);
   Hash:=StringHashKey(Item.Name);
   FHashList[Index]:=Hash;
+end;
+
+procedure TMaterialObjectsLib.setShaders(const Value: TShaders);
+begin
+  FShaderLib.ShadersCollection:=Value;
+end;
+
+{ TShaderMaterial }
+
+function LightType(LightIndex: integer): TLightStyle;
+begin
+  with GLStateCache.LightingCache.Lights[LightIndex] do begin
+    if POSITION[3]=0 then begin
+      if SPOT_CUTOFF=0 then result:=lsParallel
+      else result:=lsDirectional;
+    end else if SPOT_CUTOFF=180 then result:=lsOmni
+    else result:=lsSpot;
+  end;
+end;
+
+function TShaderMaterial.BuildVertexText: ansistring;
+var s: ansistring;
+    nm: boolean;
+    i,n: integer;
+    lm: TLightModels;
+    ls: set of TLightStyle;
+    lt: TLightStyle;
+    att: boolean;
+    activelights: integer;
+const br: ansistring = #13+#10;
+begin
+  lm:=FLightModel; ls:=[]; att:=false; activelights:=0;
+  if (not UseMaterial) or (not assigned(Material)) or IgnoreLighting then lm:=lmNone;
+  if not GLStateCache.LightingCache.Enabled then lm:=lmNone;
+
+  if FSkeletal then s:='const int NodesCount = '+inttostr(FSkelNodesCount)+';'+br;
+  if FSkeletal then begin
+    s:=s+'uniform vec4 Bones[NodesCount*2];'+br;
+    s:=s+'vec3 qrot( vec4 q, vec3 v ){ return v + 2.0*cross(q.xyz, cross(q.xyz ,v) + q.w*v); }'+br;
+  end;
+  if not FUseGLUniforms then begin
+    if lm=lmGouraud then begin
+      for i:=0 to GLStateCache.LightingCache.MaxLights-1 do
+      with GLStateCache.LightingCache do begin
+        if Lights[i].Enabled then begin
+          if (Lights[i].LINEAR_ATTENUATION<>0)
+          or (Lights[i].QUADRATIC_ATTENUATION<>0) then att:=true;
+          lt:=LightType(i); if not (lt in ls) then include(ls,lt);
+          inc(activelights);
+        end;
+      end;
+
+      s:=s+'uniform vec4 mAmbientColor;'+br;
+      s:=s+'uniform vec4 mDiffuseColor;'+br;
+      s:=s+'uniform vec4 mSpecularColor;'+br;
+      s:=s+'uniform vec4 mEmissionColor;'+br;
+      s:=s+'uniform float mShininess;'+br;
+      //Lights
+      s:=s+'uniform vec4 lAmbientColor['+inttostr(activelights)+'];'+br;
+      s:=s+'uniform vec4 lDiffuseColor['+inttostr(activelights)+'];'+br;
+      s:=s+'uniform vec4 lSpecularColor['+inttostr(activelights)+'];'+br;
+      s:=s+'uniform vec4 lPosition['+inttostr(activelights)+'];'+br;
+      if ls<>[lsOmni] then begin
+        s:=s+'uniform vec4 lDirection['+inttostr(activelights)+'];'+br;
+        s:=s+'uniform float lSpotExp['+inttostr(activelights)+'];'+br;
+        s:=s+'uniform float lSpotCosCutoff['+inttostr(activelights)+'];'+br;
+      end;
+      if att then begin
+        s:=s+'uniform float lConstAtt['+inttostr(activelights)+'];'+br;
+        s:=s+'uniform float lLinAtt['+inttostr(activelights)+'];'+br;
+        s:=s+'uniform float lQuadAtt['+inttostr(activelights)+'];'+br;
+      end;
+    end else
+      if lm=lmNone then s:=s+'uniform vec4 gDiffuseColor;'+br;
+    s:=s+'uniform mat4 gModelViewMatrix;'+br;
+    s:=s+'uniform mat3 gNormalMatrix;'+br;
+    s:=s+'uniform mat4 gModelViewProjectionMatrix;'+br;
+    s:=s+'uniform mat4 gProjectionMatrix;'+br;
+  end;
+  if tbTangent in FTangents then
+    s:=s+'attribute vec3 tangents;'+br;
+  if tbBinormal in FTangents then
+    s:=s+'attribute vec3 binormals;'+br;
+  if FSkeletal then begin
+    case FSkeletalWeightsCount of
+      0: s:=s+'float Weight; float Joint;'+br;
+      1: begin
+         s:=s+'attribute float Weight;'+br;
+         s:=s+'attribute vec2 Joint;'+br;
+      end;
+      2: begin
+         s:=s+'attribute vec2 Weight;'+br;
+         s:=s+'attribute vec2 Joint;'+br;
+      end;
+      3: begin
+         s:=s+'attribute vec3 Weight;'+br;
+         s:=s+'attribute vec3 Joint;'+br;
+      end;
+      4: begin
+         s:=s+'attribute vec4 Weight;'+br;
+         s:=s+'attribute vec4 Joint;'+br;
+      end;
+    end;
+  end;
+  s:=s+'varying vec2 TexCoord;'+br;
+  if (lm<>lmNone) and (lm<>lmGouraud) then
+    s:=s+'varying vec3 normal, lightDir, eyeVec;'+br;
+  if assigned(TextureByMapTarget(mtBumpMap))
+  or assigned(TextureByMapTarget(mtNormalMap))
+  then nm:=true else nm:=false;
+  if nm and ((tbTangent in FTangents) or (tbBinormal in FTangents))
+  then nm:=true else nm:=false;
+  if (lm=lmNone) or (lm=lmGouraud) then nm:=false;
+
+  if nm then s:=s+'varying vec3 Tang,Binorm;'+br;
+
+  if FSkeletal then begin
+    if nm then begin
+      s:=s+'void vtransf(in vec4 qp, in vec4 qo, in vec4 V, '+
+        'in vec3 T, in vec3 B, in vec3 N, in float w, '+
+        'out vec4 _vert, out vec3 _norm, out vec3 _tang, out vec3 _bin)'+br;
+      s:=s+'{'+br;
+      s:=s+'  _vert += vec4(qrot(qo,V.xyz) + qp.xyz ,1.0)*w'+br;
+      s:=s+'  vec3 nm = qrot(qo, N); _norm +=nm*w;'+br;
+      s:=s+'  vec3 t,b;'+br;
+      if (tbTangent in FTangents) and (tbBinormal in FTangents) then
+        s:=s+'  t = qrot(q0,T); b = qrot(q0,B);'+br
+      else if (tbTangent in FTangents) then
+           s:=s+'  t = qrot(q0,tangents); b = cross(t,nm);'+br
+           else s:=s+'  b = qrot(q0,binormals); t = cross(nm,b);'+br;
+      s:=s+'   _tang += t*w; _bin +=b*w;'+br;
+      s:=s+'}'+br;
+
+    end else begin
+      s:=s+'void vtransf(in vec4 qp, in vec4 qo, in vec4 V, in vec3 N, in float w, '+
+        'out vec4 _vert, out vec3 _norm)'+br;
+      s:=s+'{'+br;
+      s:=s+'  _vert += vec4(qrot(qo,V.xyz) + qp.xyz ,1.0)*w'+br;
+      s:=s+'  _norm += qrot(qo, N)*w;'+br;
+      s:=s+'}'+br;
+    end;
+  end;
+
+  if lm = lmGouraud then begin
+    {$I PhongLightTypes.inc}
+  end;
+
+
+  s:=s+br+'void main ()'+br+'{'+br;
+
+  if FUseGLUniforms then begin
+    if lm=lmGouraud then begin
+      s:=s+'  vec4 gAmbientColor = gl_FrontMaterial.ambient;'+br;
+      s:=s+'  vec4 gDiffuseColor = gl_FrontMaterial.diffuse;'+br;
+      s:=s+'  vec4 gSpecularColor = gl_FrontMaterial.specular;'+br;
+      s:=s+'  vec4 gEmissionColor = gl_FrontMaterial.emission;'+br;
+      s:=s+'  float gShininess = gl_FrontMaterial.shininess;'+br;
+    end;
+    s:=s+'  mat4 gModelViewMatrix = gl_ModelViewMatrix;'+br;
+    s:=s+'  mat3 gNormalMatrix = gl_NormalMatrix;'+br;
+    s:=s+'  mat4 gModelViewProjectionMatrix = gl_ModelViewProjectionMatrix;'+br;
+    s:=s+'  mat4 gProjectionMatrix = gl_ProjectionMatrix;'+br;
+  end;
+  s:=s+'  TexCoord = gl_MultiTexCoord0.xy;'+br;
+  s:=s+'  vec4 vert = gl_Vertex;'+br;
+  s:=s+'  vec3 norm = gl_Normal.xyz;'+br;
+
+  if FSkeletal then begin
+    s:=s+'  vec4 outP = vec4(0.0,0.0,0.0,0.0);'+br;
+    s:=s+'  vec3 outN = vec3(0.0,0.0,0.0);'+br;
+    if nm then begin
+      s:=s+'  vec3 T,B,outT,outB;'+br;
+      s:=s+'  outB = outN; outT = outN;'+br;
+      if (tbTangent in FTangents) then s:=s+'  T = tangents;'+br;
+      if (tbBinormal in FTangents) then s:=s+'  B = binormals;'+br;
+    end;
+
+    case FSkeletalWeightsCount of
+      0: begin
+         s:=s+'  Weight = 1.0; Joint = int(gl_MultiTexCoord0.z*2.0);'+br;
+         s:=s+'  vec4 qp = Bones[Joint];'+br;
+         s:=s+'  vec4 qo = Bones[Joint+1];'+br;
+         if nm then begin
+           s:=s+'  vtransf(qp, qo, vert, T, B, norm, Weight, outP, outN, outT, outB)'+br;
+           s:=s+'  vert = outP; norm = outN; T = outT; B = outB;'+br;
+         end else begin
+           s:=s+'  vtransf(qp, qo, vert, norm, Weight, outP, outN)'+br;
+           s:=s+'  vert = outP; norm = outN;'+br;
+         end;
+      end;
+      1: begin
+         s:=s+'  vec4 qp = Bones[int(Joint.x)];'+br;
+         s:=s+'  vec4 qo = Bones[int(Joint.x+1.0)];'+br;
+         if nm then
+           s:=s+'  vtransf(qp, qo, vert, T, B, norm, Weight, outP, outN, outT, outB)'+br
+         else s:=s+'  vtransf(qp, qo, vert, norm, Weight, outP, outN)'+br;
+
+         s:=s+'  vec4 qp = Bones[int(Joint.y)];'+br;
+         s:=s+'  vec4 qo = Bones[int(Joint.y+1.0)];'+br;
+         if nm then
+           s:=s+'  vtransf(qp, qo, vert, T, B, norm, 1.0-Weight, outP, outN, outT, outB)'+br
+         else s:=s+'  vtransf(qp, qo, vert, norm, 1.0-Weight, outP, outN)'+br;
+
+         if nm then s:=s+'  vert = outP; norm = outN; T = outT; B = outB;'+br
+         else s:=s+'  vert = outP; norm = outN;'+br;
+      end;
+      2..4: begin
+         s:=s+'  vec4 qp = Bones[int(Joint.x)];'+br;
+         s:=s+'  vec4 qo = Bones[int(Joint.x+1.0)];'+br;
+         if nm then
+           s:=s+'  vtransf(qp, qo, vert, T, B, norm, Weight.x, outP, outN, outT, outB)'+br
+         else s:=s+'  vtransf(qp, qo, vert, norm, Weight.x, outP, outN)'+br;
+
+         s:=s+'  vec4 qp = Bones[int(Joint.y)];'+br;
+         s:=s+'  vec4 qo = Bones[int(Joint.y+1.0)];'+br;
+         if nm then
+           s:=s+'  vtransf(qp, qo, vert, T, B, norm, Weight.y, outP, outN, outT, outB)'+br
+         else s:=s+'  vtransf(qp, qo, vert, norm, Weight.y, outP, outN)'+br;
+         if FSkeletalWeightsCount>=3 then begin
+           s:=s+'  vec4 qp = Bones[int(Joint.z)];'+br;
+           s:=s+'  vec4 qo = Bones[int(Joint.z+1.0)];'+br;
+           if nm then
+             s:=s+'  vtransf(qp, qo, vert, T, B, norm, Weight.z, outP, outN, outT, outB)'+br
+           else s:=s+'  vtransf(qp, qo, vert, norm, Weight.z, outP, outN)'+br;
+         end;
+         if FSkeletalWeightsCount=4 then begin
+           s:=s+'  vec4 qp = Bones[int(Joint.w)];'+br;
+           s:=s+'  vec4 qo = Bones[int(Joint.w+1.0)];'+br;
+           if nm then
+             s:=s+'  vtransf(qp, qo, vert, T, B, norm, Weight.w, outP, outN, outT, outB)'+br
+           else s:=s+'  vtransf(qp, qo, vert, norm, Weight.w, outP, outN)'+br;
+         end;
+         if nm then s:=s+'  vert = outP; norm = outN; T = outT; B = outB;'+br
+         else s:=s+'  vert = outP; norm = outN;'+br;
+      end;
+    end;
+  end;
+  s:=s+'  vert = gModelViewMatrix*vert;'+br;
+  if (lm<>lmNone) then
+    s:=s+'  norm = normalize(gNormalMatrix*norm);'+br;
+  if nm then begin
+    s:=s+'  Tang = normalize(gNormalMatrix*T);'+br;
+    s:=s+'  Binorm = normalize(gNormalMatrix*B);'+br;
+  end;
+
+  s:=s+'  gl_Position = gProjectionMatrix*vert;'+br+br;
+
+  if lm=lmNone then begin
+    s:=s+'}'+br; result:=s; exit;
+  end;
+
+//  s:=s+'//Lightings'+br;
+  if lm=lmNone then s:=s+'  gl_FrontColor = mDifuseColor;'+br
+  else if lm=lmGouraud then begin
+    s:=s+'  gl_FrontColor = flight(norm,vert);'+br;
+{
+    s:=s+'  float lamb = max(dot(norm, p), 0.0);'+br;
+    s:=s+'  vec4 sceneColor = mEmissionColor + mAmbientColor * lAmbientColor[0];'+br;
+    s:=s+'  vec4 final_color = (sceneColor * mAmbientColor) +'+
+	'(lAmbientColor[0] * mAmbientColor);'+br;
+    s:=s+'  final_color += lDiffuseColor[0] * mDiffuseColor * lamb;'+br;
+    s:=s+'  gl_FrontColor = vec4(final_color.rgb,mDiffuseColor.a);'+br;
+}
+  end else begin
+    s:=s+'  vec3 p = normalize(lPosition[0].xyz - vert.xyz);'+br;
+    s:=s+'  normal = norm; lightDir = p; eyeVec = -vert.xyz;'+br;
+  end;
+
+  s:=s+'}'+br;
+  result:=s;
+end;
+
+function TShaderMaterial.BuildFragmentText: ansistring;
+begin
+//
+end;
+
+function TShaderMaterial.BuildGeometryText: ansistring;
+begin
+  result:='';
+end;
+
+procedure TShaderMaterial.BuildShader;
+var ShaderName: string;
+    sp: TShaderProgram;
+begin
+  ShaderName:=BuildShaderName;
+  if assigned(FShader) and (FShader.Name=ShaderName) then exit;
+  if assigned(FOwner) then begin
+    sp:=TMaterialObjectsLib(FOwner).FShaderLib.ShaderByName(ShaderName);
+    if not assigned(sp) then
+      sp:=TMaterialObjectsLib(FOwner).FShaderLib.AddNewShader(ShaderName);
+  end else begin
+    sp:=TShaderProgram.Create; sp.Name:=ShaderName; sp.Owner:=self;
+  end;
+end;
+
+function TShaderMaterial.BuildShaderName(ShaderType: TShaderType): string;
+var sName: string;
+    i: integer;
+begin
+  case ShaderType of
+   stVertex: sName:='Vertex: ';
+   stFragment: sName:='Fragment: ';
+   stGeometry: sName:='Geometry: ';
+   stProgram: sName:='Program: ';
+   else sName:='';
+  end;
+
+  case FLightModel of
+    lmNone: sName:='lmNone_';
+    lmGouraud: sName:='lmGouraud_';
+    lmPhong: sName:='lmPhong_';
+    lmBlinn: sName:='lmBlinn_';
+    lmLambert: sName:='lmLambert_';
+  end;
+
+  if FNoSpecular then sName:=sName+'NoSpecular_';
+
+  if FSkeletal then sName:=sName+'Skel_';
+  if FSkeletal and (FSkeletalWeightsCount>0)
+  then sName:=sName+inttostr(FSkeletalWeightsCount);
+  if FTangents<>[tbNormal] then begin
+    if tbTangent in FTangents then sName:=sName+'T';
+    if tbBinormal in FTangents then sName:=sName+'B';
+    sName:=sName+'_';
+  end;
+//    FUsedMaps: TMapTargets;
+  if FUseGLUniforms then sName:=sName+'GL_';
+  if length(FMRT)>0 then begin
+    sName:=sName+'MRT';
+    for i:=0 to high(FMRT) do sName:=sName+inttostr(ord(FMRT[i]));
+    sName:=sName+'_';
+  end;
+
+  if sName='' then sName:='Default';
+  result:=sName;
 end;
 
 end.
