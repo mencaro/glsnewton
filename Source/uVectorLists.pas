@@ -57,11 +57,11 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    procedure Add(a,b,c,d: byte); overload;
-    procedure Add(index: integer); overload;
-    procedure Add(index1,index2: integer); overload;
-    procedure Add(index1,index2, index3: integer); overload;
-    procedure Add(index1,index2, index3, index4: integer); overload;
+    function Addb(a,b,c,d: byte): integer; overload;
+    function Add(index: integer): integer; overload;
+    function Add(index1,index2: integer): integer; overload;
+    function Add(index1,index2, index3: integer): integer; overload;
+    function Add(index1,index2, index3, index4: integer): integer; overload;
 
     procedure Clear; override;
     procedure Delete(Index: Integer);override;
@@ -87,28 +87,28 @@ type
     constructor Create(VectorType: TVectorType = vtVector);
     destructor Destroy; override;
 
-    procedure Add(const x: single); overload;
-    procedure Add(const x,y: single); overload;
-    procedure Add(const x,y,z: single); overload;
-    procedure Add(const x,y,z,w: single); overload;
+    function Add(const x: single): integer; overload;
+    function Add(const x,y: single): integer; overload;
+    function Add(const x,y,z: single): integer; overload;
+    function Add(const x,y,z,w: single): integer; overload;
 
-    procedure Add(const v: TVector2f); overload;
-    procedure Add(const v1,v2: TVector2f); overload;
-    procedure Add(const v1,v2,v3: TVector2f); overload;
-    procedure Add(const v1,v2,v3,v4: TVector2f); overload;
+    function Add(const v: TVector2f): integer; overload;
+    function Add(const v1,v2: TVector2f): integer; overload;
+    function Add(const v1,v2,v3: TVector2f): integer; overload;
+    function Add(const v1,v2,v3,v4: TVector2f): integer; overload;
 
-    procedure Add(const v: TVector3f); overload;
-    procedure Add(const v1,v2: TVector3f); overload;
-    procedure Add(const v1,v2,v3: TVector3f); overload;
-    procedure Add(const v1,v2,v3,v4: TVector3f); overload;
+    function Add(const v: TVector3f): integer; overload;
+    function Add(const v1,v2: TVector3f): integer; overload;
+    function Add(const v1,v2,v3: TVector3f): integer; overload;
+    function Add(const v1,v2,v3,v4: TVector3f): integer; overload;
 
-    procedure Add(const v: TVector4f); overload;
-    procedure Add(const v1,v2: TVector4f); overload;
-    procedure Add(const v1,v2,v3: TVector4f); overload;
-    procedure Add(const v1,v2,v3,v4: TVector4f); overload;
+    function Add(const v: TVector4f): integer; overload;
+    function Add(const v1,v2: TVector4f): integer; overload;
+    function Add(const v1,v2,v3: TVector4f): integer; overload;
+    function Add(const v1,v2,v3,v4: TVector4f): integer; overload;
 
-    procedure Add(const m: TMatrix3f); overload;
-    procedure Add(const m: TMatrix4f); overload;
+    function Add(const m: TMatrix3f): integer; overload;
+    function Add(const m: TMatrix4f): integer; overload;
 
     function GetAsSingle(Index: integer): single;
     function GetAsVector2f(Index: integer): TVector2f;
@@ -205,27 +205,27 @@ const CVectorSize: array [vtInteger..vtMat4] of byte = (1,1,2,3,4,9,16);
 
 { TVectorAttribList }
 
-procedure TVectorAttribList.Add(const v: TVector2f);
+function TVectorAttribList.Add(const v: TVector2f): integer;
 begin
-  Add(v[0],v[1]);
+  result:=Add(v[0],v[1]);
 end;
 
-procedure TVectorAttribList.Add(const v1, v2: TVector2f);
+function TVectorAttribList.Add(const v1, v2: TVector2f): integer;
 begin
-  Add(v1);Add(v2);
+  result:=Add(v1); Add(v2);
 end;
 
-procedure TVectorAttribList.Add(const v1, v2, v3: TVector2f);
+function TVectorAttribList.Add(const v1, v2, v3: TVector2f): integer;
 begin
-  Add(v1);Add(v2);Add(v3);
+  result:=Add(v1);Add(v2);Add(v3);
 end;
 
-procedure TVectorAttribList.Add(const v1, v2, v3, v4: TVector2f);
+function TVectorAttribList.Add(const v1, v2, v3, v4: TVector2f): integer;
 begin
-  Add(v1);Add(v2);Add(v3);Add(v4);
+  result:=Add(v1);Add(v2);Add(v3);Add(v4);
 end;
 
-procedure TVectorAttribList.Add(const x: single);
+function TVectorAttribList.Add(const x: single): integer;
 begin
   if FCount=0 then begin
     FMin[0]:=x; FMax[0]:=x;
@@ -233,29 +233,28 @@ begin
     if x<FMin[0] then FMin[0]:=x;
     if x>FMax[0] then FMax[0]:=x;
   end;
-  assert(FVectorType=vtSingle,'Invalid type of vector, expected vtSingle');
-  inc(FLastIndex);
+  result:=FCount;//FLastIndex div CVectorSize[FVectorType];
   if FCapacity<=FCount then GrowList;
   case FVectorType of
-    vtInteger,vtSingle: begin FList[FLastIndex+1]:=x; inc(FLastIndex,1); end;
-    vtDouble: begin FList[FLastIndex+1]:=x; FList[FLastIndex+2]:=0; inc(FLastIndex,2); end;
+    vtInteger,vtSingle: begin FList[FLastIndex]:=x; inc(FLastIndex,1); end;
+    vtDouble: begin FList[FLastIndex]:=x; FList[FLastIndex+1]:=0; inc(FLastIndex,2); end;
     vtVector: begin
-      FList[FLastIndex+1]:=x;
+      FList[FLastIndex]:=x;
+      FList[FLastIndex+1]:=0;
       FList[FLastIndex+2]:=0;
-      FList[FLastIndex+3]:=0;
       inc(FLastIndex,3);
     end;
     vtPoint: begin
-      FList[FLastIndex+1]:=x;
+      FList[FLastIndex]:=x;
+      FList[FLastIndex+1]:=0;
       FList[FLastIndex+2]:=0;
       FList[FLastIndex+3]:=0;
-      FList[FLastIndex+4]:=0;
       inc(FLastIndex,4);
     end;
   end; inc(FCount);
 end;
 
-procedure TVectorAttribList.Add(const x, y: single);
+function TVectorAttribList.Add(const x, y: single): integer;
 begin
   if FCount=0 then begin
     FMin[0]:=x; FMax[0]:=x;
@@ -266,28 +265,31 @@ begin
     if y<FMin[1] then FMin[1]:=y;
     if y>FMax[1] then FMax[1]:=y;
   end;
-//  assert(FVectorType=vtDouble,'Invalid type of vector, expected vtDouble');
   if FCapacity<=FCount then GrowList;
+  result:=FCount; //FLastIndex div CVectorSize[FVectorType];
   case FVectorType of
-    vtInteger,vtSingle: begin FList[FLastIndex+1]:=x; inc(FLastIndex,1); end;
-    vtDouble: begin FList[FLastIndex+1]:=x; FList[FLastIndex+2]:=y; inc(FLastIndex,2); end;
+    vtInteger,vtSingle: begin
+      FList[FLastIndex]:=x; {FList[FLastIndex+1]:=y; inc(FLastIndex,2)};
+      inc(FLastIndex,1)
+    end;
+    vtDouble: begin FList[FLastIndex]:=x; FList[FLastIndex+1]:=y; inc(FLastIndex,2); end;
     vtVector: begin
-      FList[FLastIndex+1]:=x;
-      FList[FLastIndex+2]:=y;
+      FList[FLastIndex+0]:=x;
+      FList[FLastIndex+1]:=y;
       FList[FLastIndex+3]:=0;
       inc(FLastIndex,3);
     end;
     vtPoint: begin
-      FList[FLastIndex+1]:=x;
-      FList[FLastIndex+2]:=y;
+      FList[FLastIndex+0]:=x;
+      FList[FLastIndex+1]:=y;
+      FList[FLastIndex+2]:=0;
       FList[FLastIndex+3]:=0;
-      FList[FLastIndex+4]:=0;
       inc(FLastIndex,4);
     end;
   end; inc(FCount);
 end;
 
-procedure TVectorAttribList.Add(const x, y, z: single);
+function TVectorAttribList.Add(const x, y, z: single): integer;
 begin
   if FCount=0 then begin
     FMin[0]:=x; FMax[0]:=x;
@@ -301,28 +303,28 @@ begin
     if z<FMin[2] then FMin[2]:=z;
     if z>FMax[2] then FMax[2]:=z;
   end;
-//  assert(FVectorType=vtVector,'Invalid type of vector, expected vtVector');
   if FCapacity<=FCount then GrowList;
+  result:=FCount; //FLastIndex div CVectorSize[FVectorType];
   case FVectorType of
-    vtInteger,vtSingle: begin FList[FLastIndex+1]:=x; inc(FLastIndex,1); end;
-    vtDouble: begin FList[FLastIndex+1]:=x; FList[FLastIndex+2]:=y; inc(FLastIndex,2); end;
+    vtInteger,vtSingle: begin FList[FLastIndex]:=x; inc(FLastIndex,1); end;
+    vtDouble: begin FList[FLastIndex]:=x; FList[FLastIndex+1]:=y; inc(FLastIndex,2); end;
     vtVector: begin
-      FList[FLastIndex+1]:=x;
-      FList[FLastIndex+2]:=y;
-      FList[FLastIndex+3]:=z;
+      FList[FLastIndex+0]:=x;
+      FList[FLastIndex+1]:=y;
+      FList[FLastIndex+2]:=z;
       inc(FLastIndex,3);
     end;
     vtPoint: begin
-      FList[FLastIndex+1]:=x;
-      FList[FLastIndex+2]:=y;
-      FList[FLastIndex+3]:=z;
-      FList[FLastIndex+4]:=0;
+      FList[FLastIndex+0]:=x;
+      FList[FLastIndex+1]:=y;
+      FList[FLastIndex+2]:=z;
+      FList[FLastIndex+3]:=0;
       inc(FLastIndex,4);
     end;
   end; inc(FCount);
 end;
 
-procedure TVectorAttribList.Add(const x, y, z, w: single);
+function TVectorAttribList.Add(const x, y, z, w: single): integer;
 begin
   if FCount=0 then begin
     FMin[0]:=x; FMax[0]:=x;
@@ -336,65 +338,65 @@ begin
     if z<FMin[2] then FMin[2]:=z;
     if z>FMax[2] then FMax[2]:=z;
   end;
-//  assert(FVectorType=vtPoint,'Invalid type of vector, expected vtPoint');
   if FCapacity<=FCount then GrowList;
+  result:=FCount;//FLastIndex div CVectorSize[FVectorType];
   case FVectorType of
-    vtInteger,vtSingle: begin FList[FLastIndex+1]:=x; inc(FLastIndex,1); end;
-    vtDouble: begin FList[FLastIndex+1]:=x; FList[FLastIndex+2]:=y; inc(FLastIndex,2); end;
+    vtInteger,vtSingle: begin FList[FLastIndex]:=x; inc(FLastIndex,1); end;
+    vtDouble: begin FList[FLastIndex+0]:=x; FList[FLastIndex+1]:=y; inc(FLastIndex,2); end;
     vtVector: begin
-      FList[FLastIndex+1]:=x;
-      FList[FLastIndex+2]:=y;
-      FList[FLastIndex+3]:=z;
+      FList[FLastIndex+0]:=x;
+      FList[FLastIndex+1]:=y;
+      FList[FLastIndex+2]:=z;
       inc(FLastIndex,3);
     end;
     vtPoint: begin
-      FList[FLastIndex+1]:=x;
-      FList[FLastIndex+2]:=y;
-      FList[FLastIndex+3]:=z;
-      FList[FLastIndex+4]:=w;
+      FList[FLastIndex+0]:=x;
+      FList[FLastIndex+1]:=y;
+      FList[FLastIndex+2]:=z;
+      FList[FLastIndex+3]:=w;
       inc(FLastIndex,4);
     end;
   end; inc(FCount);
 end;
 
-procedure TVectorAttribList.Add(const v: TVector3f);
+function TVectorAttribList.Add(const v: TVector3f): integer;
 begin
-  Add(v[0],v[1],v[2]);
+  result:=Add(v[0],v[1],v[2]);
 end;
 
-procedure TVectorAttribList.Add(const v1, v2: TVector3f);
+function TVectorAttribList.Add(const v1, v2: TVector3f): integer;
 begin
-  Add(v1);Add(v2);
+  result:=Add(v1);Add(v2);
 end;
 
-procedure TVectorAttribList.Add(const v1, v2, v3, v4: TVector3f);
+function TVectorAttribList.Add(const v1, v2, v3, v4: TVector3f): integer;
 begin
-  Add(v1);Add(v2);Add(v3);Add(v4);
+  result:=Add(v1);Add(v2);Add(v3);Add(v4);
 end;
 
-procedure TVectorAttribList.Add(const v1, v2, v3: TVector3f);
+function TVectorAttribList.Add(const v1, v2, v3: TVector3f): integer;
 begin
-  Add(v1);Add(v2);Add(v3);
+  result:=Add(v1);Add(v2);Add(v3);
 end;
 
-procedure TVectorAttribList.Add(const v: TVector4f);
+function TVectorAttribList.Add(const v: TVector4f): integer;
 begin
-  Add(v[0],v[1],v[2],v[3]);
+  result:=Add(v[0],v[1],v[2],v[3]);
 end;
 
-procedure TVectorAttribList.Add(const v1, v2: TVector4f);
+function TVectorAttribList.Add(const v1, v2: TVector4f): integer;
 begin
-  Add(v1);Add(v2);
+  result:=Add(v1);Add(v2);
 end;
 
-procedure TVectorAttribList.Add(const v1, v2, v3: TVector4f);
+function TVectorAttribList.Add(const v1, v2, v3: TVector4f): integer;
 begin
-  Add(v1);Add(v2);Add(v3);
+  result:=Add(v1);Add(v2);Add(v3);
 end;
 
-procedure TVectorAttribList.Add(const v1, v2, v3, v4: TVector4f);
+function TVectorAttribList.Add(const v1, v2, v3, v4: TVector4f): integer;
 begin
-  Add(v1);Add(v2);Add(v3);Add(v4);
+  result:=Add(v1);Add(v2);Add(v3);Add(v4);
 end;
 
 procedure TVectorAttribList.Clear;
@@ -411,7 +413,7 @@ begin
   inherited Create;
   FVectorType:=VectorType;
   setlength(FList,FCapacity*CVectorSize[FVectorType]);
-  FData:=@FList[0];
+  FData:=@FList[0]; FLastIndex:=0;
   VectorGeometry.SetVector(Fmin,0,0,0);
   VectorGeometry.SetVector(Fmax,0,0,0);
 end;
@@ -606,19 +608,19 @@ begin
   if CVectorSize[FVectorType]>=4 then FList[idx+3]:=Value[3];
 end;
 
-procedure TVectorAttribList.Add(const m: TMatrix3f);
+function TVectorAttribList.Add(const m: TMatrix3f): integer;
 begin
-  Add(m[0],m[1],m[2]);
+  result:=Add(m[0],m[1],m[2]);
 end;
 
-procedure TVectorAttribList.Add(const m: TMatrix4f);
+function TVectorAttribList.Add(const m: TMatrix4f): integer;
 begin
-  Add(m[0],m[1],m[2],m[3]);
+  result:=Add(m[0],m[1],m[2],m[3]);
 end;
 
 { TIntegerAttribList }
 
-procedure TIntegerAttribList.Add(index: integer);
+function TIntegerAttribList.Add(index: integer): integer;
 begin
   if FCount=0 then begin
     FMin:=Index; FMax:=Index;
@@ -626,30 +628,31 @@ begin
     if index<FMin then FMin:=index;
     if index>FMax then FMax:=index;
   end;
-  inc(FLastIndex);
+  result:=FCount;
   if FCapacity<=FCount then GrowList;
   FList[FLastIndex]:=Index; inc(FCount);
+  inc(FLastIndex);
 end;
 
-procedure TIntegerAttribList.Add(index1, index2: integer);
+function TIntegerAttribList.Add(index1, index2: integer): integer;
 begin
-  Add(Index1); Add(Index2);
+  result:=Add(Index1); Add(Index2);
 end;
 
-procedure TIntegerAttribList.Add(index1, index2, index3: integer);
+function  TIntegerAttribList.Add(index1, index2, index3: integer): integer;
 begin
-  Add(Index1); Add(Index2); Add(Index3);
+  result:=Add(Index1); Add(Index2); Add(Index3);
 end;
 
-procedure TIntegerAttribList.Add(index1, index2, index3, index4: integer);
+function TIntegerAttribList.Add(index1, index2, index3, index4: integer): integer;
 begin
-  Add(Index1); Add(Index2); Add(Index3); Add(Index4);
+  result:=Add(Index1); Add(Index2); Add(Index3); Add(Index4);
 end;
 
-procedure TIntegerAttribList.Add(a, b, c, d: byte);
+function TIntegerAttribList.Addb(a, b, c, d: byte): integer;
 var i: integer;
 begin
-  i:=a or (b shl 8) or (c shl 16) or (d shl 24); Add(i);
+  i:=a or (b shl 8) or (c shl 16) or (d shl 24); result:=Add(i);
 end;
 
 procedure TIntegerAttribList.Clear;
@@ -733,7 +736,7 @@ constructor TBaseAttribList.Create;
 begin
   FGrowCount:=1;
   FCapacity:=FGrowCount;
-  FLastIndex:=-1; FCount:=0;
+  FLastIndex:=0; FCount:=0;
 end;
 
 function TBaseAttribList.GetData: pointer;

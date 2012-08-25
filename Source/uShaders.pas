@@ -34,6 +34,8 @@ Type
    end;
 
    TResultType = (asIndex, asHandle);
+   TShaderType = (stVertex,stFragment,stGeometry,stProgram);
+
    TShaders = Class
      ShaderObjectsList: TIntegerList;
      ShaderPrograms: TIntegerList;
@@ -123,10 +125,12 @@ Type
 
    TShaderEvents = procedure (ShaderProgram: TObject) of object;
 
+   TShaderLibrary = class;
+
    TShaderProgram = class
    private
      FOwner: TObject;
-     FShaders: TShaders;
+     FShaderLib: TShaderLibrary;
      FFragmentText: TStringList;
      FVertexText: TStringList;
      FGeometryText: TStringList;
@@ -140,8 +144,11 @@ Type
      FonApplyShader: TShaderEvents;
      FonUnApplyShader: TShaderEvents;
      function getUniforms: TStringList;
+    function getShaders: TShaders;
    public
-     constructor Create(ShadersCollection: TShaders=nil);overload;
+     constructor Create;overload;
+     constructor Create(ShadersCollection: TShaders);overload;
+     constructor Create(ShadersLibrary:  TShaderLibrary);overload;
      constructor Create(aVertex,aFragment: string; aGeometry: string='');overload;
      constructor CreateGS(aVertex,aFragment,aGeometry: string;
        InputType,OutputType,OutCount: GLUInt);
@@ -176,6 +183,7 @@ Type
      procedure SetProgParam(Param, Value: GLUInt);
 
      property Name: string read FName write FName;
+     property Owner: TObject read FOwner write FOwner;
      property onApplyShader: TShaderEvents read FonApplyShader write FonApplyShader;
      property onUnApplyShader: TShaderEvents read FonUnApplyShader write FonUnApplyShader;
 
@@ -184,7 +192,7 @@ Type
      property VertexText: TStringList read FVertexText;
      property GeometryText: TStringList read FGeometryText;
      property Uniforms: TStringList read getUniforms;
-     property Shaders: TShaders read FShaders;
+     property Shaders: TShaders read getShaders;
    end;
 
    TShaderLibrary = class (TObjectList)
@@ -193,9 +201,10 @@ Type
      FShaderCollection: TShaders;
      function Get(Index: Integer): TShaderProgram;
      procedure Put(Index: Integer; Item: TShaderProgram);
+    procedure setShaderCollection(const Value: TShaders);
    public
      property Items[Index: Integer]: TShaderProgram read Get write Put; default;
-     property ShadersCollection: TShaders read FShaderCollection write FShaderCollection;
+     property ShadersCollection: TShaders read FShaderCollection write setShaderCollection;
      function AddNewShader(aName:string=''): TShaderProgram;
      function Add(ShaderProg: TShaderProgram): integer;
      function ShaderByName(aName: string): TShaderProgram;
@@ -831,28 +840,34 @@ end;
 
 procedure TShaderProgram.Apply;
 begin
-  if FProgramId>0 then FShaders.UseProgramObject(FProgramId);
+  if FProgramId>0 then Shaders.UseProgramObject(FProgramId);
   if assigned(FOnApplyShader) then FOnApplyShader(self);
 end;
 
 procedure TShaderProgram.UnApply;
 begin
-  FShaders.UseProgramObject(0);
+  Shaders.UseProgramObject(0);
   if assigned(FOnUnApplyShader) then FOnUnApplyShader(self);
 end;
 
 procedure TShaderProgram.BindAttribLocation(Index: Integer;
   const aName: AnsiString);
 begin
-  FShaders.BindAttribLocation(FProgramId,index,aName);
+  Shaders.BindAttribLocation(FProgramId,index,aName);
 end;
 
 function TShaderProgram.BuildProgram(aName: string): cardinal;
+var FShaders: TShaders;
 begin
   if FProgramId>0 then begin result:=FProgramId; exit; end;
 
-  if not assigned(FShaders) then begin
-    FShaders:=TShaders.Create; FShaders.Owner:=self; end;
+  if not assigned(Shaders) then begin
+    FShaderLib:=TShaderLibrary.Create;
+    FShaderLib.ShadersCollection:=TShaders.Create;
+    FShaders:=FShaderLib.ShadersCollection;
+    FShaders.FOwner:=FShaderLib;
+  end else FShaders:=Shaders;
+
   if aName<>'' then FName:=aName;
   if FName<>'' then FProgramId:=FShaders.CreateShaderProgram(FName)
   else FProgramId:=FShaders.CreateShaderProgram;
@@ -867,7 +882,8 @@ begin
   if FFragObjId>0 then FShaders.AttachShaderObjectToProgram(FFragObjId,FProgramId);
   if FGeomObjId>0 then FShaders.AttachShaderObjectToProgram(FGeomObjId,FProgramId);
 
-  FShaders.LinkShaderProgram(FProgramId); result:=FProgramId;
+  FShaders.LinkShaderProgram(FProgramId);
+  FShaderLib.Add(self); result:=FProgramId;
 end;
 
 constructor TShaderProgram.Create(ShadersCollection: TShaders);
@@ -879,7 +895,8 @@ begin
   FUniforms:=TStringList.Create;
   FFragObjId:=0; FVertObjId:=0;
   FGeomObjId:=0; FProgramId:=0;
-  FShaders:=ShadersCollection;
+  FShaderLib:=TShaderLibrary.Create;
+  FShaderLib.ShadersCollection:=ShadersCollection;
   FOwner:=nil;
 end;
 
@@ -887,33 +904,41 @@ destructor TShaderProgram.Destroy;
 begin
   FFragmentText.Free; FVertexText.Free;
   FGeometryText.Free; FUniforms.Free;
-  if FShaders.Owner=self then FShaders.Free else begin
-    FShaders.DeleteShaderObject(FFragObjId);
-    FShaders.DeleteShaderObject(FVertObjId);
-    FShaders.DeleteShaderObject(FGeomObjId);
-    FShaders.DeleteShaderProgram(FProgramId);
+  if Shaders.Owner=FShaderLib then Shaders.Free else begin
+    Shaders.DeleteShaderObject(FFragObjId);
+    Shaders.DeleteShaderObject(FVertObjId);
+    Shaders.DeleteShaderObject(FGeomObjId);
+    Shaders.DeleteShaderProgram(FProgramId);
   end;
+  FShaderLib.Free;
   inherited;
 end;
 
 function TShaderProgram.GetAttribLocation(const aName: ansistring): integer;
 begin
-  Result:=FShaders.GetAttribLocation(FProgramId,aName);
+  Result:=Shaders.GetAttribLocation(FProgramId,aName);
 end;
 
 function TShaderProgram.GetAttribLocation(const aName: Ansistring; var buff: TVBOBuffer): integer;
 var attr: PVBOAttribute;
     loc: integer;
 begin
-  loc:=FShaders.GetAttribLocation(FProgramId,aName);
+  loc:=Shaders.GetAttribLocation(FProgramId,aName);
   Attr:=GetAttribByName(buff,aName);
   if assigned(attr) then attr.Location:=loc;
   result:=loc;
 end;
 
+function TShaderProgram.getShaders: TShaders;
+begin
+  if assigned(FShaderLib) then result:=FShaderLib.ShadersCollection
+  else result:=nil;
+
+end;
+
 function TShaderProgram.GetUniformLocation(const aName: AnsiString): cardinal;
 begin
-  Result:=FShaders.GetUniformLocation(FProgramId,aName);
+  Result:=Shaders.GetUniformLocation(FProgramId,aName);
 end;
 
 function TShaderProgram.getUniforms: TStringList;
@@ -1002,8 +1027,32 @@ end;
 
 constructor TShaderProgram.Create(aVertex, aFragment, aGeometry: string);
 begin
-  Create(nil);
+  Create;
   CreateFromFile(aVertex, aFragment, aGeometry);
+end;
+
+constructor TShaderProgram.Create;
+begin
+  inherited Create;
+  FFragmentText:=TStringList.Create;
+  FVertexText:=TStringList.Create;
+  FGeometryText:=TStringList.Create;
+  FUniforms:=TStringList.Create;
+  FFragObjId:=0; FVertObjId:=0;
+  FGeomObjId:=0; FProgramId:=0;
+  FShaderLib:=TShaderLibrary.Create;
+  FShaderLib.ShadersCollection:=TShaders.Create;
+  FShaderLib.ShadersCollection.FOwner:=FShaderLib;
+  FOwner:=nil;
+end;
+
+constructor TShaderProgram.Create(ShadersLibrary: TShaderLibrary);
+begin
+  FShaderLib:=ShadersLibrary;
+  if not assigned(FShaderLib.ShadersCollection) then begin
+    FShaderLib.ShadersCollection:=TShaders.Create;
+    FShaderLib.ShadersCollection.FOwner:=FShaderLib;
+  end;
 end;
 
 function TShaderProgram.CreateFromFile(aVertex, aFragment: string; aGeometry: string): cardinal;
@@ -1017,28 +1066,32 @@ end;
 constructor TShaderProgram.CreateGS(aVertex, aFragment, aGeometry: string;
   InputType, OutputType, OutCount: GLUInt);
 begin
-  Create(nil);
+  Create;
   FVertexText.LoadFromFile(aVertex);
   FFragmentText.LoadFromFile(aFragment);
   FGeometryText.LoadFromFile(aGeometry);
 
-  if not assigned(FShaders) then begin
-    FShaders:=TShaders.Create; FShaders.Owner:=self; end;
-  FProgramId:=FShaders.CreateShaderProgram;
+  if not assigned(Shaders) then begin
+    FShaderLib:=TShaderLibrary.Create;
+    FShaderLib.ShadersCollection:=TShaders.Create;
+    FShaderLib.ShadersCollection.FOwner:=FShaderLib;
+  end;
 
-  FVertObjId:=FShaders.AddShaderObject(FVertexText.Text,GL_VERTEX_SHADER,asHandle);
-  FFragObjId:=FShaders.AddShaderObject(FFragmentText.Text,GL_FRAGMENT_SHADER,asHandle);
-  FGeomObjId:=FShaders.AddShaderObject(FGeometryText.Text,GL_GEOMETRY_SHADER,asHandle);
+  FProgramId:=Shaders.CreateShaderProgram;
 
-  FShaders.AttachShaderObjectToProgram(FVertObjId,FProgramId);
-  FShaders.AttachShaderObjectToProgram(FFragObjId,FProgramId);
-  FShaders.AttachShaderObjectToProgram(FGeomObjId,FProgramId);
+  FVertObjId:=Shaders.AddShaderObject(FVertexText.Text,GL_VERTEX_SHADER,asHandle);
+  FFragObjId:=Shaders.AddShaderObject(FFragmentText.Text,GL_FRAGMENT_SHADER,asHandle);
+  FGeomObjId:=Shaders.AddShaderObject(FGeometryText.Text,GL_GEOMETRY_SHADER,asHandle);
+
+  Shaders.AttachShaderObjectToProgram(FVertObjId,FProgramId);
+  Shaders.AttachShaderObjectToProgram(FFragObjId,FProgramId);
+  Shaders.AttachShaderObjectToProgram(FGeomObjId,FProgramId);
 
   SetProgParam(GL_GEOMETRY_INPUT_TYPE_EXT,InputType);
   SetProgParam(GL_GEOMETRY_OUTPUT_TYPE_EXT,OutputType);
   SetGeomVerticesOutCount(OutCount);
 
-  FShaders.LinkShaderProgram(FProgramId);
+  Shaders.LinkShaderProgram(FProgramId);
 
 end;
 
@@ -1111,9 +1164,12 @@ end;
 destructor TShaderLibrary.Destroy;
 var i:integer;
 begin
+  OwnsObjects:=false;
   for i:=0 to Count-1 do begin
     if assigned(Items[i]) then
-      if Items[i].FOwner=Self then Items[i].Free;
+      if Items[i].FOwner=Self then begin
+        Items[i].Free; Items[i]:=nil;
+      end;
   end;
   FHashList.Free;
   inherited;
@@ -1144,6 +1200,11 @@ begin
    inherited Put(Index, Item);
    Hash:=StringHashKey(Item.Name);
    FHashList[Index]:=Hash;
+end;
+
+procedure TShaderLibrary.setShaderCollection(const Value: TShaders);
+begin
+  FShaderCollection := Value;
 end;
 
 function TShaderLibrary.ShaderByName(aName: string): TShaderProgram;

@@ -2,13 +2,13 @@ unit uBaseClasses;
 
 interface
 
-uses Classes,VectorGeometry, uMiscUtils;
+uses Classes, VectorGeometry, uMiscUtils, uBaseResource, uStorage;
 
 Type
   TTransformsTypes = (ttPosition, ttScale, ttRotation, ttModel, ttParent, ttFollow, ttAll);
   TTransforms = set of TTransformsTypes;
   TMeshCollectionItem = (mcMeshObject, mcContainer, mcCollection, mcEffect,
-    mcCommands, mcRender, mcGUI, mcUnknown);
+    mcCommands, mcRender, mcGUI, mcUnknown, mcRenderEvent);
   TProcessChilds = (pcNone, pcBefore, pcAfter);
   TSortDirection = (sdFrontToBack, sdBackToFront, sdNone);
   TNotification = (ntTransformationsChanged, ntRemoved, ntUnsibscribe);
@@ -35,12 +35,12 @@ Type
     ViewMatrix: TMatrix; //Видовая матрица, заполняется при рендеринге
   end; PMatrixStack = ^TMatrixStack;
 
-  TObjectRenderEvents = procedure (MeshObject: TObject) of object;
+  TObjectRenderEvents = procedure (RenderObject: TObject) of object;
   TVBOMeshRenderEvents = procedure of object;
   TVBOObjectClickEvents = procedure (X,Y:integer; NearPos,inObjectPos,dir: TAffineVector; MeshObject: TObject) of object;
   TVBOVisibilityEvents = procedure (var Visible: boolean) of object;
 
-  TVBOMeshItem = class
+  TVBOMeshItem = class(TPersistentResource)
   private
     procedure setParent(const Value: TVBOMeshItem);
     procedure setChilde(const Value: TVBOMeshItem);
@@ -58,7 +58,18 @@ Type
     procedure Subscribe(aItem: TVBOMeshItem); virtual;
     procedure Notification(Sender: TVBOMeshItem; aMessage: TNotification); virtual;
     procedure DispatchNotification(aMessage: TNotification); virtual;
+    procedure WriteVector4f(const Value: TVector; const stream: TStream);
+    procedure WriteVector3f(const Value: TAffineVector; const stream: TStream);
+    procedure WriteVector4i(const Value: THomogeneousIntVector; const stream: TStream);
+    procedure WriteMatrix(const Value: TMatrix; const stream: TStream);
+    function ReadVector4f(const stream: TStream): TVector;
+    function ReadVector3f(const stream: TStream): TAffineVector;
+    function ReadVector4i(const stream: TStream): THomogeneousIntVector;
+    function ReadMatrix(const stream: TStream): TMatrix;
   public
+    procedure SaveToStream(s: TStream); override;
+    procedure LoadFromStream(s: TStream); override;
+
     constructor Create;
     destructor Destroy;override;
     procedure Process; virtual;
@@ -77,6 +88,7 @@ Type
   private
     FRenderEvent: TObjectRenderEvents;
   public
+    constructor Create;
     property RenderEvent: TObjectRenderEvents read FRenderEvent write FRenderEvent;
     procedure Process; override;
   end;
@@ -113,6 +125,9 @@ Type
     Matrices:TMatrixStack;
 
     WorldMatrixUpdated: boolean; //false=требуется перестроить мировую матрицу
+
+    procedure SaveToStream(s: TStream); override;
+    procedure LoadFromStream(s: TStream); override;
 
     Constructor Create;
     Destructor Destroy;override;
@@ -206,12 +221,44 @@ Type
   public
     constructor Create;
     destructor Destroy; override;
+    procedure Process; override;
 
     function NewJoint(aNode,aParent: TMovableObject; aName: string=''): TJoint;
     function JointByName(aName: string): TJoint;
     function JointIndex(aName: string): integer;
 
     property Joints[index: integer]: TJoint read getJoint write setJoint; default;
+  end;
+
+  TBone = class (TJoint)
+  private
+    FLocalMatrix: TMatrix;
+    FGlobalMatrix: TMatrix;
+    FQuaternion: TVector;
+    FChanged: boolean;
+    FParentBone: TBone;
+
+    function getGlobMatrix: PMatrix;
+    function getLocMatrix: PMatrix;
+    function getOrient: PVector;
+    function getPos: PVector;
+    function getQuat: PQuaternion;
+    procedure setGlobMatrix(const Value: PMatrix);
+    procedure setLocMatrix(const Value: PMatrix);
+    procedure setParentBone(const Value: TBone);
+  public
+    constructor Create; overload;
+    constructor Create(aParent: TBone); overload;
+    destructor Destroy; override;
+    procedure Notification(Sender: TVBOMeshItem; aMessage: TNotification); override;
+    procedure Update;
+    procedure Process; override;
+    property ParentBone: TBone read FParentBone write setParentBone;
+    property LocalMatrix: PMatrix read getLocMatrix write setLocMatrix;
+    property GlobalMatrix: PMatrix read getGlobMatrix write setGlobMatrix;
+    property gOrientation: PVector read getOrient;
+    property gQuaternion: PQuaternion read getQuat;
+    property gPosition: PVector read getPos;
   end;
 
 implementation
@@ -246,6 +293,83 @@ begin
   for i:=0 to FSubscribers.Count-1 do begin
     mi:=FSubscribers[i]; if assigned(mi) then mi.Notification(self,aMessage);
   end;
+end;
+
+procedure TVBOMeshItem.LoadFromStream(s: TStream);
+var i,n: integer;
+    fguid: TGUID;
+    nullGUID: TGUID;
+    res: TPersistentResource;
+begin
+  inherited;
+    nullGUID:=TGUID.Empty;
+    FUseParentViewer:=ReadBool(s);
+    FItemType:=TMeshCollectionItem(ReadInt(s));
+    fguid:=ReadGUID(s);
+    if fguid<>nullGuid then begin
+      res:=vResourceList.ResourceByGUID(fguid);
+      if assigned(res) then FParent:=TVBOMeshItem(res) else begin
+        FParent:=nil; vFixUpList.Add(PObject(FParent),fGUID);
+      end;
+    end else FParent:=nil;
+
+    fguid:=ReadGUID(s);
+    if fguid<>nullGuid then begin
+      res:=vResourceList.ResourceByGUID(fguid);
+      if assigned(res) then FOwner:=TVBOMeshItem(res) else begin
+        FOwner:=nil; vFixUpList.Add(PObject(FOwner),fGUID);
+      end;
+    end else FOwner:=nil;
+
+    FName:=ReadString(s);
+
+    fguid:=ReadGUID(s);
+    if fguid<>nullGuid then begin
+      res:=vResourceList.ResourceByGUID(fguid);
+      if assigned(res) then FChilde:=TVBOMeshItem(res) else begin
+        FChilde:=nil; vFixUpList.Add(PObject(FChilde),fGUID);
+      end;
+    end else FChilde:=nil;
+
+    FProcessChilds:=TProcessChilds(ReadInt(s));
+    n:=ReadInt(s); FSubscribers.Count:=n;
+    for i:=0 to n-1 do begin
+      fguid:=ReadGUID(s);
+      if fguid<>nullGuid then begin
+        res:=vResourceList.ResourceByGUID(fguid);
+        if assigned(res) then FSubscribers[i]:=res else begin
+//          FSubscribers[i]:=TPersistentResource.Create;
+//          FSubscribers[i].GUID:=fGUID;
+        end;
+      end else FSubscribers[i]:=nil;
+    end;
+    FActive:=ReadBool(s);
+end;
+
+procedure TVBOMeshItem.SaveToStream(s: TStream);
+var i,n: integer;
+    mi: TVBOMeshItem;
+    nullGUID: TGUID;
+begin
+  inherited;
+    nullGUID:=TGUID.Empty;
+    WriteBool(FUseParentViewer,s);
+    WriteInt(integer(FItemType),s);
+    if assigned(FParent) then WriteGUID(FParent.GUID,s)
+    else WriteGUID(nullGUID,s);
+    if assigned(FOwner) then WriteGUID(FOwner.GUID,s)
+    else WriteGUID(nullGUID,s);
+    WriteString(FName,s);
+    if assigned(FChilde) then WriteGUID(FChilde.GUID,s)
+    else WriteGUID(nullGUID,s);
+    WriteInt(integer(FProcessChilds),s);
+    n:=FSubscribers.Count;
+    WriteInt(n,s);
+    for i:=0 to n-1 do begin
+      mi:=FSubscribers[i];
+      WriteGUID(mi.GUID,s);
+    end;
+    WriteBool(FActive,s);
 end;
 
 procedure TVBOMeshItem.Notification(Sender: TVBOMeshItem; aMessage: TNotification);
@@ -287,7 +411,62 @@ begin
   then FSubscribers.Add(aItem);
 end;
 
+procedure TVBOMeshItem.WriteMatrix(const Value: TMatrix; const stream: TStream);
+begin
+  WriteVector4f(Value[0],Stream);
+  WriteVector4f(Value[1],Stream);
+  WriteVector4f(Value[2],Stream);
+  WriteVector4f(Value[3],Stream);
+end;
+
+procedure TVBOMeshItem.WriteVector3f(const Value: TAffineVector;
+  const stream: TStream);
+begin
+  stream.WriteBuffer(Value,sizeof(TAffineVector));
+end;
+
+procedure TVBOMeshItem.WriteVector4f(const Value: TVector;
+  const stream: TStream);
+begin
+  stream.WriteBuffer(Value,sizeof(TVector));
+end;
+
+procedure TVBOMeshItem.WriteVector4i(const Value: THomogeneousIntVector;
+  const stream: TStream);
+begin
+  stream.WriteBuffer(Value,sizeof(THomogeneousIntVector));
+end;
+
+function TVBOMeshItem.ReadMatrix(const stream: TStream): TMatrix;
+begin
+  result[0]:=ReadVector4f(Stream);
+  result[1]:=ReadVector4f(Stream);
+  result[2]:=ReadVector4f(Stream);
+  result[3]:=ReadVector4f(Stream);
+end;
+
+function TVBOMeshItem.ReadVector4i(const stream: TStream): THomogeneousIntVector;
+begin
+  stream.ReadBuffer(result,sizeof(THomogeneousIntVector));
+end;
+
+function TVBOMeshItem.ReadVector3f(const stream: TStream): TAffineVector;
+begin
+  stream.ReadBuffer(result,sizeof(TAffineVector));
+end;
+
+function TVBOMeshItem.ReadVector4f(const stream: TStream): TVector;
+begin
+  stream.ReadBuffer(result,sizeof(TVector));
+end;
+
 { TRenderEventItem }
+
+constructor TRenderEventItem.Create;
+begin
+  inherited;
+  FItemType:=mcRenderEvent;
+end;
 
 procedure TRenderEventItem.Process;
 begin
@@ -621,6 +800,36 @@ begin
    MoveObject(vectormake(x,y,z,1),AbsolutePos);
 end;
 
+procedure TMovableObject.SaveToStream(s: TStream);
+begin
+  inherited;
+  WriteVector4f(FAbsolutePosition,s);
+  WriteVector4f(FPosition,s);
+  WriteVector4f(FScale,s);
+  WriteVector4f(FUp,s);
+  WriteVector4f(FDirection,s);
+  WriteVector4f(FLeft,s);
+
+  WriteFloat(FRollAngle,s);
+  WriteFloat(FTurnAngle,s);
+  WriteFloat(FPitchAngle,s);
+  WriteFloat(FXRotationAngle,s);
+  WriteFloat(FYRotationAngle,s);
+  WriteFloat(FZRotationAngle,s);
+
+  WriteMatrix(FParentMatrix,s);
+  WriteString(FriendlyName,s);
+  WriteInt(Tag,s);
+  WriteVector4f(DirectingAxis,s);
+
+  WriteMatrix(Matrices.ModelMatrix,s);
+  WriteMatrix(Matrices.ScaleMatrix,s);
+  WriteMatrix(Matrices.RotationMatrix,s);
+  WriteMatrix(Matrices.TranslationMatrix,s);
+  WriteMatrix(Matrices.ProjectionMatrix,s);
+  WriteMatrix(Matrices.ViewMatrix,s);
+end;
+
 procedure TMovableObject.ScaleObject(ScaleX, ScaleY, ScaleZ: single;
   AbsoluteScale: boolean);
 begin
@@ -664,6 +873,38 @@ begin
     RotationMatrix:=IdentityHmgMatrix;
   end;
   UpdateWorldMatrix;
+end;
+
+procedure TMovableObject.LoadFromStream(s: TStream);
+begin
+  inherited;
+  FAbsolutePosition:=ReadVector4f(s);
+  FPosition:=ReadVector4f(s);
+  FScale:=ReadVector4f(s);
+  FUp:=ReadVector4f(s);
+  FDirection:=ReadVector4f(s);
+  FLeft:=ReadVector4f(s);
+
+  FRollAngle:=ReadFloat(s);
+  FTurnAngle:=ReadFloat(s);
+  FPitchAngle:=ReadFloat(s);
+  FXRotationAngle:=ReadFloat(s);
+  FYRotationAngle:=ReadFloat(s);
+  FZRotationAngle:=ReadFloat(s);
+
+  FParentMatrix:=ReadMatrix(s);
+  FriendlyName:=ReadString(s);
+  Tag:=ReadInt(s);
+  DirectingAxis:=ReadVector4f(s);
+
+  Matrices.ModelMatrix:=ReadMatrix(s);
+  Matrices.ScaleMatrix:=ReadMatrix(s);
+  Matrices.RotationMatrix:=ReadMatrix(s);
+  Matrices.TranslationMatrix:=ReadMatrix(s);
+  Matrices.ProjectionMatrix:=ReadMatrix(s);
+  Matrices.ViewMatrix:=ReadMatrix(s);
+
+  WorldMatrixUpdated:=false;
 end;
 
 function TMovableObject.LocalToAbsolute(P: TVector): TVector;
@@ -731,6 +972,11 @@ begin
   result:=J;
 end;
 
+procedure TLinkedObjects.Process;
+begin
+  inherited;
+end;
+
 procedure TLinkedObjects.setJoint(index: integer; const Value: TJoint);
 var J: TJoint;
 begin
@@ -775,6 +1021,7 @@ end;
 
 procedure TJoint.Process;
 begin
+  inherited;
   if assigned(FNode) then begin
     if assigned(FParentNode) then
        FNode.FParentMatrix:=FParentNode.Matrices.WorldMatrix
@@ -795,6 +1042,110 @@ begin
   if assigned(FNode) and assigned(FParentNode) then FParentNode.Notification(self,ntUnsibscribe);
   FParentNode := Value;
   if assigned(FNode) and assigned(FParentNode) then FParentNode.Subscribe(self);
+end;
+
+{ TBone }
+
+constructor TBone.Create;
+begin
+  inherited;
+  FLocalMatrix:=IdentityHmgMatrix;
+  FGlobalMatrix:=IdentityHmgMatrix;
+  FQuaternion:=NullHmgPoint;
+  FParentBone:=nil;
+  FChanged:=true;
+end;
+
+constructor TBone.Create(aParent: TBone);
+begin
+  Create; FParentBone:=aParent;
+end;
+
+destructor TBone.Destroy;
+begin
+  if assigned(FParentBone) then FParentBone.Notification(self,ntRemoved);
+  inherited;
+end;
+
+function TBone.getGlobMatrix: PMatrix;
+begin
+  result:=@GlobalMatrix[0,0];
+end;
+
+function TBone.getLocMatrix: PMatrix;
+begin
+  result:=@LocalMatrix[0,0];
+end;
+
+function TBone.getOrient: PVector;
+begin
+  result:=@FQuaternion[0];
+end;
+
+function TBone.getPos: PVector;
+begin
+  if FChanged then Update;
+  result:=@FGlobalMatrix[3,0];
+end;
+
+function TBone.getQuat: PQuaternion;
+begin
+  if FChanged then Update;
+  result:=@FQuaternion[0];
+end;
+
+procedure TBone.Notification(Sender: TVBOMeshItem; aMessage: TNotification);
+begin
+  if Sender=FParentBone then begin
+    case aMessage of
+      ntUnsibscribe, ntRemoved: begin
+        FParentBone:=nil;
+      end;
+      ntTransformationsChanged: begin
+        Update;
+      end;
+    end;
+  end;
+  inherited;
+end;
+
+procedure TBone.Process;
+begin
+  inherited;
+  if FChanged then Update;
+end;
+
+procedure TBone.setGlobMatrix(const Value: PMatrix);
+begin
+  FGlobalMatrix:=Value^; FChanged:=false;
+  PQuaternion(@FQuaternion)^:=QuaternionFromMatrix(FGlobalMatrix);
+  if assigned(Node) then Node.Matrices.ModelMatrix:=FGlobalMatrix;
+  DispatchNotification(ntTransformationsChanged);
+end;
+
+procedure TBone.setLocMatrix(const Value: PMatrix);
+begin
+  FLocalMatrix:=Value^; FChanged:=true;
+end;
+
+procedure TBone.setParentBone(const Value: TBone);
+begin
+  if assigned(FParentBone) then FParentBone.Notification(self,ntUnsibscribe);
+  FParentBone := Value; FChanged:=true;
+  if assigned(FParentBone) then FParentBone.Subscribe(self);
+  Update;
+end;
+
+procedure TBone.Update;
+begin
+  if assigned(FParentBone) then begin
+    if FParentBone.FChanged then FParentBone.Update;
+    FGlobalMatrix:=MatrixMultiply(FLocalMatrix,FParentBone.FGlobalMatrix);
+  end else FGlobalMatrix:=FLocalMatrix;
+  PQuaternion(@FQuaternion)^:=QuaternionFromMatrix(FGlobalMatrix);
+  if assigned(Node) then Node.Matrices.ModelMatrix:=FGlobalMatrix;
+  DispatchNotification(ntTransformationsChanged);
+  FChanged:=false;
 end;
 
 end.

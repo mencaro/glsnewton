@@ -2,7 +2,7 @@ unit uFileSMD;
 
 interface
 Uses Classes, VectorGeometry, uVBO, uMiscUtils,
-     OpenGL1x, SysUtilsLite, OGLStateEmul;
+     OpenGL1x, VectorLists, SysUtilsLite, OGLStateEmul;
 
 Type
   TSMDNode = record
@@ -23,6 +23,7 @@ Type
      GlobalPos: TVector;
      LocalPos: TVector;
   end;
+  PSMDNodePos = ^TSMDNodePos;
 
   TPointWeight = record
      NodeIndex: integer;
@@ -46,6 +47,7 @@ Type
   TSMDMesh = record
      Textures: TStringList;
      Triangles: array of TSMDTriangle;
+     MaxWeights: integer;
   end;
 
   TSMDNodes = array of TSMDNodePos;
@@ -64,7 +66,7 @@ Type
 
   TAnimations = record
      Mesh: TSMDFile;
-     Animations: TList;
+     Animations: TList;//PSMDFile
      TextureId: GLUint;
      Bones: integer;
      MaxFrames: integer;
@@ -98,6 +100,35 @@ Function GetTextureFromAnim(var SMD: TSMDFile):GLUint;overload;
 Function GetTextureFromAnim(var anim: TAnimations):GLUint;overload;
 
 implementation
+
+function StringToFloatArray(const s: ansistring; var FloatCount: integer): pointer;
+var fa: PSingle;
+    i,sign,n,l: integer;
+    P: PAnsiChar;
+    decimal: single;
+    dot: boolean;
+    dc: set of char;
+    df: boolean;
+begin
+  dc:=[' ',#9,#13,#10];
+  P:=PAnsiChar(s); l:=length(s)-1;
+  getmem(fa,FloatCount*4); result:=fa; n:=0;
+  decimal:=1; dot:=false; fa^:=0; sign:=1; df:=false;
+  for i:=0 to L do begin
+    if P^='-' then sign:=-1 else
+      if (P^='.') or (P^=',') then dot:=true else
+       if (P^ in dc) and (not df) then begin
+         if sign=-1 then fa^:=-fa^; df:=true;
+         inc(n); inc(fa); decimal:=1; dot:=false; fa^:=0; sign:=1;
+       end else if not (P^ in dc) then begin
+         df:=false;
+         if not dot then fa^:=fa^*10+byte(p^)-48
+         else begin decimal:=decimal*0.1; fa^:=fa^+decimal*(byte(p^)-48); end;
+       end;
+    inc(p);
+  end; inc(n);
+  FloatCount:=n;
+ end;
 
 Function GetNodeById(var Bones: array of TSMDNode; Id: integer): TSMDNode;
 var i:integer;
@@ -199,8 +230,8 @@ begin
   t:=s;delete(t,1,i);
   i:=pos('"',t);
   result.name:=copy(t,1,i-1);
-  delete(t,1,i);
-  result.parent:=StrToInt(t)                ;
+  delete(t,1,i); t:=TrimLeft(t);
+  result.parent:=StrToInt(t);
 end;
 
 function ParsePos(ps:string): TSMDNodePos;
@@ -225,55 +256,135 @@ begin
   result.rz:=StrToFloat(t);
 end;
 
-function ParseVertex(s:string):TSMDVertex;
-var i,j:integer;
-    t:string;
+function ParseVertex(s: string): TSMDVertex;
+var i,j: integer;
+    t: string;
+    p,pp: PSingle;
 begin
   t:=s; i:=1;
   while t[i]=' ' do inc(i); delete(t,1,i-1);
+  t:=t+' '; j:=length(t);
+  p:=StringToFloatArray(t,j); pp:=p;
+  result.BoneIndex:=trunc(p^);inc(p);
+  result.p[0]:=p^; inc(p);
+  result.p[1]:=p^; inc(p);
+  result.p[2]:=p^; inc(p);
+  result.n[0]:=p^; inc(p);
+  result.n[1]:=p^; inc(p);
+  result.n[2]:=p^; inc(p);
+  result.u:=p^; inc(p);
+  result.v:=p^; inc(p);
+  if j>9 then begin
+    result.WeightCount:=trunc(p^); inc(p);
+    setlength(result.Weight,result.WeightCount);
+    for i:=0 to result.WeightCount-1 do begin
+      result.Weight[i].NodeIndex:=trunc(p^); inc(p);
+      result.Weight[i].Weight:=p^; inc(p);
+    end;
+  end else begin
+     result.WeightCount:=0;
+     setlength(result.Weight,result.WeightCount);
+  end;
+  p:=pp; freemem(p,length(t)*4);
+{
+
+  t:=s; i:=1;
+  while t[i]=' ' do inc(i); delete(t,1,i-1);
   i:=pos(' ',t);
-  result.BoneIndex:=StrToInt(copy(t,1,i-1));Delete(t,1,i);
-  i:=pos(' ',t);
-  result.p[0]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
-  i:=pos(' ',t);
-  result.p[1]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
-  i:=pos(' ',t);
-  result.p[2]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
-  i:=pos(' ',t);
-  result.n[0]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
-  i:=pos(' ',t);
-  result.n[1]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
-  i:=pos(' ',t);
-  result.n[2]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
-  i:=pos(' ',t);
-  result.u:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
-  i:=pos(' ',t);
+  result.BoneIndex:=StrToInt(copy(t,1,i-1));Delete(t,1,i); i:=1;
+  while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
+  result.p[0]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i); i:=1;
+  while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
+  result.p[1]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i); i:=1;
+  while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
+  result.p[2]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i); i:=1;
+  while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
+  result.n[0]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i); i:=1;
+  while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
+  result.n[1]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i); i:=1;
+  while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
+  result.n[2]:=StrToFloat(copy(t,1,i-1));Delete(t,1,i); i:=1;
+  while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
+  result.u:=StrToFloat(copy(t,1,i-1));Delete(t,1,i); i:=1;
+  while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
   if i=0 then begin
      result.v:=StrToFloat(t);
      result.WeightCount:=0;
      setlength(result.Weight,result.WeightCount);
   end else begin
-    result.v:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
-    i:=pos(' ',t);
-    result.WeightCount:=StrToInt(copy(t,1,i-1));Delete(t,1,i);
+    result.v:=StrToFloat(copy(t,1,i-1));Delete(t,1,i); i:=1;
+    while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
+    result.WeightCount:=StrToInt(copy(t,1,i-1));Delete(t,1,i); i:=1;
     setlength(result.Weight,result.WeightCount);
     for j:=0 to result.WeightCount-1 do begin
-        i:=pos(' ',t);
-        result.Weight[j].NodeIndex:=StrToInt(copy(t,1,i-1));Delete(t,1,i);
-        i:=pos(' ',t);
+        while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
+        result.Weight[j].NodeIndex:=StrToInt(copy(t,1,i-1));Delete(t,1,i); i:=1;
+        while t[i]=' ' do inc(i); delete(t,1,i-1); i:=pos(' ',t);
         if i>0 then begin
-          result.Weight[j].Weight:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
+          result.Weight[j].Weight:=StrToFloat(copy(t,1,i-1));Delete(t,1,i); i:=1;
         end else result.Weight[j].Weight:=StrToFloat(t);
     end;
   end;
-  for j:=1 to result.WeightCount-1 do begin
-    if result.Weight[j].Weight>result.Weight[0].Weight then begin
-      result.Weight[0].Weight:=result.Weight[j].Weight;
-      result.BoneIndex:=result.Weight[0].NodeIndex;
+}
+{
+  if result.WeightCount>0 then begin
+    result.BoneIndex:=result.Weight[0].NodeIndex;
+//    result.Weight[0].Weight:=result.Weight[0].Weight;
+    for j:=1 to result.WeightCount-1 do begin
+      if result.Weight[j].Weight>result.Weight[0].Weight then begin
+        result.Weight[0].Weight:=result.Weight[j].Weight;
+        result.BoneIndex:=result.Weight[j].NodeIndex;
+      end;
     end;
   end;
-  if (result.WeightCount=1) then
-     result.BoneIndex:=result.Weight[0].NodeIndex;
+}
+//  if (result.WeightCount=1) then
+//     result.BoneIndex:=result.Weight[0].NodeIndex;
+end;
+
+Procedure DecreaseWeights(var Mesh: TSMDMesh; WeightsCount: integer = 4);
+var i,j,k,n: integer;
+    tr: TSMDTriangle;
+    tempi: array of integer;
+    temps: array of single;
+procedure RebuildWeights(var V: TSMDVertex);
+  var i,j,k: integer;
+      sum: single;
+      w: array of TPointWeight;
+      p: TPointWeight;
+  begin
+    if V.WeightCount>0 then v.BoneIndex:=v.Weight[0].NodeIndex;
+    if V.WeightCount<=WeightsCount then exit;
+    sum:=0; setlength(w,V.WeightCount);
+    for i:=0 to V.WeightCount-1 do begin
+      w[i]:=V.Weight[i];
+      for j:=i+1 to V.WeightCount-1 do
+        if V.Weight[j].Weight>w[i].Weight then begin
+          p:=w[i]; w[i]:=V.Weight[j]; v.Weight[j]:=p;
+        end;
+    end;
+    setlength(V.Weight,WeightsCount);
+    for i:=0 to WeightsCount-1 do sum:=sum+w[i].Weight;
+    for i:=0 to WeightsCount-1 do begin
+      V.Weight[i].Weight:=w[i].Weight/sum;
+      V.Weight[i].NodeIndex:=w[i].NodeIndex;
+    end;
+    v.BoneIndex:=v.Weight[0].NodeIndex;
+//    if WeightsCount=1 then v.BoneIndex:=v.Weight[0].NodeIndex;
+
+
+  end;
+begin
+  if Mesh.MaxWeights<=WeightsCount then exit;
+  setlength(tempi,WeightsCount);
+  setlength(temps,WeightsCount);
+  for i:=0 to length(Mesh.Triangles)-1 do begin
+    tr:=Mesh.Triangles[i];
+    RebuildWeights(tr.v1);
+    RebuildWeights(tr.v2);
+    RebuildWeights(tr.v3);
+    Mesh.Triangles[i]:=tr;
+  end; Mesh.MaxWeights:=WeightsCount;
 end;
 
 Function SMDLoad(FileName: string): TSMDFile;
@@ -321,6 +432,7 @@ begin
     until (n=f.Count) or (f[n]='end');
     n:=n-i-1; Result.TrianglesCount:=n div 4;
     setlength(Result.Mesh.Triangles, Result.TrianglesCount);
+    Result.Mesh.MaxWeights:=0;
     with Result.Mesh do begin
       Textures:=TStringList.Create;
       for j:=0 to Result.TrianglesCount-1 do begin
@@ -329,12 +441,18 @@ begin
           Triangles[j].TextureId:=ti
         else Triangles[j].TextureId:=Textures.Add(s);
         s:=f[j*4+i+2]; Triangles[j].v1:=ParseVertex(s);
+        MaxWeights:=max(MaxWeights,Triangles[j].v1.WeightCount);
         s:=f[j*4+i+3]; Triangles[j].v2:=ParseVertex(s);
+        MaxWeights:=max(MaxWeights,Triangles[j].v1.WeightCount);
         s:=f[j*4+i+4]; Triangles[j].v3:=ParseVertex(s);
+        MaxWeights:=max(MaxWeights,Triangles[j].v1.WeightCount);
       end;
     end;
   end;
   f.Free;
+  DecreaseWeights(Result.Mesh,1);
+  Result.Mesh.MaxWeights:=0;
+
   if Result.FramesCount>1 then MakeSceletonStatic(Result);
   for i:=0 to Result.FramesCount-1 do
       CalcSkeleton(Result.Frames[i],Result.Frames[i]);
@@ -367,6 +485,9 @@ end;
 Procedure IndexingMesh(buff:PVBOBuffer; var iVBO: PVBOBuffer);
 var i,j:integer;
     v,t,n, vt,tt,nt: TAffineVector;
+    b,w: TVector;
+    Joints: PVBOAttribute;
+    Weights: PVBOAttribute;
     f:boolean;
 begin
    InitVBOBuff(ivbo^,buff.FaceType,DrawElements);
@@ -420,6 +541,9 @@ var buff,tempb:PVBOBuffer;
     b1,b2,b3: TSMDNodePos;
     t1,t2,t3:TSMDVertex;
     emin,emax: TAffineVector;
+    Joints: PVBOAttribute;
+    Weights: PVBOAttribute;
+    BoneWeightCount: integer;
 begin
   assert(SMD.TrianglesCount>0,'SMD don''t have meshes');
   //Sort By Texture
@@ -436,10 +560,30 @@ begin
          end;
      end; inc(i);
   until i=SMD.TrianglesCount;
+  BoneWeightCount:=min(SMD.Mesh.MaxWeights,4);
   //Create buffers
   new(buff);InitVBOBuff(buff^,GL_TRIANGLES,DrawArrays);
   buff.RenderBuffs:=[uNormals, uTexCoords];
   buff.UseTwoTexturesCoord:=false;
+{  if SMD.Mesh.MaxWeights>0 then begin
+    new(Joints); Joints.Name:='Joints';
+//    Joints.Size:=BoneWeightCount*Sizeof(TAffineVector);
+    Joints.CCount:=BoneWeightCount;
+    Joints.CSize:=Sizeof(TVector); Joints.CType:=$1406;
+    Joints.AttrType:=atUserAttrib; Joints.Location:=-1;
+    Joints.DataHandler:=TVectorList.Create;
+    if SMD.Mesh.MaxWeights>2 then begin
+      new(Weights); Weights.Name:='Weights';
+  //    Weights.Size:=BoneWeightCount*Sizeof(TAffineVector);
+      Weights.CCount:=BoneWeightCount;
+      Weights.CSize:=Sizeof(TVector); Weights.CType:=$1406;
+      Weights.AttrType:=atUserAttrib; Weights.Location:=-1;
+      Weights.DataHandler:=TVectorList.Create;
+    end else begin
+      Joints.CCount:=4; Buff.CompactWeights:=true;
+    end;
+  end;
+}
   t:=SMD.Mesh.Triangles[0]; i:=0;
   repeat
      tr:=SMD.Mesh.Triangles[i];
@@ -475,9 +619,15 @@ begin
         end;
         Vertexes.Add(t3.p,t2.p,t1.p);
         Normals.Add(t3.n,t2.n,t1.n);
-        TexCoords.Add(affinevectormake(t3.u, t3.v, b3.index{/(SMD.NodesCount-1)}));
-        TexCoords.Add(affinevectormake(t2.u, t2.v, b2.index{/(SMD.NodesCount-1)}));
-        TexCoords.Add(affinevectormake(t1.u, t1.v, b1.index{/(SMD.NodesCount-1)}));
+        if SMD.Mesh.MaxWeights=0 then begin
+          TexCoords.Add(affinevectormake(t3.u, t3.v, b3.index{/(SMD.NodesCount-1)}));
+          TexCoords.Add(affinevectormake(t2.u, t2.v, b2.index{/(SMD.NodesCount-1)}));
+          TexCoords.Add(affinevectormake(t1.u, t1.v, b1.index{/(SMD.NodesCount-1)}));
+        end else begin
+          TexCoords.Add(affinevectormake(t3.u, t3.v, 0));
+          TexCoords.Add(affinevectormake(t2.u, t2.v, 0));
+          TexCoords.Add(affinevectormake(t1.u, t1.v, 0));
+        end;
      end; inc(i);
   until i=SMD.TrianglesCount;
   buff.MatName:=SMD.Mesh.Textures[t.TextureId];
