@@ -75,6 +75,7 @@ Type
 
 
 Function  SMDLoad(FileName: string): TSMDFile;
+Procedure DecreaseWeights(var Mesh: TSMDMesh; WeightsCount: integer = 4);
 
 Function  GetMeshFormSMD(var SMD: TSMDFile; var VBOList:TList; Inverted:boolean=false): integer;
 Procedure UpdateSkeleton(var Source,Dest: array of TSMDNodePos);
@@ -450,8 +451,8 @@ begin
     end;
   end;
   f.Free;
-  DecreaseWeights(Result.Mesh,1);
-  Result.Mesh.MaxWeights:=0;
+//  DecreaseWeights(Result.Mesh,1);
+//  Result.Mesh.MaxWeights:=0;
 
   if Result.FramesCount>1 then MakeSceletonStatic(Result);
   for i:=0 to Result.FramesCount-1 do

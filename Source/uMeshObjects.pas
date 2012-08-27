@@ -520,6 +520,14 @@ Type
       Property Anim: PAnimations read FAnim write FAnim;
   end;
 
+  //WeightsFormat:
+  //wfTC1p: 1 node in the TexCoord0.p
+  //wf2i2w: 2 nodes - 2 index + 2 weights in the new attrib
+  //wf4i4w: 4 nodes - 4 node index in the Attr1, 4 weights in the Attr2
+  TWeightsFormat = (wfTC1p,wf2i2w,wf4i4w);
+
+  TWeightsAttrNames = record IndexAttrName, WeightsAttrName: string; end;
+
   TUniformSMDRender = class (TVBOMeshObject)
     private
       FAnim: PAnimations;
@@ -538,6 +546,10 @@ Type
       FCurrentFrame: TSMDNodes;
       FNodeRadius: single;
       FonUserCulling: TVBOVisibilityEvents;
+      FWeightsCount: integer;
+      FWeightsFormat: TWeightsFormat;
+      FAttrNames: TWeightsAttrNames;
+      FWeightsRebuilded: boolean;
 
       procedure FApplyShader(mo:TObject);
       procedure FUnApplyShader(mo:TObject);
@@ -581,6 +593,9 @@ Type
 
       procedure SaveToFile(FileName: string; compressed: boolean=false);
       procedure LoadFromFile(FileName: string);
+      procedure RebuildWeightsToOne;
+      procedure RebuildWeights(WeightsCount: integer;
+        WeightsFormat: TWeightsFormat; IndexAttrName, WeightAttrName: string);
   end;
 
   TVolumetricLines = class (TVBOMeshObject)
@@ -1863,6 +1878,10 @@ begin
   new(FAnim); FAnim.Animations:=TList.Create;
   FOldFrameNum:=-1; FMeshType:=mtActor;
   FUseBlended:=false; FBlended:=false;
+  FWeightsFormat:=wfTC1p;
+  FAttrNames.IndexAttrName:=''; FAttrNames.WeightsAttrName:='';
+  FWeightsRebuilded:=false;
+  FWeightsCount:=0;
 end;
 
 procedure TUniformSMDRender.FApplyShader(mo: TObject);
@@ -2020,10 +2039,26 @@ begin
   else FSetFrame(FramePosition+n);
 end;
 
+procedure TUniformSMDRender.RebuildWeights(WeightsCount: integer;
+  WeightsFormat: TWeightsFormat; IndexAttrName, WeightAttrName: string);
+begin
+  if FWeightsRebuilded and (FWeightsCount<=WeightsCount) then exit;
+  FWeightsRebuilded:=true; FWeightsCount:=WeightsCount;
+end;
+
+procedure TUniformSMDRender.RebuildWeightsToOne;
+begin
+  if FWeightsRebuilded and (FWeightsCount=1) then exit;
+  DecreaseWeights(FAnim.Mesh.Mesh,1);
+  FAnim.Mesh.Mesh.MaxWeights:=0;
+  FWeightsRebuilded:=true; FWeightsCount:=1;
+end;
+
 procedure TUniformSMDRender.RenderObject(const ViewMatrix: TMatrix);
 begin
-  inherited;
+  if not FWeightsRebuilded then RebuildWeightsToOne;
 
+  inherited;
 end;
 
 procedure TUniformSMDRender.SaveToFile(FileName: string; compressed: boolean);

@@ -794,81 +794,6 @@ begin
   FreeVBOList(MeshList);
   BuildVBOSubMeshes(Mesh3ds);
 
-(*  Obj:=Mesh3ds.Objects;
-  for i:=0 to obj.MeshCount-1 do begin
-    PMesh:=obj.Mesh[i];
-    locmat:=Mat4x3To4x4(PMesh.LocMatrix);
-    if pMesh.NFaces>0 then
-    with pMesh^ do begin
-//-------------------------
-//-------Формируем список граней, отсортированный по материалам
-//-------------------------
-      if NMats>0 then begin
-        for j:=0 to NMats-1 do begin
-          mat:=MatArray[j];
-          l:=Materials.IndexOf(mat.NameStr);
-          if l<0 then l:=Materials.Add(mat.NameStr);
-          for k:=0 to mat.NFaces-1 do
-            FaceArray[mat.FaceIndex[k]].Flag:=l;
-        end;
-      end else for j:=0 to NFaces-1 do FaceArray[j].Flag:=$FFFF;
-
-      for j:=0 to NFaces-2 do begin
-        f:=FaceArray[j];l:=j+1;
-        for k:=j+1 to NFaces-1 do begin
-          f2:=FaceArray[k];
-          if f.Flag=f2.Flag then begin
-            if k<>l then begin
-              ft:=FaceArray[k];
-              FaceArray[k]:=FaceArray[l];
-              FaceArray[l]:=ft; inc(l);
-            end else inc(l);
-          end;
-        end;
-      end;
-//-------------------------
-//-------Формируем, индексируем и генерируем буферы VBO
-//-------------------------
-      mId:=-1; setlength(HashTable,NFaces*3); c:=0;
-      VertexList:=TList.Create;
-      for j:=0 to NFaces-1 do begin
-        if assigned(SmoothArray) then l:=SmoothArray[j] else l:=0;
-        f:=FaceArray[j];
-        if assigned(TextArray) then T:=TextArray[f.V1] else begin T.U:=123456; t.V:=123456;end;
-        AddVertexToHashList(HashTable,c,l,VertexArray[f.V1],T); inc(c);
-        if assigned(TextArray) then T:=TextArray[f.V2] else begin T.U:=123456; t.V:=123456;end;
-        AddVertexToHashList(HashTable,c,l,VertexArray[f.V2],T); inc(c);
-        if assigned(TextArray) then T:=TextArray[f.V3] else begin T.U:=123456; t.V:=123456;end;
-        AddVertexToHashList(HashTable,c,l,VertexArray[f.V3],T); inc(c);
-        if j=0 then mId:=f.Flag;
-        if ((j<NFaces-1) and (FaceArray[j+1].Flag<>mId)) or (j=NFaces-1) then begin
-          setlength(HashTable,c);
-          new(buff); InitVBOBuff(buff^,GL_TRIANGLES,DrawElements);
-          buff.RenderBuffs:=[uNormals,uIndices];
-          buff.MaterialFunc:=MaterialSetter;
-
-          if pMesh.NTextVerts>0 then buff.RenderBuffs:=buff.RenderBuffs+[uTexCoords];
-
-          IndexingHT(HashTable,VertexList,buff.Indices);
-          buff.Vertexes.Count:=VertexList.Count;
-          if uTexCoords in Buff.RenderBuffs then buff.TexCoords.Count:=VertexList.Count;
-          if uNormals in Buff.RenderBuffs then buff.Normals.Count:=VertexList.Count;
-          for c:=0 to VertexList.Count-1 do begin
-            vertex:=VertexList[c]; buff.Vertexes[c]:=vertex.Vertex.V;
-            if uTexCoords in Buff.RenderBuffs then buff.TexCoords[c]:=vertex.Vertex.T;
-          end;
-          VertexList.Clear; RebuildNormals(buff);
-          buff.LocalMatrix:=locmat; buff.Visible:=not IsHidden;
-          if f.Flag<>$FFFF then buff.MatName:=Materials[f.flag];
-          GenVBOBuff(buff^,false);
-          buff.Name:=PMesh.NameStr+'_|_'+inttostr(MeshList.Add(buff)+1);
-          c:=0; setlength(HashTable,(NFaces-j)*3);
-        end;
-      end;
-      VertexList.Free;
-    end;
-  end;
-*)
 //-------------------------
 //-------Создаем материалы и загружаем текстуры
 //-------------------------
@@ -903,7 +828,8 @@ begin
          end;
        end;
 
-       glTex:=FTextures.TextureByName(Materials[i]);
+       glTex:=FTextures.TextureByLocation(path+mat3ds.Texture.Map.NameStr);
+//       FTextures.TextureByName(Materials[i]);
        if not assigned(glTex) then begin
          gltex:=FTextures.AddNewTexture(Materials[i]);
          with glTex do begin

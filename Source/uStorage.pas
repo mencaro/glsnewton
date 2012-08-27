@@ -69,7 +69,7 @@ Type
   end;
 
 procedure CompressStream(inStream, outStream: TStream; const Level: TCompressionLevel = clMax);
-procedure DecompressStream(inStream, outStream: TStream; Offs: Int64 = 0);
+procedure DecompressStream(inStream, outStream: TStream);
 
 implementation
 
@@ -84,10 +84,10 @@ begin
   end;
 end;
 
-procedure DecompressStream(inStream, outStream: TStream; Offs: Int64 = 0);
+procedure DecompressStream(inStream, outStream: TStream);
 var unzip: TDecompressionStream;
 begin
-  outStream.Position:=0; inStream.Position:=Offs;
+  outStream.Position:=0; inStream.Position:=0;
   unzip:=TDecompressionStream.Create(instream);
   try
     outStream.CopyFrom(UnZip, UnZip.Size);

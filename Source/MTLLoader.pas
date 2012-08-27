@@ -5,25 +5,25 @@ Uses Classes, SysUtilsLite, VectorGeometry,
      uMaterials, uTextures, uMaterialObjects;
 Type
    TMTLProgressEvent = procedure (CurrentMatName:string; CurrentMatIndex:integer; MatCount:integer);
-   TGLMTLFile = class (TStringList)
-      private
-         FMaterialList: TStringList;
-         FPath, FFilePath: string;
-         procedure Prepare;
-         procedure LoadMaterials(MatObjLib: TMaterialObjectsLib; const matName : String);overload;
-         procedure LoadTexture(const FileName: string; map: TMapTarget;
-                               TexLib: TTextureLibrary; var Tex: TTexture);
-         function MaterialStringProperty(const materialName, propertyName : String) : String;
-         function MaterialVectorProperty(const materialName, propertyName : String;
-                                         const defaultValue : TVector) : TVector;
-      public
-         onProgress: TMTLProgressEvent;
-         constructor Create;
-         destructor Destroy; override;
-         procedure LoadMaterialLibrary(MTLFileName: string;
-           MatLib: TMaterialObjectsLib); overload;
-         property Path: string read FPath write FPath;
-   end;
+    TGLMTLFile = class (TStringList)
+    private
+       FMaterialList: TStringList;
+       FPath, FFilePath: string;
+       procedure Prepare;
+       procedure LoadMaterials(MatObjLib: TMaterialObjectsLib; const matName : String);overload;
+       procedure LoadTexture(const FileName: string; map: TMapTarget;
+                             TexLib: TTextureLibrary; var Tex: TTexture);
+       function MaterialStringProperty(const materialName, propertyName : String) : String;
+       function MaterialVectorProperty(const materialName, propertyName : String;
+                                       const defaultValue : TVector) : TVector;
+    public
+       onProgress: TMTLProgressEvent;
+       constructor Create;
+       destructor Destroy; override;
+       procedure LoadMaterialLibrary(MTLFileName: string;
+         MatLib: TMaterialObjectsLib); overload;
+       property Path: string read FPath write FPath;
+    end;
 
 
 
@@ -211,16 +211,18 @@ procedure TGLMTLFile.LoadTexture(const FileName: string; map: TMapTarget;
 var TexFileName, TexName: string;
 begin
   TexFileName:=''; TexName:=FileName;
-  Tex:=TexLib.TextureByName(texName,'');
-  if assigned(Tex) then begin
-    tex.MapTargets:=tex.MapTargets+[map]; exit;
-  end;
 
   StringReplace(TexName,'/','\',[rfReplaceAll]);
   StringReplace(TexName,'\\','\',[rfReplaceAll]);
   if FileExists(FPath+texName) then TexFileName:=FPath+texName;
   if FileExists(FFilePath+texName) then TexFileName:=FFilePath+texName;
   assert(TexFileName<>'','Texture '+texName+' not found.');
+  Tex:=TexLib.TextureByLocation(TexFileName);
+  //TexLib.TextureByName(texName,'');
+  if assigned(Tex) then begin
+    tex.MapTargets:=tex.MapTargets+[map]; exit;
+  end;
+
   try
     tex:=TTexture.CreateFromFile(TexFileName,ttTexture2D);
     tex.Name:=texName; TexLib.Add(tex);

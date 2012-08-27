@@ -68,26 +68,28 @@ Type
   TTexture = class;
 
   TTextureLibrary = class (TObjectList)
-     private
-       FHashList: TIntegerList;
-       FOnAdding: TNotifyEvent;
-       function Get(Index: Integer): TTexture;
-       procedure Put(Index: Integer; Item: TTexture);
-     public
-       property Items[Index: Integer]: TTexture read Get write Put; default;
-       property OnAdding: TNotifyEvent read FOnAdding write FonAdding;
+  private
+    FHashList: TIntegerList;
+    FLocHashList: TIntegerList;
+    FOnAdding: TNotifyEvent;
+    function Get(Index: Integer): TTexture;
+    procedure Put(Index: Integer; Item: TTexture);
+  public
+    property Items[Index: Integer]: TTexture read Get write Put; default;
+    property OnAdding: TNotifyEvent read FOnAdding write FonAdding;
 
-       function AddNewTexture(Name:string=''): TTexture;
-       function Add(Texture: TTexture): integer;
-       function TextureByName(Name: string; Location:string = ''): TTexture;
-       function Last: TTexture;
-       procedure Clear; override;
-       procedure Delete(Index: Integer);
-       procedure Insert(Index: Integer; Texture: TTexture);
-       procedure Exchange(Index1, Index2: Integer);
+    function AddNewTexture(Name:string=''): TTexture;
+    function Add(Texture: TTexture): integer;
+    function TextureByName(Name: string; Location:string = ''): TTexture;
+    function TextureByLocation(Location: string): TTexture;
+    function Last: TTexture;
+    procedure Clear; override;
+    procedure Delete(Index: Integer);
+    procedure Insert(Index: Integer; Texture: TTexture);
+    procedure Exchange(Index1, Index2: Integer);
 
-       constructor Create;
-       destructor Destroy; override;
+    constructor Create;
+    destructor Destroy; override;
   end;
 
 
@@ -1745,6 +1747,7 @@ begin
    SetFilters(mnLinearMipmapLinear, mgLinear);
    if target = ttTexture2D then CreateRGB8Texture2D(w,h,data);
    if target = ttTextureRectangle then CreateRGB8TextureRECT(w,h,data);
+   FLocation:='TBitmap'+inttostr(integer(bmp));
 end;
 
 procedure TTexture.SetMagFilter(const Value: TMagFilter);
@@ -1868,6 +1871,7 @@ begin
      FreeMem(dds.Data,dds.ReservedMem);
 //     dispose(dds.Data);
      Dispose(dds); dds:=nil;
+     FLocation:=FileName;
      exit;
    end;
    assert(FTexture.Target<>0,'Texture target is not setted');
@@ -2019,6 +2023,8 @@ begin
  Result := inherited Add(Texture);
  Hash:=StringHashKey(texture.FInternalName);
  FHashList.Add(Hash);
+ Hash:=StringHashKey(texture.FLocation);
+ FLocHashList.Add(Hash);
  if assigned(FOnAdding) then FOnAdding(self);
 end;
 
@@ -2044,6 +2050,7 @@ constructor TTextureLibrary.Create;
 begin
   inherited;
   FHashList:=TIntegerList.Create;
+  FLocHashList:=TIntegerList.Create;
 end;
 
 procedure TTextureLibrary.Delete(Index: Integer);
@@ -2064,7 +2071,7 @@ begin
          TTexture(Items[i]).Free; Items[i]:=nil;
       end;
   end;
-  FHashList.Free;
+  FHashList.Free; FLocHashList.Free;
   inherited;
 end;
 
@@ -2072,6 +2079,7 @@ procedure TTextureLibrary.Exchange(Index1, Index2: Integer);
 begin
   inherited Exchange(Index1, Index2);
   FHashList.Exchange(Index1, Index2);
+  FLocHashList.Exchange(Index1, Index2);
 end;
 
 function TTextureLibrary.Get(Index: Integer): TTexture;
@@ -2085,6 +2093,8 @@ begin
   inherited Insert(Index, Texture);
   Hash:=StringHashKey(Texture.FInternalName+'_');
   FHashList.Insert(Index,Hash);
+  Hash:=StringHashKey(Texture.FLocation);
+  FLocHashList.Insert(Index,Hash);
 end;
 
 function TTextureLibrary.Last: TTexture;
@@ -2099,20 +2109,35 @@ begin
   if Item.Owner=nil then Item.Owner:=Self;
   Hash:=StringHashKey(Item.FInternalName+'_'+Item.FLocation);
   FHashList[Index]:=Hash;
+  Hash:=StringHashKey(Item.FLocation);
+  FLocHashList[Index]:=Hash;
+end;
+
+function TTextureLibrary.TextureByLocation(Location: string): TTexture;
+var n, i: integer;
+begin
+  if Location='' then begin result:=nil; exit; end;
+  n:=StringHashKey(Location); i:=0;
+  while (i<=FLocHashList.Count-1) do begin
+    if n=FLocHashList[i] then
+      if Items[i].FLocation=Location then Break;
+      inc(i);
+  end;
+  if i<FLocHashList.Count then result:=Items[i] else result:=nil;
 end;
 
 function TTextureLibrary.TextureByName(Name,Location: string): TTexture;
 var n, i: integer;
     hName: string;
 begin
-    hName:=Name+'_'+Location;
-    n:=StringHashKey(hName); i:=0;
-    while (i<=FHashList.Count-1) do begin
-        if n=FHashList[i] then
-           if Items[i].FInternalName=hName then Break;
-        inc(i);
-    end;
-    if i<FHashList.Count then result:=Items[i] else result:=nil;
+  hName:=Name+'_'+Location;
+  n:=StringHashKey(hName); i:=0;
+  while (i<=FHashList.Count-1) do begin
+      if n=FHashList[i] then
+         if Items[i].FInternalName=hName then Break;
+      inc(i);
+  end;
+  if i<FHashList.Count then result:=Items[i] else result:=nil;
 end;
 
 end.
