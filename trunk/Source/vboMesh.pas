@@ -169,6 +169,21 @@ Type
     property Textures: TTextureLibrary read FTextures;
   end;
 
+  TMeshGroupItem = class (TVBOMeshItem)
+  private
+    FBeforeList: TMeshCollection;
+    FAfterList: TMeshCollection;
+    FItems: TMeshCollection;
+  public
+    procedure Process; override;
+    constructor Create;
+    destructor Destroy; override;
+
+    property BeforeList: TMeshCollection read FBeforeList;
+    property AfterList: TMeshCollection read FAfterList;
+    property Items: TMeshCollection read FItems;
+  end;
+
   TMeshContainer = class;
 
   TMeshCollection = class (TVBOMeshItem)
@@ -176,7 +191,6 @@ Type
     FMeshList: TList;
     FExtentsBuilded: Boolean;
     FExtents: TExtents;
-    FSortDirection: TSortDirection;
     FMaterials: TMaterialLibrary;
     FTextures: TTextureLibrary;
     FShaders: TShaders;
@@ -184,8 +198,9 @@ Type
     FMaterialObjects: TMaterialObjectsLib;
     FStructureChanged: boolean;
     FExpand: boolean;
-    FPriority: integer;
     FOcclusionCulling: boolean;
+    FSortingType: TSortingType;
+    FCullingMode: TCullingMode;
 
     function GetMesh(Index: Integer): TVBOMeshItem;
     function GetCount: integer;
@@ -207,9 +222,7 @@ Type
     property Lights: TLightLibrary read FLights write FLights;
     property MaterialObjects: TMaterialObjectsLib read FMaterialObjects;
 
-    property SortDirection: TSortDirection read FSortDirection write FSortDirection;
     property ExpandingRequired: boolean read FExpand write FExpand;
-    property Priority: integer read FPriority write FPriority;
     property OcclusionCulling: boolean read FOcclusionCulling write FOcclusionCulling;
 
     Procedure DeleteMeshObject(MeshObject: TVBOMeshItem; FreeObject: boolean=true);overload;
@@ -244,12 +257,13 @@ Type
     Function AddMeshObject(mo:TVBOMeshObject; owned: boolean = true): integer;
     Function AddSMDAnimation(MeshFile: string; const AnimFiles: array of string): TVBOMeshObject;overload;
     Function AddSMDAnimation(SMD: TSkeletalRender):TVBOMeshObject; overload;
-    Function AddUniformSMD(MeshFile: string; const AnimFiles: array of string): TUniformSMDRender;overload;
+    Function AddUniformSMD(MeshFile: string; const AnimFiles: array of string; TexPath: string=''): TUniformSMDRender;overload;
     Function AddUniformSMD(SMD: TUniformSMDRender): TUniformSMDRender; overload;
     Function AddNewCollection: TMeshCollection;
     Function AddCollection(MeshCollection: TMeshCollection; Expand: boolean = false): integer;
     Function AddNewContainer: TMeshContainer;
     Function AddRenderEvent(REvent: TObjectRenderEvents): TRenderEventItem;
+    Function AddMeshGroup: TMeshGroupItem;
 
     Function  GetObjectByName(Name: string): TVBOMeshItem;
     Procedure GetObjectListByType(ObjType: TMeshTypes; var List: TList);
@@ -310,6 +324,7 @@ Type
       FViewer: TViewerSettings;
       FRender: TRenderShell;
       FCamera: TCameraController;
+      FSortDirection: TSortDirection;
       FOldRender: boolean;
 
       function GetVisibleObjects(const Frustum: TFrustum): TList;
@@ -332,6 +347,7 @@ Type
       property SceneOctree: TSceneOctree read FSceneOctree;
       property ViewMatrix: TMatrix read FViewMatrix write SetViewMatrix;
       property Camera: TCameraController read FCamera write FCamera;
+      property SortDirection: TSortDirection read FSortDirection write FSortDirection;
       property OldRender: boolean read FOldRender write FOldRender;
 
       Procedure DoRender;
@@ -503,7 +519,7 @@ begin
   Visible:=true;
   FOcclusionCulling:=false;
   FOccluder:=CreateCubicOccluder;
-  FSortDirection:=sdNone;
+  //FSortDirection:=sdNone;
   FQueryObjectList:=TList.Create;
   FQueryObjectList.Capacity:=100000;
   FSceneOctree:=TSceneOctree.Create;
@@ -1416,11 +1432,11 @@ begin
   OctreeBuilded:=false;
   Visible:=true;
   FParent:=nil; FOwner:=nil;
-  FSortDirection:=sdNone;
   FItemType:=mcCollection;
   FStructureChanged:=false;
   FExpand:=false;
-  FPriority:=0;
+  FSortingType:=stAuto;
+  FCullingMode:=cmSeparate;
 end;
 
 constructor TMeshCollection.CreateAsChild(aParent: TVBOMeshItem);
@@ -1691,6 +1707,15 @@ begin
   mo.IndexInMesh:=FMeshList.Add(mo);
   mo.Owner:=self;
   mo.UpdateMaterialList;
+  FStructureChanged:=true;
+end;
+
+function TMeshCollection.AddMeshGroup: TMeshGroupItem;
+var mg: TMeshGroupItem;
+begin
+  mg:=TMeshGroupItem.Create;
+  result:=mg; FMeshList.Add(mg);
+  mg.Owner:=self;
   FStructureChanged:=true;
 end;
 
@@ -2144,7 +2169,7 @@ begin
 end;
 
 function TMeshCollection.AddUniformSMD(MeshFile: string;
-  const AnimFiles: array of string): TUniformSMDRender;
+  const AnimFiles: array of string; TexPath: string): TUniformSMDRender;
 var mo: TUniformSMDRender;
     i: integer;
     path,s,t: string;
@@ -2169,17 +2194,27 @@ begin
     UpdateExtents; UpdateWorldMatrix;
     NodeRadius:=BaundedRadius/10;
     //Load Materials
-    path:=ExtractFilePath(MeshFile);
-    if path<>'' then if path[length(path)]<>'\' then path:=path+'\';
+    path:=CheckPath(ExtractFilePath(MeshFile));
+    if TexPath='' then path:=ExtractFilePath(MeshFile)
+    else path:=ExtractFilePath(MeshFile)+TexPath;
+    path:=CheckPath(path);
+
+//    if path<>'' then if path[length(path)]<>'\' then path:=path+'\';
     for i:=0 to mo.Anim.Mesh.Mesh.Textures.Count-1 do begin
        s:=mo.Anim.Mesh.Mesh.Textures[i];
        t:=s; delete(t,length(t)-4,4);
-       Tex:=TTexture.CreateFromFile(path+s);
-       Tex.Name:=t; FTextures.Add(Tex);
-       mat:=TMaterialObject.Create;
-       mat.AttachTexture(tex);
-       mat.Name:=t;
-       MatObjLib.Add(mat);
+       mat:=MatObjLib.MaterialByName(t);
+       if not assigned(mat) then begin
+         Tex:=FTextures.TextureByLocation(path+s);
+         if not assigned(tex) then begin
+           Tex:=TTexture.CreateFromFile(path+s);
+           Tex.Name:=t; FTextures.Add(Tex);
+         end;
+         mat:=TMaterialObject.Create;
+         mat.AttachTexture(tex);
+         mat.Name:=t;
+         MatObjLib.Add(mat);
+       end;
     end;
     RotateAroundX(-pi/2);
     //Disable Frame interpolation
@@ -2408,6 +2443,33 @@ end;
 function TMeshCollection.Last: TVBOMeshItem;
 begin
   result:=FMeshList.Last;
+end;
+
+{ TMeshGroupItem }
+
+constructor TMeshGroupItem.Create;
+begin
+  inherited Create;
+  FItemType:=mcGroup;
+  FBeforeList:=TMeshCollection.Create;
+  FAfterList:=TMeshCollection.Create;
+  FItems:=TMeshCollection.Create;
+end;
+
+destructor TMeshGroupItem.Destroy;
+begin
+  FBeforeList.Free;
+  FAfterList.Free;
+  FItems.Free;
+  inherited;
+end;
+
+procedure TMeshGroupItem.Process;
+begin
+  inherited;
+  FBeforeList.Process;
+  FItems.Process;
+  FAfterList.Process;
 end;
 
 { TGLSceneMeshAdapter }

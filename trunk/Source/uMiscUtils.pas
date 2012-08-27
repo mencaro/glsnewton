@@ -78,6 +78,8 @@ function StrToFloat(s:string):Single;
 function FloatToStr(x: double; width: byte=10; decimals: byte=6): string;
 function IntToStr(x:integer):string;
 
+function CheckPath(Path: string): string;
+
 implementation
 
 function BufferHash(const Buffer; Count: integer): word; assembler;
@@ -201,6 +203,11 @@ asm
         JNE     @@1
 end;
 
+function CheckPath(Path: string): string;
+begin
+  if path<>'' then if path[length(path)]<>'\'
+  then result:=path+'\' else result:=path;
+end;
 
 { TTextFileParser }
 

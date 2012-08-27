@@ -8,10 +8,23 @@ Type
   TTransformsTypes = (ttPosition, ttScale, ttRotation, ttModel, ttParent, ttFollow, ttAll);
   TTransforms = set of TTransformsTypes;
   TMeshCollectionItem = (mcMeshObject, mcContainer, mcCollection, mcEffect,
-    mcCommands, mcRender, mcGUI, mcUnknown, mcRenderEvent);
+    mcCommands, mcRender, mcGUI, mcUnknown, mcRenderEvent, mcGroup);
   TProcessChilds = (pcNone, pcBefore, pcAfter);
   TSortDirection = (sdFrontToBack, sdBackToFront, sdNone);
   TNotification = (ntTransformationsChanged, ntRemoved, ntUnsibscribe);
+
+  //cmDisabled - skip visibility checking (allways visible)
+  //cmHierarchical - all childs visible if parent visible
+  //cmCompaund - checking visibility of combined AABB of all childs
+  //smSeparate - visibility of each object checking individually
+  TCullingMode = (cmDisabled, cmHierarchical, cmCompaund, cmSeparate);
+  //stDisabled - rendering in sequence
+  //stPriority - rendering by priority index
+  //stFrontToBack/stBackToFront - sort by distance
+  //stBlendedLast - separate opaque and blended objects, blended sorted and rendered last
+  //stAuto - separate opaque, instanced and blended objects, sort opaque object as FrontToBack,
+  //         sort object into Instance by instance rules, sort blended as BackToFront
+  TSortingType = (stDisabled, stPriority, stFrontToBack, stBackToFront, stBlendedLast, stAuto);
 
   TViewerSettings = record
     ViewPort: THomogeneousIntVector;
@@ -42,6 +55,7 @@ Type
 
   TVBOMeshItem = class(TPersistentResource)
   private
+    FPriority: single;
     procedure setParent(const Value: TVBOMeshItem);
     procedure setChilde(const Value: TVBOMeshItem);
   protected
@@ -75,6 +89,7 @@ Type
     procedure Process; virtual;
     property MeshItemType: TMeshCollectionItem read FItemType;
     property Name: string read FName write FName;
+    property Priority: single read FPriority write FPriority;
     property ProcessChilds: TProcessChilds read FProcessChilds write FProcessChilds;
     property UseParentViewer: boolean read FUseParentViewer write FUseParentViewer;
     property ParentViewer: PViewerSettings read FParentViewer write FParentViewer;
@@ -269,6 +284,7 @@ constructor TVBOMeshItem.Create;
 begin
   inherited;
   FActive:=true;
+  FPriority:=0;
   FItemType:=mcUnknown;
   FParent:=nil; FOwner:=nil;
   FName:=''; FChilde:=nil;
