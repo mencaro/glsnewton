@@ -957,6 +957,7 @@ begin
   if FMeshType = mtInstance then exit;
   if (not WorldMatrixUpdated) then UpdateWorldMatrix;
   m:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
+  ClearProxyMatrix;
   if FProxyList.Count>0 then RebuildProxyList(ViewMatrix, m);
 
   glPushMatrix;

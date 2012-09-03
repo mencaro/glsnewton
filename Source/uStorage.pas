@@ -19,6 +19,7 @@ Type
     ObjClassName: ansistring;
     Handler: TStorageHeader;
     DataObject: TPersistentResource;
+    ResourceId: string;
     FriendlyName: string;
 
     procedure Assign(DataHeader: TDataHeader);
@@ -213,6 +214,7 @@ begin
   Handler:=DataHeader.Handler;
   DataObject:=DataHeader.DataObject;
   FriendlyName:=DataHeader.FriendlyName;
+  ResourceId:=DataHeader.ResourceId;
   FSourceObject:=DataHeader;
 end;
 
@@ -246,6 +248,7 @@ begin
   n:=length(DataObject.ClassName);
   result:=2*sizeof(int64)+sizeof(boolean)+16+sizeof(integer)+n;
   n:=length(FriendlyName); result:=result+n;
+  n:=length(ResourceId); result:=result+n;
 end;
 
 { TDataStorage }
@@ -268,6 +271,7 @@ begin
     assert((not assigned(dh)),'Object with name: "'+FriendlyName+'" allready in storage');
   end;
   result.FriendlyName:=FriendlyName;
+  result.ResourceId:=Obj.ResourceId;
   FActiveHeader.ObjList.Add(result);
   FModified:=true;
 end;
@@ -290,6 +294,7 @@ begin
     assert((not assigned(dh)),'Object with name: "'+FriendlyName+'" allready in storage');
   end;
   result.FriendlyName:=FriendlyName;
+  result.ResourceId:=Obj.ResourceId;
   FActiveHeader.ObjList.Add(result);
   FModified:=true;
 end;

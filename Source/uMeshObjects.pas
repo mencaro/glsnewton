@@ -96,6 +96,10 @@ Type
     procedure SetBlending(const Value: TBlendingModes);
     function getMasterProxy: TVBOMeshObject;
     procedure setMasterProxy(const Value: TVBOMeshObject);
+    procedure AddInstance(MeshObject: TVBOMeshObject);
+    procedure RemoveInstance(Index: integer); overload;
+    procedure RemoveInstance(MeshObject: TVBOMeshObject); overload;
+
   Protected
     FUseRenderList: boolean;
     FRenderList:TList;
@@ -122,6 +126,7 @@ Type
 
     function SetMaterialName(const Name: string): TMaterialObject;
     procedure ResetBlending;
+    procedure ClearProxyMatrix;
   Public
     MeshList: TList; //список VBO буферов
     Materials: TStringList;
@@ -710,6 +715,11 @@ begin
     ResetMatrices; UpdateWorldMatrix; UpdateMaterialList;Visible:=true;
 end;
 
+procedure TVBOMeshObject.AddInstance(MeshObject: TVBOMeshObject);
+begin
+  ProxyList.Add(MeshObject);
+end;
+
 procedure TVBOMeshObject.AddLod(LOD: TVBOMeshObject; MaxViewDistance: single);
 var l: PLODs;
 begin
@@ -770,6 +780,18 @@ begin
   FProxyList.Clear;
 end;
 
+procedure TVBOMeshObject.ClearProxyMatrix;
+var i: integer;
+  pm: PMatrix;
+begin
+  for i:=0 to FProxyMatrixList.Count-1 do begin
+    pm:=FProxyMatrixList[i];
+    if pm<>nil then dispose(pm);
+    FProxyMatrixList[i]:=nil;
+  end;
+  FProxyMatrixList.Clear;
+end;
+
 constructor TVBOMeshObject.Create;
 begin
   FHandle:=inherited Create;
@@ -812,10 +834,18 @@ var i: integer;
     pd: PMultiRenderDescr;
     m: PMatrix;
     pl: PLODs;
+    mo: TVBOMeshObject;
 begin
   Visible:=false;
-  if assigned(FParams) and (FMeshType<>mtPoints) then begin
+  if assigned(FParams) and ((FMeshType<>mtPoints) or (FMeshType=mtInstance))
+  then begin
     MeshList:=nil; FOctreeList:=nil; FLodList:=nil;
+    if FMeshType=mtInstance then begin
+      try
+        TVBOMeshObject(FParams).RemoveInstance(self);
+      except
+      end;
+    end;
   end else begin
     FreeVBOList(MeshList,true); MeshList.Free;
     for i:=0 to FOctreeList.Count-1 do begin
@@ -1101,12 +1131,14 @@ var i,j,n: integer;
 begin
 //  F := GetFrustum(Matrices.ProjectionMatrix, ViewMatrix);
   F := ParentViewer.Frustum;
+{
   for i:=0 to FProxyMatrixList.Count-1 do begin
     pm:=FProxyMatrixList[i];
     if pm<>nil then dispose(pm);
     FProxyMatrixList[i]:=nil;
   end;
   FProxyMatrixList.Clear;
+}
   if Visible then begin
     if (not IsVolumeClipped(Extents, F))
     and (not FCulled) then begin
@@ -1141,6 +1173,19 @@ begin
   end;
 end;
 
+procedure TVBOMeshObject.RemoveInstance(Index: integer);
+begin
+  ProxyList.Delete(Index);
+  ClearProxyMatrix;
+end;
+
+procedure TVBOMeshObject.RemoveInstance(MeshObject: TVBOMeshObject);
+var i: integer;
+begin
+  i:=ProxyList.IndexOf(MeshObject);
+  if i>=0 then RemoveInstance(i);
+end;
+
 procedure TVBOMeshObject.RenderObject(const ViewMatrix:TMatrix);
 var m: TMatrix;
     mv: TMatrix;
@@ -1163,7 +1208,7 @@ begin
   mv:=MatrixMultiply(Matrices.WorldMatrix,ViewMatrix);
   m:=mv;
   glPushMatrix;
-
+  ClearProxyMatrix;
   if FProxyList.Count>0 then RebuildProxyList(ViewMatrix, mv);
 
   if FFBO.Active then FFBO.Apply;
@@ -1436,6 +1481,11 @@ var i,j,k,n,count, pmcount: integer;
     P: PVBOBuffer;
 begin
    pmcount:=FProxyMatrixList.Count; if pmcount=0 then pmcount:=1;
+   if FMeshType=mtInstance then begin
+     result:=pmCount*TVBOMeshObject(FParams).PolygonsCount;
+     FPolyCount:=Result;
+     exit;
+   end;
 
    if FPolyCount<>-1 then result:=FPolyCount*pmcount;
    count:=0;n:=0;
@@ -1465,7 +1515,7 @@ begin
       count:=count+n;
    end;
 
-   Result:=Count*pmCount; FPolyCount:=Count;
+   Result:=Count*pmCount; FPolyCount:=Result;
 end;
 
 function TVBOMeshObject.getShader: TShaderProgram;
