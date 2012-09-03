@@ -318,7 +318,7 @@ var i,n: integer;
     res: TPersistentResource;
 begin
   inherited;
-    nullGUID:=TGUID.Empty;
+    FillChar(nullGUID, Sizeof(nullGUID), 0);
     FUseParentViewer:=ReadBool(s);
     FItemType:=TMeshCollectionItem(ReadInt(s));
     fguid:=ReadGUID(s);
@@ -368,7 +368,7 @@ var i,n: integer;
     nullGUID: TGUID;
 begin
   inherited;
-    nullGUID:=TGUID.Empty;
+    FillChar(nullGUID, Sizeof(nullGUID), 0);
     WriteBool(FUseParentViewer,s);
     WriteInt(integer(FItemType),s);
     if assigned(FParent) then WriteGUID(FParent.GUID,s)

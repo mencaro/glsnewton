@@ -1084,13 +1084,15 @@ procedure TVBOMesh.DeleteMeshObject(MeshObject: TVBOMeshObject; FreeObject: bool
 var i:integer;
 begin
   i:=FMeshList.IndexOf(MeshObject);
-  DeleteMeshObject(i,FreeObject);
+  if i>=0 then DeleteMeshObject(i,FreeObject);
   FStructureChanged:=true;
 end;
 
 procedure TVBOMesh.DeleteMeshObject(index: integer; FreeObject: boolean);
 var MeshObject: TVBOMeshObject;
+    n:integer;
 begin
+   if index<0 then exit;
    MeshObject:=FMeshList[index];
    if FreeObject then FreeAndNil(MeshObject);
    FMeshList.Delete(index);
@@ -1662,6 +1664,7 @@ var fext,tPath: string;
     mo: TVBOMeshObject;
     objfile: TOBJLoader;
     mtl: TGLMTLFile;
+    t: double;
 begin
   fext:=Uppercase(ExtractFileExt(FileName)); tpath:='';
   assert((fext='.3DS') or (fext='.OBJ'),'Unsupported file type: "'+fext+'"');
@@ -2113,6 +2116,7 @@ begin
     BaseExtents:=MasterObject.BaseExtents;
     UpdateWorldMatrix; UpdateMaterialList;
   end;
+//  MasterObject.AddInstance(mo);
   MasterObject.ProxyList.Add(mo);
   result:=mo; mo.IndexInMesh:=FMeshList.Add(mo);
   mo.MatLib:=FMaterials; mo.TexLib:=FTextures; mo.MatObjLib:=FMaterialObjects;
@@ -2341,6 +2345,7 @@ end;
 procedure TMeshCollection.DeleteMeshObject(index: integer; FreeObject: boolean);
 var MeshObject: TVBOMeshObject;
 begin
+  if index<0 then exit;
   MeshObject:=FMeshList[index];
   if FreeObject then FreeAndNil(MeshObject);
   FMeshList.Delete(index);
@@ -2532,7 +2537,9 @@ begin
         if TVBOMeshObject(mi).MeshPlacement=mpBackground then FEnvObjects.Add(mi)
         else if TVBOMeshObject(mi).MeshPlacement=mpForeground then FFGObjects.Add(mi)
 //        if TVBOMeshObject(mi).MeshType=mtScreenQuad then FEnvObjects.Add(mi)
-        else if TVBOMeshObject(mi).MeshType=mtProxy then FProxyObjects.Add(mi)
+        else if (TVBOMeshObject(mi).MeshType=mtProxy)
+             //or (TVBOMeshObject(mi).MeshType=mtInstance) then
+             then FProxyObjects.Add(mi)
         else if TVBOMeshObject(mi).MaterialObject.IsTransparency
         then FTransparencyMeshObjects.Add(mi)
         else FOpaqueMeshObjects.Add(mi);

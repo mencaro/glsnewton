@@ -33,6 +33,8 @@ type
     GUID: TGUID;
     Version: integer;
     Storage: TObject;
+    ResourceId: string;
+    FriendlyName: string;
     procedure SaveToStream(s: TStream); virtual;
     procedure LoadFromStream(s: TStream); virtual;
     procedure SetGUID(GUIDString: string);
@@ -225,6 +227,8 @@ begin
   t:=ReadString(s);
   GUID:=ReadGUID(s);
   Version:=ReadInt(s);
+  ResourceId:=ReadString(s);
+  FriendlyName:=ReadString(s);
 end;
 
 function TPersistentResource.ReadBool(const stream: TStream): boolean;
@@ -267,6 +271,8 @@ begin
   WriteString(ClassName,s);
   WriteGUID(GUID,s);
   WriteInt(Version,s);
+  WriteString(ResourceId,s);
+  WriteString(FriendlyName,s);
 end;
 
 procedure TPersistentResource.SetGUID(GUIDString: string);
@@ -328,7 +334,7 @@ begin
   result:=nil;
   for i:=0 to Count-1 do begin
     res:=Items[i];
-    if res.GUID=aGUID then begin
+    if IsEqualGUID(res.GUID,aGUID) then begin
       result:=res; exit;
     end;
   end;
