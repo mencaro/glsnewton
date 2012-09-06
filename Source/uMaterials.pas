@@ -2,8 +2,13 @@ unit uMaterials;
 
 interface
 
-Uses Classes, Contnrs, VectorTypes, VectorGeometry, SysUtilsLite,
-     IniFiles, Vectorlists, uMiscUtils, OpenGL1x, OGLStateEmul;
+Uses Classes, Contnrs, VectorTypes, VectorGeometry, SysUtils,
+   {$IFNDEF DIRECTGL}
+     OpenGL1x, VectorLists,
+   {$ELSE}
+     dglOpenGL, uVectorLists,
+   {$ENDIF}
+     IniFiles, uMiscUtils, OGLStateEmul;
 
 Const
   cDiffuseColor: TVector = (0.8,0.8,0.8,1);

@@ -2,7 +2,12 @@ unit uFileSMD;
 
 interface
 Uses Classes, VectorGeometry, uVBO, uMiscUtils,
-     OpenGL1x, VectorLists, SysUtilsLite, OGLStateEmul;
+   {$IFNDEF DIRECTGL}
+     OpenGL1x, VectorLists,
+   {$ELSE}
+     dglOpenGL, uVectorLists,
+   {$ENDIF}
+     SysUtils, OGLStateEmul;
 
 Type
   TSMDNode = record

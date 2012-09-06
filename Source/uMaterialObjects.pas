@@ -3,9 +3,12 @@ unit uMaterialObjects;
 interface
 
 uses Classes, Contnrs,
-     VectorLists,
-     uMiscUtils, uTextures, uMaterials, uShaders,
-     OpenGL1x, OGLStateEmul;
+   {$IFNDEF DIRECTGL}
+     OpenGL1x, VectorLists,
+   {$ELSE}
+     dglOpenGL, uVectorLists,
+   {$ENDIF}
+     uMiscUtils, uTextures, uMaterials, uShaders, OGLStateEmul;
 
 Type
 
@@ -633,7 +636,7 @@ begin
          Items[i].Free; //Items[i]:=nil;
       end;
   end;
-  FHashList.Free;
+  FHashList.Free; FShaderLib.Free;
   inherited;
 end;
 

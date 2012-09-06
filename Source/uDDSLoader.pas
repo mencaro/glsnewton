@@ -2,7 +2,8 @@ unit uDDSLoader;
 
 interface
 
-uses Classes, uMiscUtils, SysUtilsLite, OpenGL1x;
+uses Classes, uMiscUtils, SysUtils,
+  {$IFNDEF DIRECTGL}OpenGL1x;{$ELSE}dglOpenGL;{$ENDIF}
 
 const
 //Pixel formats dwFlags

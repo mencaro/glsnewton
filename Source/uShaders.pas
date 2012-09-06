@@ -9,7 +9,13 @@ unit uShaders;
 
 interface
 
-Uses Classes, Contnrs, VectorLists, OpenGL1x, VectorTypes, uVBO,
+Uses Classes, Contnrs,
+   {$IFNDEF DIRECTGL}
+     OpenGL1x, VectorLists,
+   {$ELSE}
+     dglOpenGL, uVectorLists,
+   {$ENDIF}
+     VectorTypes, uVBO,
      uMiscUtils, OGLStateEmul;
 
 Type
@@ -195,7 +201,7 @@ Type
      property Shaders: TShaders read getShaders;
    end;
 
-   TShaderLibrary = class (TObjectList)
+   TShaderLibrary = class (TList)
    private
      FHashList: TIntegerList;
      FShaderCollection: TShaders;
@@ -262,7 +268,11 @@ begin
            else Logs:=Logs+' Successful'+#13#10;
            glGetShaderiv(VertexObject, GL_INFO_LOG_LENGTH, @val);
            getmem(pLog,val);
+         {$IFNDEF DIRECTGL}
            glGetShaderInfoLog(VertexObject, val, @len, pLog);
+         {$ELSE}
+           glGetShaderInfoLog(VertexObject, val, len, pLog);
+         {$ENDIF}
            if length(pLog)>0 then Logs:=Logs+pLog+#13#10;
            FreeMem(pLog,val);
       end;
@@ -282,7 +292,11 @@ begin
            else Logs:=Logs+' Successful'+#13#10;
            glGetShaderiv(FragmentObject, GL_INFO_LOG_LENGTH, @val);
            getmem(pLog,val);
+         {$IFNDEF DIRECTGL}
            glGetShaderInfoLog(FragmentObject, val, @len, pLog);
+         {$ELSE}
+           glGetShaderInfoLog(FragmentObject, val, len, pLog);
+         {$ENDIF}
            if length(pLog)>0 then Logs:=Logs+pLog+#13#10;
            FreeMem(pLog,val);
       end;
@@ -302,7 +316,11 @@ begin
            else Logs:=Logs+' Successful'+#13#10;
            glGetShaderiv(GeometryObject, GL_INFO_LOG_LENGTH, @val);
            getmem(pLog,val);
+         {$IFNDEF DIRECTGL}
            glGetShaderInfoLog(GeometryObject, val, @len, pLog);
+         {$ELSE}
+           glGetShaderInfoLog(GeometryObject, val, len, pLog);
+         {$ENDIF}
            if length(pLog)>0 then Logs:=Logs+pLog+#13#10;
            FreeMem(pLog,val);
       end;
@@ -352,7 +370,11 @@ begin
   end;
   glGetProgramiv(ProgramId, GL_INFO_LOG_LENGTH, @val);
   getmem(pLog,val);
+{$IFNDEF DIRECTGL}
   glGetProgramInfoLog(ProgramId, val, @len, pLog);
+{$ELSE}
+  glGetProgramInfoLog(ProgramId, val, len, pLog);
+{$ENDIF}
   if length(pLog)>0 then Logs:=Logs+pLog+#13#10;
   FreeMem(pLog,val); Assert(not Error,string(Logs));
 end;
@@ -738,7 +760,11 @@ begin
   glGetObjectParameterivARB (ProgramId, GL_OBJECT_ACTIVE_UNIFORMS_ARB, @count);
   GetMem(names,10000);
   for i:= 0 to count-1 do begin
+  {$IFNDEF DIRECTGL}
      glGetActiveUniform(ProgramId, i, 10000, @l, @size, @dtype, names);
+  {$ELSE}
+     glGetActiveUniform(ProgramId, i, 10000, l, size, dtype, names);
+  {$ENDIF}
      Uniforms.Add(names);
   end;FreeMem(names,10000);
 end;
@@ -952,7 +978,11 @@ begin
     glGetObjectParameterivARB (FProgramId, GL_OBJECT_ACTIVE_UNIFORMS_ARB, @count);
     GetMem(names,10000);
     for i:= 0 to count-1 do begin
-      glGetActiveUniform(FProgramId, i, 10000, @l, @size, @dtype, names);
+  {$IFNDEF DIRECTGL}
+     glGetActiveUniform(FProgramId, i, 10000, @l, @size, @dtype, names);
+  {$ELSE}
+     glGetActiveUniform(FProgramId, i, 10000, l, size, dtype, names);
+  {$ENDIF}
       FUniforms.Add(names);
     end;FreeMem(names,10000);
   end;
@@ -1164,14 +1194,13 @@ end;
 destructor TShaderLibrary.Destroy;
 var i:integer;
 begin
-  OwnsObjects:=false;
+  FHashList.Free;
   for i:=0 to Count-1 do begin
     if assigned(Items[i]) then
       if Items[i].FOwner=Self then begin
         Items[i].Free; Items[i]:=nil;
       end;
   end;
-  FHashList.Free;
   inherited;
 end;
 

@@ -3,8 +3,9 @@ unit uGUI;
 interface
 
 uses Windows, Classes, Controls, Graphics, VectorGeometry,
+   {$IFNDEF DIRECTGL} OpenGL1x, {$ELSE} dglOpenGL,{$ENDIF}
      uMaterialObjects, uBaseClasses,
-     uTextures, uMiscUtils, OpenGL1x, OGLStateEmul;
+     uTextures, uMiscUtils, OGLStateEmul;
 
 Type
   TMouseButtons = set of TMouseButton;

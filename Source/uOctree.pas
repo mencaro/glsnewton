@@ -2,7 +2,9 @@ unit uOctree;
 
 interface
 
-uses Classes, uVBO, GeometryBB, VectorGeometry, VectorTypes, VectorLists, uVectorLists;
+uses Classes, uVBO, GeometryBB, VectorGeometry, VectorTypes,
+     {$IFNDEF DIRECTGL} VectorLists,{$ENDIF}
+     uVectorLists;
 
 Type
   POctreeLevel = ^TOctreeLevel;

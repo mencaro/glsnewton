@@ -2,9 +2,23 @@ unit uVectorLists;
 
 interface
 
-uses VectorTypes, VectorGeometry;
+uses VectorTypes, VectorGeometry, Classes, uBaseResource;
 
 type
+
+  {$IFDEF DIRECTGL}
+    _TIntegerList = class;
+    _TAffineVectorList = class;
+    _TVectorList = class;
+    _TSingleList = class;
+    _TTexPointList = class;
+
+    TIntegerList = _TIntegerList;
+    TAffineVectorList = _TAffineVectorList;
+    TVectorList = _TVectorList;
+    TSingleList = _TSingleList;
+    TTexPointList = _TTexPointList;
+  {$ENDIF}
 
   PExtents = ^TExtents;
   TExtents = record
@@ -15,7 +29,7 @@ type
   TVectorType = (vtInteger, vtSingle, vtDouble, vtVector, vtPoint, vtMat3, vtMat4);
   TSingleArray = array of single;
 
-  TBaseAttribList = class
+  TBaseAttribList = class (TPersistentResource)
   private
     FData: pointer;
     FVectorType: TVectorType;
@@ -32,9 +46,11 @@ type
   public
     constructor Create;
 
-    procedure Clear;virtual; abstract;
-    procedure Delete(Index: Integer);virtual; abstract;
-    procedure Exchange(index1, index2: Integer);virtual; abstract;
+    procedure SaveToStream(s: TStream); virtual; abstract;
+    procedure LoadFromStream(s: TStream); virtual; abstract;
+    procedure Clear; virtual; abstract;
+    procedure Delete(Index: Integer); virtual; abstract;
+    procedure Exchange(index1, index2: Integer); virtual; abstract;
 
     property Data: pointer read GetData;
     property DataSize: integer read GetSize;
@@ -57,6 +73,8 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+
+    procedure Add(SourceList: TIntegerAttribList); overload;
     function Addb(a,b,c,d: byte): integer; overload;
     function Add(index: integer): integer; overload;
     function Add(index1,index2: integer): integer; overload;
@@ -83,9 +101,12 @@ type
     procedure setCount(const Value: integer);override;
     function getItem(Index: integer): single;
     procedure setItem(Index: integer; const Value: single);
+    function getList: PSingleArray;
   public
     constructor Create(VectorType: TVectorType = vtVector);
     destructor Destroy; override;
+
+    procedure Add(SourceList: TVectorAttribList); overload;
 
     function Add(const x: single): integer; overload;
     function Add(const x,y: single): integer; overload;
@@ -136,6 +157,7 @@ type
     procedure Exchange(index1, index2: Integer);override;
 
     property Extents: TExtents read getExtents;
+    property List: PSingleArray read getList;
   end;
 
   _TBaseVectorList = class (TVectorAttribList)
@@ -145,6 +167,14 @@ type
     procedure Normalize3f;
     procedure Lerp(const list1, list2: _TBaseVectorList; lerpFactor: Single);
     procedure Combine(const list2: _TBaseVectorList; factor: Single);
+  end;
+
+  _TSingleList = class(TVectorAttribList)
+  public
+  end;
+
+  _TTexPointList = class(TVectorAttribList)
+  public
   end;
 
   _TAffineVectorList = class (_TBaseVectorList)
@@ -195,6 +225,8 @@ type
     function getList: PIntegerArray;
     procedure Put(Index: Integer; const Value: Integer);
   public
+    procedure Insert(Index: Integer; const item: Integer);
+    procedure Assign(SourceList: _TIntegerList);
     property Items[Index: Integer]: Integer read Get write Put; default;
     property List: PIntegerArray read getList;
   end;
@@ -341,7 +373,7 @@ begin
   if FCapacity<=FCount then GrowList;
   result:=FCount;//FLastIndex div CVectorSize[FVectorType];
   case FVectorType of
-    vtInteger,vtSingle: begin FList[FLastIndex]:=x; inc(FLastIndex,1); end;
+    vtInteger,vtSingle: begin FList[FLastIndex+0]:=x; inc(FLastIndex,1); end;
     vtDouble: begin FList[FLastIndex+0]:=x; FList[FLastIndex+1]:=y; inc(FLastIndex,2); end;
     vtVector: begin
       FList[FLastIndex+0]:=x;
@@ -403,7 +435,7 @@ procedure TVectorAttribList.Clear;
 begin
   FGrowCount:=1; FCapacity:=1;
   setlength(FList,FCapacity*CVectorSize[FVectorType]);
-  FLastIndex:=-1;   FCount:=0;
+  FLastIndex:=0;   FCount:=0;
   VectorGeometry.SetVector(Fmin,0,0,0);
   VectorGeometry.SetVector(Fmax,0,0,0);
 end;
@@ -452,6 +484,11 @@ end;
 function TVectorAttribList.getItem(Index: integer): single;
 begin
   result:=FList[Index];
+end;
+
+function TVectorAttribList.getList: PSingleArray;
+begin
+  result:=@FList[0];
 end;
 
 function TVectorAttribList.GetAsSingle(Index: integer): single;
@@ -618,6 +655,13 @@ begin
   result:=Add(m[0],m[1],m[2],m[3]);
 end;
 
+procedure TVectorAttribList.Add(SourceList: TVectorAttribList);
+begin
+  setCapacity(SourceList.Capacity);
+  System.move(SourceList.FList[0],FList[FLastIndex],SourceList.DataSize);
+  FCount:=FCount+SourceList.Count; FLastIndex:=FCount+1;
+end;
+
 { TIntegerAttribList }
 
 function TIntegerAttribList.Add(index: integer): integer;
@@ -649,6 +693,13 @@ begin
   result:=Add(Index1); Add(Index2); Add(Index3); Add(Index4);
 end;
 
+procedure TIntegerAttribList.Add(SourceList: TIntegerAttribList);
+begin
+  setCapacity(SourceList.Capacity);
+  System.move(SourceList.FList[0],FList[FLastIndex],SourceList.DataSize);
+  FCount:=FCount+SourceList.Count; FLastIndex:=FCount+1;
+end;
+
 function TIntegerAttribList.Addb(a, b, c, d: byte): integer;
 var i: integer;
 begin
@@ -660,7 +711,7 @@ begin
   FGrowCount:=1;
   FCapacity:=FGrowCount;
   setlength(FList,FCapacity);
-  FLastIndex:=-1;   FCount:=0;
+  FLastIndex:=0;   FCount:=0;
   FMin:=0; FMax:=0;
 end;
 
@@ -678,7 +729,7 @@ var i: integer;
 begin
   if Index>=FCount then exit;
   for i:= Index+1 to FCount-1 do FList[i-1]:=FList[i];
-  dec(FCount); FLastIndex:=FCount;
+  dec(FCount); dec(FLastIndex);
 end;
 
 destructor TIntegerAttribList.Destroy;
@@ -722,7 +773,7 @@ end;
 procedure TIntegerAttribList.setCount(const Value: integer);
 begin
   FCount:=Value; setCapacity(Value);
-  FLastIndex:=FCount-1;
+  FLastIndex:=FCount;
 end;
 
 procedure TIntegerAttribList.setItem(Index: integer; const Value: integer);
@@ -970,6 +1021,15 @@ end;
 
 { _TIntegerList }
 
+procedure _TIntegerList.Assign(SourceList: _TIntegerList);
+begin
+  //inherited;
+  Capacity:=SourceList.Capacity;
+  System.Move(SourceList.List^,FList[0],SourceList.Capacity);
+  FCount:=SourceList.Count;
+  FLastIndex:=FCount+1;
+end;
+
 function _TIntegerList.Get(Index: Integer): Integer;
 begin
   result:=FList[Index];
@@ -978,6 +1038,14 @@ end;
 function _TIntegerList.getList: PIntegerArray;
 begin
   result:=PIntegerArray(FData)
+end;
+
+procedure _TIntegerList.Insert(Index: Integer; const item: Integer);
+begin
+  if FCapacity<=FCount then GrowList;
+  if Index < FCount then
+    System.Move(FList[Index], FList[Index + 1], (FCount - Index) * SizeOf(Integer));
+  FList[Index] := Item; Inc(FCount); inc(FLastIndex);
 end;
 
 procedure _TIntegerList.Put(Index: Integer; const Value: Integer);

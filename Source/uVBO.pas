@@ -4,8 +4,13 @@ unit uVBO;
 
 interface
 
-uses VectorTypes, VectorGeometry, VectorLists, Classes, MeshUtils, Types,
-     uMiscUtils, uVectorLists, OpenGL1x, OGLStateEmul;
+uses VectorTypes, VectorGeometry, Classes, Types,
+     {$IFNDEF DIRECTGL}
+     OpenGL1x, VectorLists,
+     {$ELSE}
+     dglOpenGL,
+     {$ENDIF}
+     uMiscUtils, uVectorLists, OGLStateEmul;
 
 type
   TVBORenderType = (DrawArrays, DrawElements, DrawRangedElements, DrawMultiElements);
@@ -270,7 +275,6 @@ type
     Buff: TVBOBuffer;
     IndicesLists: TList;
     UseExIndices: boolean;
-    OptimizeToPostTnLVCache: integer;
     Builded: boolean;
   end;
 
@@ -440,7 +444,6 @@ function GetMaxIndicesCount: GLUInt;
 function GetMaxVertexCount: GLUInt;
 function GetFrustum: TFrustum;overload;
 function GetFrustum(const projMat, mvMat: TMatrix): TFrustum;overload;
-procedure OptimizeIndices(CacheSize: integer; BuffSize: integer; var Buff: TVBOBuffer; var BuffList: TList; GenBuff: boolean = true);
 procedure ExtractTriangles(var Buff: TVBOBuffer; var Triangles: TAffineVectorList);
 procedure ExtractTrianglesTexCoords(var Buff: TVBOBuffer; var trTexCoords: TAffineVectorList);
 
@@ -452,8 +455,11 @@ function isVolumeClipped(const Extents: TExtents; const Frustum:TFrustum): boole
 
 procedure Col2RowMatrix(mm: TMatrix; var m: TMatrix);
 function CreateViewMatrix(const ModelMatrix: TMatrix): TMatrix;
+{$IFNDEF DIRECTGL}
 Function GetViewPort:TVector4i;
-
+{$ELSE}
+Function GetViewPort:TGLVectori4;
+{$ENDIF}
 function GetViewMatrix:TMatrix;
 function GetProjectionMatrix:TMatrix;
 function ProjectPoint(aPoint: TVector; const modelMatrix: TMatrix;
@@ -669,7 +675,7 @@ begin
   fs.free;
 end;
 
-Procedure SaveVBOBuff(Const Buff:TVBOBuffer;FS:TStream);overload;
+Procedure SaveVBOBuff(Const Buff:TVBOBuffer; FS:TStream);overload;
 var count:integer;
     signature:string[14];
 begin
@@ -1113,13 +1119,9 @@ begin
     if (VBuff.IndicesLists.Count > 0) and (VBuff.UseExIndices) then begin
       for i := 0 to VBuff.IndicesLists.Count - 1 do begin
         pidx := VBuff.IndicesLists[i];
-        if VBuff.OptimizeToPostTnLVCache <> 0 then
-          IncreaseCoherency(pidx.Indices, VBuff.OptimizeToPostTnLVCache);
         pidx.IndicesId := GenIndices(pidx.Indices);
       end;
     end else begin
-      if VBuff.OptimizeToPostTnLVCache <> 0 then
-        IncreaseCoherency(Indices, VBuff.OptimizeToPostTnLVCache);
       iId := GenIndices(Indices);
     end;
 
@@ -1252,10 +1254,6 @@ begin
         //dispose(attr);
       end;
      end;
-
-     //FreeAndNil(ExTexCoords);
-     //FreeAndNil(ExTexCoordsId);
-     //FreeAndNil(ExTexEnvMode);
      Cleared:=true;
   end;
 end;
@@ -2228,67 +2226,6 @@ begin
   end;
 end;
 
-procedure OptimizeIndices(CacheSize: integer; BuffSize: integer; var Buff: TVBOBuffer; var BuffList: TList; GenBuff: boolean = true);
-var i, j, k, n, c, d, ic, id, idn: integer;
-  tempIndices: TIntegerList;
-  TempBuff: PVBOBuffer;
-  v, nm, t: TaffineVector;
-  PatchLists: TList;
-begin
-  with Buff do begin
-    n := (BuffSize div 3) * 3; //Align to triangles
-    c := Indices.Count; ic := c div n;
-    tempIndices := TIntegerList.Create;
-    PatchLists := TList.Create;
-    for i := 0 to ic do begin
-      tempIndices.Clear;
-      if i <> ic then d := n else d := c - (ic) * n;
-      tempIndices.Count := d;
-      for j := 0 to d - 1 do tempIndices[j] := Indices[i * n + j];
-      New(TempBuff); InitVBOBuff(TempBuff^, GL_TRIANGLES, DrawElements);
-      for j := 0 to tempIndices.Count - 1 do begin
-        id := tempIndices[j];
-        if id > 0 then begin
-          v := Vertexes[id];
-          TempBuff.Vertexes.Add(v);
-          if Normals.Count > 0 then begin
-            nm := Normals[id];
-            TempBuff.Normals.Add(nm);
-          end;
-          if TexCoords.Count > 0 then begin
-            t := TexCoords[id];
-            TempBuff.TexCoords.Add(t);
-          end;
-          idn := TempBuff.Vertexes.Count - 1;
-          TempBuff.Indices.Add(idn);
-          for k := j to tempIndices.Count - 1 do
-            if tempIndices[k] = id then tempIndices[k] := -idn;
-        end else begin
-          if (id = 0) and (TempBuff.Vertexes.Count = 0) then begin
-            v := Vertexes[id];
-            TempBuff.Vertexes.Add(v);
-            if Normals.Count > 0 then begin
-              nm := Normals[id];
-              TempBuff.Normals.Add(nm);
-            end;
-            if TexCoords.Count > 0 then begin
-              t := TexCoords[id];
-              TempBuff.TexCoords.Add(t);
-            end;
-          end;
-          TempBuff.Indices.Add(abs(id));
-        end;
-      end;
-      PatchLists.Add(TempBuff);
-      if cachesize > 0 then
-        IncreaseCoherency(TempBuff.Indices, cachesize);
-      if GenBuff then GenVBOBuff(TempBuff^, false);
-      TempBuff.RenderBuffs := TempBuff.RenderBuffs;
-    end;
-  end;
-  BuffList := PatchLists;
-end;
-
 procedure ExtractTriangles(var Buff: TVBOBuffer; var Triangles: TAffineVectorList);
 var i,n: integer;
   v, v1, v2, v3: TAffineVector;
@@ -2458,7 +2395,11 @@ begin
   glEnd;
 end;
 
+{$IFNDEF DIRECTGL}
 Function GetViewPort:TVector4i;
+{$ELSE}
+Function GetViewPort:TGLVectori4;
+{$ENDIF}
 begin
   glGetIntegerv(GL_VIEWPORT, @Result);
 end;
@@ -3669,7 +3610,6 @@ initialization
   vCubicOccluder:=CreateCubicOccluder(false);
 
 finalization
-  if vCubicOccluder.Builded then FreeVBOBuffer(vCubicOccluder^)
-  else FreeVBOMem(vCubicOccluder^); dispose(vCubicOccluder);
+  FreeVBOBuffer(vCubicOccluder^); dispose(vCubicOccluder);
 end.
 

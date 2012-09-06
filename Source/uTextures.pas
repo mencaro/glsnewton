@@ -18,8 +18,13 @@ unit uTextures;
 
 interface
 
-Uses Windows, Classes, Contnrs, Graphics, SysUtilsLite, OpenGL1x,
-     VectorLists, GLTextureFormat, Textures, uDDSLoader, VectorGeometry,
+Uses Windows, Classes, Contnrs, Graphics, SysUtils,
+   {$IFNDEF DIRECTGL}
+     OpenGL1x, VectorLists,
+   {$ELSE}
+     dglOpenGL, uVectorLists,
+   {$ENDIF}
+     GLTextureFormat, Textures, uDDSLoader, VectorGeometry,
      OGLStateEmul{$IFDEF Logging},uLogs{$ENDIF};
 
 Type

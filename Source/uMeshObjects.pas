@@ -2,8 +2,13 @@ unit uMeshObjects;
 
 interface
 
-uses Classes, Types, SysUtilsLite,
-     OpenGL1x, GeometryBB, VectorGeometry, VectorLists, Octree,
+uses Classes, Types, SysUtils,
+     {$IFNDEF DIRECTGL}
+     OpenGL1x, VectorLists, Octree,
+     {$ELSE}
+     dglOpenGL, uOctree,
+     {$ENDIF}
+     GeometryBB, VectorGeometry,
      VectorTypes, uVectorLists, uMiscUtils, uBaseClasses, uFileSMD,
      PFXManager, uTextures, uFBO, uVBO, uShaders, uStorage, uBaseResource,
      uMaterials, uMaterialObjects, OGLStateEmul;
@@ -733,7 +738,7 @@ procedure TVBOMeshObject.BuildOctreeList(Level: integer=3);
 var Temp: TOctree;
     P:PVBOBuffer;
     i:integer;
-    TriList:TAffineVectorList;
+    TriList: TAffineVectorList;
 begin
   for i:=0 to MeshList.Count-1 do begin
    TriList:=TAffineVectorList.Create;
@@ -741,11 +746,15 @@ begin
    if (p.Vertexes.Count mod 3) = 0 then
      TriList.Assign(p.Vertexes)
    else ExtractTriangles(P^,TriList);
+ {$IFNDEF DIRECTGL}
    Temp:=TOctree.Create;
    with Temp do begin
     DisposeTree;
     InitializeTree(P.emin, P.emax, TriList, Level);
    end;
+ {$ELSE}
+   Temp:=TOctree.Create(TriList,Level);
+ {$ENDIF}
    FOctreeList.Add(Temp); TriList.Free;
   end;
   FOctreeBuilded:=true;
@@ -1274,7 +1283,7 @@ begin
   if FTwoSides then begin
     //glCullFace(GL_FRONT); glDisable(GL_CULL_FACE);
     //glCullFace(GL_BACK);
-    OpenGL1x.glDisable(GL_CULL_FACE);
+    glDisable(GL_CULL_FACE);
   end else glEnable(GL_CULL_FACE);
   singleMat:=false; CMName:='';
   if not FCulled then begin

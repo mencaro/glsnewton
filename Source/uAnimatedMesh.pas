@@ -2,9 +2,14 @@ unit uAnimatedMesh;
 
 interface
 
-uses classes, File3DS, Types3DS, VectorLists, VectorGeometry,
-     SysUtilsLite, uMeshObjects, uVBO, uMiscUtils, uBaseClasses,
-     uMaterials, uTextures, uMaterialObjects, OpenGL1x, OGLStateEmul;
+uses classes, File3DS, Types3DS, VectorGeometry,
+   {$IFNDEF DIRECTGL}
+     OpenGL1x, VectorLists,
+   {$ELSE}
+     dglOpenGL, uVectorLists,
+   {$ENDIF}
+     SysUtils, uMeshObjects, uVBO, uMiscUtils, uBaseClasses,
+     uMaterials, uTextures, uMaterialObjects, OGLStateEmul;
 
 Type
   TKeyFrameHeader = record

@@ -2,7 +2,9 @@ unit uFileObj;
 
 interface
 
-uses Classes, SysUtilsLite, VectorGeometry, VectorLists, uVBO, uMiscUtils;
+uses Classes, SysUtils, VectorGeometry,
+     {$IFNDEF DIRECTGL} VectorLists,{$ELSE}uVectorLists,{$ENDIF}
+     uVBO, uMiscUtils;
 
 type
 

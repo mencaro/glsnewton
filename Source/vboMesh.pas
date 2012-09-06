@@ -88,9 +88,13 @@ interface
 
 Uses
      Windows, Types, Classes,
-     GLScene, OpenGL1x, VectorTypes, VectorGeometry, VectorLists,
-     GLRenderContextInfo, Octree, GeometryBB,
-     uVBO, PFXManager, uTextures, uFBO, uShaders, MTLLoader, SysUtilsLite, uCamera,
+   {$IFNDEF DIRECTGL}
+     GLScene, OpenGL1x, VectorLists, GLRenderContextInfo,
+   {$ELSE}
+     dglOpenGL,
+   {$ENDIF}
+     VectorTypes, VectorGeometry, GeometryBB,
+     uVBO, PFXManager, uTextures, uFBO, uShaders, MTLLoader, SysUtils, uCamera,
      uFileSMD, uFileObj, uAnimatedMesh, uMaterials, uMaterialObjects, uMiscUtils,
      uVectorLists, uBaseClasses, uMeshObjects, uGUI, OGLStateEmul;
 
@@ -234,7 +238,7 @@ Type
     Function AddPoints(var Points: TAffineVectorArray;
                        var Param: TPointParam; Colors: PVectorArray=nil):
                        TVBOMeshObject;overload;
-    Function AddPoints(PointsList:TAffineVectorList; ColorsList: TVectorList;
+    Function AddPoints(PointsList: TAffineVectorList; ColorsList: TVectorList;
       var Param: TPointParam): TVBOMeshObject;overload;
     Function AddParticles(MaxCapacity:integer=-1): TVBOMeshObject;
     Function AddPlane(Width,Height:single; TilesX,TilesY:integer; HeightFunc: TGetHeightFunc=nil): TVBOMeshObject;
@@ -301,16 +305,19 @@ Type
     property ApplyLights: boolean read FApplyLights write FApplyLights;
   end;
 
+{$IFNDEF DIRECTGL}
   TGLSceneMeshAdapter = class(TGLBaseSceneObject)
   public
     VBOMesh: TVBOMesh;
     procedure DoRender(var ARci: TRenderContextInfo;
                        ARenderSelf, ARenderChildren: Boolean); override;
   end;
-
+{$ENDIF}
   TVBOMesh = class(TMeshCollection)
     private
+    {$IFNDEF DIRECTGL}
       FGLSceneMeshAdapter: TGLSceneMeshAdapter;
+    {$ENDIF}
       FViewMatrix: TMatrix;
       FProjectionMatrix: TMatrix;
       FViewPort: array [0..3] of integer;
@@ -340,9 +347,10 @@ Type
 
       destructor Destroy;override;
       constructor Create;
+    {$IFNDEF DIRECTGL}
       constructor CreateAsChild(aParentOwner: TGLBaseSceneObject);
-
       property GLSceneMeshAdapter: TGLSceneMeshAdapter read FGLSceneMeshAdapter;
+    {$ENDIF}
       property PolygonsCount: integer read FPolyCount;
       property SceneOctree: TSceneOctree read FSceneOctree;
       property ViewMatrix: TMatrix read FViewMatrix write SetViewMatrix;
@@ -524,11 +532,14 @@ begin
   FQueryObjectList.Capacity:=100000;
   FSceneOctree:=TSceneOctree.Create;
   FRenderPass:=0; FOldRender:=true;
+  {$IFNDEF DIRECTGL}
   FGLSceneMeshAdapter:=nil;
+  {$ENDIF}
   FRender:=TRenderShell.Create(self);
   FStructureChanged:=true;
 end;
 
+{$IFNDEF DIRECTGL}
 constructor TVBOMesh.CreateAsChild(aParentOwner: TGLBaseSceneObject);
 begin
   Create;
@@ -537,6 +548,7 @@ begin
   FGLSceneMeshAdapter.Visible:=true;
   FGLSceneMeshAdapter.VisibilityCulling:=vcNone;
 end;
+{$ENDIF}
 
 function TVBOMesh.GetObjectByName(Name: string): TVBOMeshObject;
 var i:integer;
@@ -626,7 +638,9 @@ begin
   FreeVBOBuffer(FOccluder^); Dispose(FOccluder);
   FQueryObjectList.Free;
   FSceneOctree.Free;
+{$IFNDEF DIRECTGL}
   FGLSceneMeshAdapter.Free;
+{$ENDIF}
   FRender.Free;
   inherited;
 end;
@@ -970,9 +984,15 @@ end;
 
 procedure MouseLoc3D(var ClickRayP1, ClickRayP2: TAffineVector; X,Y: double);
 var
+  {$IFNDEF DIRECTGL}
    mvmatrix: TMatrix4d;
    projmatrix: TMatrix4d;
    viewport: TVector4i;
+  {$ELSE}
+   mvmatrix: TGLMatrixd4;
+   projmatrix: TGLMatrixd4;
+   viewport: TGLVectori4;
+  {$ENDIF}
    dX, dY, dZ, dClickY: double;
 begin
    glGetIntegerv(GL_VIEWPORT, @viewport);
@@ -991,7 +1011,9 @@ var i : integer;
     cv: TVector;
     mo:TVBOMeshObject;
     ViewMatrix, ProjMatrix: TMatrix;
-    ViewPort: TVector4i;
+    {$IFNDEF DIRECTGL} ViewPort: TVector4i;
+    {$ELSE} ViewPort: TGLVectori4; {$ENDIF}
+
 function PointInRect(const Rect:TRect; aPoint: TVector):boolean;
 begin
   with Rect do begin
@@ -1501,7 +1523,7 @@ var mo:TVBOMeshObject;
     wm:TMatrix;
 begin
   FExtentsBuilded:=false;
-  mo:=TVBOMeshObject.Create;
+  mo:=TVBOMeshObject.Create; mo.Owner:=Self;
   New(Res);InitVBOBuff(Res^, GL_TRIANGLE_STRIP, DrawElements);
   Temp:=CreatePlane(Width,Depth,TilesX,TilesZ,nil,false);
   Temp.Vertexes.Translate(affinevectormake(0,Height/2,0));
@@ -1578,7 +1600,7 @@ var Temp: PVBOBuffer;
     mo: TVBOMeshObject;
 begin
 FExtentsBuilded:=false;
-mo:=TVBOMeshObject.Create;
+mo:=TVBOMeshObject.Create; mo.Owner:=Self;
 Temp:=CreatePlane(Width,Height,TilesX,TilesY,HeightFunc);
   if not assigned(FMeshList) then FMeshList:=TList.Create;
   with mo do begin
@@ -1604,7 +1626,7 @@ var a,b:single;
 begin
   Assert(Vsegments*HSegments<>0,'Segments count must be more than "0".');
   FExtentsBuilded:=false;
-  mo:=TVBOMeshObject.Create;
+  mo:=TVBOMeshObject.Create; mo.Owner:=Self;
   da:=pi/VSegments; db:=2*pi/(HSegments-1);
   ks:=1/(HSegments-1);kt:=1/(VSegments);
   new(Temp);InitVBOBuff(Temp^,GL_TRIANGLE_STRIP,DrawElements);
@@ -1645,17 +1667,22 @@ end;
 destructor TMeshCollection.Destroy;
 var i: integer;
     mi: TVBOMeshItem;
+    mo: TVBOMeshObject;
 begin
   for i:=0 to FMeshList.Count-1 do begin
     mi:=FMeshList[i];
-    if mi.Owner=self then mi.Free;
+    if mi is TVBOMeshObject then begin
+      mo:=TVBOMeshObject(mi);
+      if mo.Owner=self then mo.Free;
+    end else if mi.Owner=self then mi.Free;
   end;
   FMeshList.Free; FMeshList:=nil;
 //  FreeObjectList(FMeshList);
 
-  FMaterials.Free; FTextures.Free; FShaders.Free; FLights.Free;
+  FMaterials.Free; FTextures.Free;
+  FShaders.Free;
+  FLights.Free;
   FMaterialObjects.Free;
-
   inherited;
 end;
 
@@ -1686,6 +1713,7 @@ begin
     mo.MatLib:=FMaterials;
     mo.TexLib:=FTextures;
     mo.MatObjLib:=FMaterialObjects;
+    mo.Owner:=Self;
 
     TAnimatedMesh(mo).Load3dsMesh(FileName,tpath);
   end else begin
@@ -1726,7 +1754,7 @@ function TMeshCollection.AddScreenQuad(AddToMesh:boolean): TVBOMeshObject;
 var Temp: PVBOBuffer;
     mo: TVBOMeshObject;
 begin
-  mo:=TVBOMeshObject.Create;
+  mo:=TVBOMeshObject.Create; mo.Owner:=Self;
   new(Temp);
 //  InitVBOBuff(Temp^,GL_QUADS,DrawArrays);
   InitVBOBuff(Temp^,GL_QUADS,DrawElements);
@@ -1795,7 +1823,7 @@ var Temp: PVBOBuffer;
     mo: TVBOMeshObject;
     kx,ky:single;
 begin
-  mo:=TVBOMeshObject.Create;
+  mo:=TVBOMeshObject.Create; mo.Owner:=Self;
   new(Temp);InitVBOBuff(Temp^,GL_QUADS,DrawArrays);
   kx:=width/2;ky:=height/2;
   with temp^ do begin
@@ -1824,7 +1852,7 @@ var Temp: PVBOBuffer;
     mo: TVBOMeshObject;
     kx,ky:single;
 begin
-  mo:=TVBOMeshObject.Create;
+  mo:=TVBOMeshObject.Create; mo.Owner:=Self;
   new(Temp);InitVBOBuff(Temp^,GL_QUADS,DrawArrays);
   kx:=width/2;ky:=height/2;
   with temp^ do begin
@@ -1945,7 +1973,7 @@ var Temp: PVBOBuffer;
     mo: TVBOMeshObject;
     kx,ky:single;
 begin
-  mo:=TVBOAnimatedSprite.Create;
+  mo:=TVBOAnimatedSprite.Create; mo.Owner:=Self;
   new(Temp);InitVBOBuff(Temp^,GL_QUADS,DrawArrays);
   kx:=2/width;ky:=2/height;
   with temp^ do begin
@@ -1990,7 +2018,7 @@ var Temp: PVBOBuffer;
     i:integer;
     p:PPointParam;
 begin
-  mo:=TVBOMeshObject.Create;
+  mo:=TVBOMeshObject.Create; mo.Owner:=Self;
   if Colors<>nil then assert(high(Colors^)=high(Points),'Sizes of Colors and Points arrays are not equal.');
   new(Temp);InitVBOBuff(Temp^,GL_POINTS,DrawArrays);
   Temp^.RenderBuffs:=[];
@@ -2021,7 +2049,7 @@ var Temp: PVBOBuffer;
     mo: TVBOMeshObject;
     p:PPointParam;
 begin
-  mo:=TVBOMeshObject.Create;
+  mo:=TVBOMeshObject.Create; mo.Owner:=Self;
   if assigned(ColorsList) and assigned(PointsList)
   then assert(ColorsList.Count=PointsList.Count,'Sizes of Colors and Points arrays are not equal.');
   if not assigned(PointsList) then begin
@@ -2057,7 +2085,7 @@ var Temp: PVBOBuffer;
     sx,sy:single;
     wd2,hd2:single;
 begin
-  mo:=TVBOMeshObject.Create;
+  mo:=TVBOMeshObject.Create; mo.Owner:=Self;
   new(Temp);InitVBOBuff(Temp^,GL_LINES,DrawArrays);
   sx:=Width/TilesX; sy:=Height/TilesY;
   wd2:=width/2; hd2:=height/2;
@@ -2355,7 +2383,7 @@ end;
 function TMeshCollection.AddParticles(MaxCapacity: integer): TVBOMeshObject;
 var mo:TVBOParticles;
 begin
-  mo:=TVBOParticles.Create(MaxCapacity);
+  mo:=TVBOParticles.Create(MaxCapacity); mo.Owner:=Self;
   with mo do begin
     Name:='VBOParticles'+inttostr(FMeshList.Count);
     Parent:=nil;
@@ -2477,6 +2505,7 @@ begin
   FAfterList.Process;
 end;
 
+{$IFNDEF DIRECTGL}
 { TGLSceneMeshAdapter }
 
 procedure TGLSceneMeshAdapter.DoRender(var ARci: TRenderContextInfo;
@@ -2484,6 +2513,7 @@ procedure TGLSceneMeshAdapter.DoRender(var ARci: TRenderContextInfo;
 begin
   if assigned(VBOMesh) then VBOMesh.DoRender;
 end;
+{$ENDIF}
 
 { TSceneParser }
 
