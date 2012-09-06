@@ -28,9 +28,12 @@ unit OGLStateEmul;
 
 interface
 
-Uses   OpenGL1x, VectorTypes, VectorGeometry, Classes, SysUtilsLite, uLogs;
+Uses
+   {$IFNDEF DIRECTGL}OpenGL1x, {$ELSE} dglOpenGL, {$ENDIF}
+   VectorTypes, VectorGeometry, Classes, SysUtils, uLogs;
 
 Type
+
    TEnStates = (sAlphaTest,sAutoNormal,sBlend,sColorLogicOp,sColorMaterial,sColorSum,
                 sCullFace,sDepthTest,sDither,
                 sFog,sIndexLogicOp,sLighting,sLineSmooth,sLineStipple,
@@ -482,13 +485,13 @@ var CurrentFFPVBO: PGLFFPBuffer;
 procedure glPushMatrix;
 begin
   inc(MatrixStackDepth);
-  Opengl1x.glPushMatrix;
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPushMatrix;
 end;
 procedure glPopMatrix;
 begin
   dec(MatrixStackDepth);
   assert(MatrixStackDepth>=0,'Matrix Stack is Empty');
-  Opengl1x.glPopMatrix;
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPopMatrix;
 end;
 
 procedure glPushShader;
@@ -501,13 +504,13 @@ var spId: cardinal;
 begin
   spId:=GLStateCache.ShaderCache.Pop;
   if spId<>GLStateCache.FActiveProgram then begin
-    OpenGL1x.glUseProgram(spId); GLStateCache.FActiveProgram:=spId;
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glUseProgram(spId); GLStateCache.FActiveProgram:=spId;
   end;
 end;
 
 function GetActiveContext: LongInt;
 begin
-  result:=OpenGL1x.wglGetCurrentContext;
+  result:={$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}wglGetCurrentContext;
 end;
 
 procedure FreeStack(var Stack: TList);
@@ -562,7 +565,7 @@ begin
    glDepthMask(DepthCache.DepthMask);
    glDepthFunc(DepthCache.DepthFunc);
    glDepthRange(DepthCache.DepthNear,DepthCache.DepthFar);
-   Opengl1x.glGetIntegerv(GL_DEPTH_RANGE, @DepthRange);
+   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_DEPTH_RANGE, @DepthRange);
    glPixelTransferf(GL_DEPTH_SCALE,DepthCache.DepthScale);
    glPixelTransferf(GL_DEPTH_BIAS,DepthCache.DepthBias);
    glClearDepth(DepthCache.DepthClearValue);
@@ -571,15 +574,15 @@ end;
 
 procedure TGLDepthCache.GetCurrentGLStates;
 begin
-  Enabled:=Opengl1x.glisEnabled(GL_DEPTH_TEST);
+  Enabled:={$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glisEnabled(GL_DEPTH_TEST);
   if Enabled then GLStateCache.States:=GLStateCache.States+[sDepthTest];
-  Opengl1x.glGetIntegerv(GL_DEPTH_WRITEMASK, @DepthMask);
-  Opengl1x.glGetIntegerv(GL_DEPTH_FUNC, @DepthFunc);
-  Opengl1x.glGetIntegerv(GL_DEPTH_RANGE, @DepthRange);
-  Opengl1x.glGetFloatv(GL_DEPTH_SCALE, @DepthScale);
-  Opengl1x.glGetFloatv(GL_DEPTH_BIAS, @DepthBias);
-  Opengl1x.glGetFloatv(GL_DEPTH_CLEAR_VALUE, @DepthClearValue);
-  Opengl1x.glGetIntegerv(GL_DEPTH_BITS, @DepthBits);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_DEPTH_WRITEMASK, @DepthMask);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_DEPTH_FUNC, @DepthFunc);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_DEPTH_RANGE, @DepthRange);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFloatv(GL_DEPTH_SCALE, @DepthScale);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFloatv(GL_DEPTH_BIAS, @DepthBias);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFloatv(GL_DEPTH_CLEAR_VALUE, @DepthClearValue);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_DEPTH_BITS, @DepthBits);
   FChecked:=true;
 end;
 
@@ -615,7 +618,7 @@ var state: TEnStates;
 begin
   states:=[];
   for state := sAlphaTest to sVertexProgramTwoSide do begin
-      if Opengl1x.glisEnabled(CEnStates[state]) then
+      if {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glisEnabled(CEnStates[state]) then
          States:=states+[state];
   end;
   DepthCache.GetCurrentGLStates;
@@ -659,7 +662,7 @@ begin
      GL_Texture_3D: result:=Texture3D;
      GL_TEXTURE_CUBE_MAP: result:=TextureCubeMap;
      GL_TEXTURE_RECTANGLE: result:=TextureRectangle;
-     else result:=Opengl1x.glIsEnabled(state);
+     else result:={$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glIsEnabled(state);
    end;
   end;
 end;
@@ -674,7 +677,7 @@ begin
      GL_TEXTURE_CUBE_MAP: TextureCubeMap:=value;
      GL_TEXTURE_RECTANGLE: TextureRectangle:=value;
     end;
-    if Value then Opengl1x.glEnable(state) else Opengl1x.glDisable(state);
+    if Value then {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glEnable(state) else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(state);
   end;
 end;
 
@@ -692,7 +695,7 @@ begin
        result:=GetTextureStates(cap);exit;
     end;
   end;
-  result:=Opengl1x.glIsEnabled(cap);
+  result:={$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glIsEnabled(cap);
 end;
 
 procedure glEnable(cap: TGLEnum);
@@ -701,7 +704,7 @@ begin
   state:=StateByEnum(cap);
   if state<>sNone then begin
      if not (state in GLStateCache.States) then begin
-        Opengl1x.glEnable(cap);
+        {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glEnable(cap);
         GLStateCache.States:=GLStateCache.States+[state];
         exit;
      end else exit;
@@ -712,7 +715,7 @@ begin
        SetTextureStates(cap,true);exit;
     end;
   end;
-  Opengl1x.glEnable(cap);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glEnable(cap);
 end;
 
 procedure glDisable(cap: TGLEnum);
@@ -721,7 +724,7 @@ begin
   state:=StateByEnum(cap);
   if state<>sNone then begin
      if (state in GLStateCache.States) then begin
-        Opengl1x.glDisable(cap);
+        {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(cap);
         GLStateCache.States:=GLStateCache.States-[state];
         exit;
      end else exit;
@@ -733,14 +736,14 @@ begin
        exit;
     end;
   end;
-  Opengl1x.glDisable(cap);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(cap);
 end;
 
 procedure glClearDepth(depth: TGLclampd);
 begin
   if GLStateCache.DepthCache.DepthClearValue<>depth then
   begin
-     Opengl1x.glClearDepth(depth);
+     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glClearDepth(depth);
      GLStateCache.DepthCache.DepthClearValue:=depth;
   end;
 end;
@@ -749,7 +752,7 @@ procedure glDepthFunc(func: TGLEnum);
 begin
   if GLStateCache.DepthCache.DepthFunc<>func then
   begin
-     Opengl1x.glDepthFunc(func);
+     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDepthFunc(func);
      GLStateCache.DepthCache.DepthFunc:=func;
   end;
 end;
@@ -759,7 +762,7 @@ begin
   if (GLStateCache.DepthCache.DepthNear<>zNear)
   or (GLStateCache.DepthCache.DepthFar<>zFar)then
   begin
-     Opengl1x.glDepthRange(zNear, zFar);
+     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDepthRange(zNear, zFar);
      GLStateCache.DepthCache.DepthNear:=zNear;
      GLStateCache.DepthCache.DepthFar:=zFar;
   end;
@@ -769,7 +772,7 @@ procedure glDepthMask(flag: TGLboolean);
 begin
   if GLStateCache.DepthCache.DepthMask<>flag then
   begin
-     Opengl1x.glDepthMask(flag);
+     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDepthMask(flag);
      GLStateCache.DepthCache.DepthMask:=flag;
   end;
 end;
@@ -814,15 +817,15 @@ begin
      GL_DEPTH_SCALE: if param<>GLStateCache.DepthCache.DepthScale then
         begin
            GLStateCache.DepthCache.DepthScale:=param;
-           Opengl1x.glPixelTransferf(pname, param); exit;
+           {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPixelTransferf(pname, param); exit;
         end;
      GL_DEPTH_BIAS: if param<>GLStateCache.DepthCache.DepthBias then
         begin
            GLStateCache.DepthCache.DepthBias:=param;
-           Opengl1x.glPixelTransferf(pname, param); exit;
+           {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPixelTransferf(pname, param); exit;
         end;
   end;
-  Opengl1x.glPixelTransferf(pname, param);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPixelTransferf(pname, param);
 end;
 
 procedure glPixelTransferi(pname: TGLEnum; param: TGLint);
@@ -830,14 +833,14 @@ begin
   case pname of
      GL_DEPTH_SCALE: if param<>GLStateCache.DepthCache.DepthScale then begin
            GLStateCache.DepthCache.DepthScale:=param;
-           Opengl1x.glPixelTransferi(pname, param); exit;
+           {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPixelTransferi(pname, param); exit;
         end;
      GL_DEPTH_BIAS: if param<>GLStateCache.DepthCache.DepthBias then begin
            GLStateCache.DepthCache.DepthBias:=param;
-           Opengl1x.glPixelTransferi(pname, param); exit;
+           {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPixelTransferi(pname, param); exit;
         end;
   end;
-  Opengl1x.glPixelTransferi(pname, param);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPixelTransferi(pname, param);
 end;
 
 { TGLAlphaCache }
@@ -852,10 +855,10 @@ end;
 
 procedure TGLAlphaCache.GetCurrentGLStates;
 begin
-  Enabled:=Opengl1x.glisEnabled(GL_ALPHA_TEST);
+  Enabled:={$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glisEnabled(GL_ALPHA_TEST);
   if Enabled then GLStateCache.States:=GLStateCache.States+[sAlphaTest];
-  Opengl1x.glGetIntegerv(GL_ALPHA_TEST_FUNC,@Func);
-  Opengl1x.glGetFloatv(GL_ALPHA_TEST_REF,@Ref);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_ALPHA_TEST_FUNC,@Func);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFloatv(GL_ALPHA_TEST_REF,@Ref);
   FChecked:=true;
 end;
 
@@ -872,7 +875,7 @@ begin
   if (GLStateCache.AlphaCache.Func<>func)
   or (GLStateCache.AlphaCache.Ref<>ref)
   then begin
-    Opengl1x.glAlphaFunc(func, ref);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glAlphaFunc(func, ref);
     GLStateCache.AlphaCache.Func:=func;
     GLStateCache.AlphaCache.Ref:=ref;
   end;
@@ -906,18 +909,18 @@ end;
 
 procedure TGLBlendingCache.GetCurrentGLStates;
 begin
-  Enabled:=Opengl1x.glisEnabled(GL_BLEND);
+  Enabled:={$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glisEnabled(GL_BLEND);
   if Enabled then GLStateCache.States:=GLStateCache.States+[sBlend];
-  Opengl1x.glGetIntegerv(GL_BLEND_SRC,@SFactor);
-  Opengl1x.glGetIntegerv(GL_BLEND_DST,@DFactor);
-  Opengl1x.glGetFloatv(GL_BLEND_COLOR,@BlendColor);
-  Opengl1x.glGetIntegerv(GL_BLEND_DST_ALPHA,@BlendDstAlpha);
-  Opengl1x.glGetIntegerv(GL_BLEND_DST_RGB,@BlendDstRGB);
-  Opengl1x.glGetIntegerv(GL_BLEND_SRC_ALPHA,@BlendSRCAlpha);
-  Opengl1x.glGetIntegerv(GL_BLEND_SRC_RGB,@BlendSRCRGB);
-  Opengl1x.glGetIntegerv(GL_BLEND_EQUATION_ALPHA,@BlendEquationAlpha);
-  Opengl1x.glGetIntegerv(GL_BLEND_EQUATION_RGB,@BlendEquationRGB);
-  Opengl1x.glGetIntegerv(GL_BLEND_EQUATION,@BlendEquation);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_BLEND_SRC,@SFactor);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_BLEND_DST,@DFactor);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFloatv(GL_BLEND_COLOR,@BlendColor);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_BLEND_DST_ALPHA,@BlendDstAlpha);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_BLEND_DST_RGB,@BlendDstRGB);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_BLEND_SRC_ALPHA,@BlendSRCAlpha);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_BLEND_SRC_RGB,@BlendSRCRGB);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_BLEND_EQUATION_ALPHA,@BlendEquationAlpha);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_BLEND_EQUATION_RGB,@BlendEquationRGB);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_BLEND_EQUATION,@BlendEquation);
   FChecked:=true;
 end;
 
@@ -939,7 +942,7 @@ begin
   if (GLStateCache.BlendingCache.SFactor<>sfactor)
   or (GLStateCache.BlendingCache.DFactor<>dfactor)
   then begin
-    Opengl1x.glBlendFunc(sfactor, dfactor);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glBlendFunc(sfactor, dfactor);
     GLStateCache.BlendingCache.SFactor:=sfactor;
     GLStateCache.BlendingCache.DFactor:=dfactor;
   end;
@@ -950,7 +953,7 @@ begin
   if not VectorEquals(GLStateCache.BlendingCache.BlendColor,
                       vectormake(red, green, blue, alpha))
   then begin
-    Opengl1x.glBlendColor(red, green, blue, alpha);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glBlendColor(red, green, blue, alpha);
     GLStateCache.BlendingCache.BlendColor:=vectormake(red, green, blue, alpha);
   end;
 end;
@@ -959,7 +962,7 @@ procedure glBlendEquation(mode: TGLEnum);
 begin
   if GLStateCache.BlendingCache.BlendEquation <> mode
   then begin
-    Opengl1x.glBlendEquation(mode);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glBlendEquation(mode);
     GLStateCache.BlendingCache.BlendEquation:=mode;
   end;
 end;
@@ -971,7 +974,7 @@ begin
   or (GLStateCache.BlendingCache.BlendSrcAlpha<>sfactorAlpha)
   or (GLStateCache.BlendingCache.BlendDstAlpha<>dfactorAlpha)
   then begin
-    Opengl1x.glBlendFuncSeparate(sfactorRGB, dfactorRGB, sfactorAlpha, dfactorAlpha);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glBlendFuncSeparate(sfactorRGB, dfactorRGB, sfactorAlpha, dfactorAlpha);
     GLStateCache.BlendingCache.BlendSrcRGB:=sfactorRGB;
     GLStateCache.BlendingCache.BlendDstRGB:=dfactorRGB;
     GLStateCache.BlendingCache.BlendSrcAlpha:=sfactorAlpha;
@@ -984,7 +987,7 @@ begin
   if (GLStateCache.BlendingCache.BlendEquationRGB <> modeRGB)
   or (GLStateCache.BlendingCache.BlendEquationAlpha <> modeAlpha)
   then begin
-    Opengl1x.glBlendEquationSeparate(modeRGB, modeAlpha);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glBlendEquationSeparate(modeRGB, modeAlpha);
     GLStateCache.BlendingCache.BlendEquationRGB := modeRGB;
     GLStateCache.BlendingCache.BlendEquationAlpha := modeAlpha;
   end;
@@ -1052,20 +1055,20 @@ end;
 procedure TGLMaterialCache.GetCurrentGLStates;
 var Face, Mode: GLEnum;
 begin
-  Opengl1x.glGetMaterialfv(GL_FRONT, GL_AMBIENT,  @Faces[GL_FRONT].AMBIENT);
-  Opengl1x.glGetMaterialfv(GL_FRONT, GL_DIFFUSE,  @Faces[GL_FRONT].DIFFUSE);
-  Opengl1x.glGetMaterialfv(GL_FRONT, GL_SPECULAR, @Faces[GL_FRONT].SPECULAR);
-  Opengl1x.glGetMaterialfv(GL_FRONT, GL_EMISSION, @Faces[GL_FRONT].EMISSION);
-  Opengl1x.glGetMaterialfv(GL_FRONT, GL_SHININESS,@Faces[GL_FRONT].SHININESS);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_FRONT, GL_AMBIENT,  @Faces[GL_FRONT].AMBIENT);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_FRONT, GL_DIFFUSE,  @Faces[GL_FRONT].DIFFUSE);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_FRONT, GL_SPECULAR, @Faces[GL_FRONT].SPECULAR);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_FRONT, GL_EMISSION, @Faces[GL_FRONT].EMISSION);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_FRONT, GL_SHININESS,@Faces[GL_FRONT].SHININESS);
 
-  Opengl1x.glGetMaterialfv(GL_BACK, GL_AMBIENT, @Faces[GL_BACK].AMBIENT);
-  Opengl1x.glGetMaterialfv(GL_BACK, GL_DIFFUSE, @Faces[GL_BACK].DIFFUSE);
-  Opengl1x.glGetMaterialfv(GL_BACK, GL_SPECULAR, @Faces[GL_BACK].SPECULAR);
-  Opengl1x.glGetMaterialfv(GL_BACK, GL_EMISSION, @Faces[GL_BACK].EMISSION);
-  Opengl1x.glGetMaterialfv(GL_BACK, GL_SHININESS, @Faces[GL_BACK].SHININESS);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_BACK, GL_AMBIENT, @Faces[GL_BACK].AMBIENT);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_BACK, GL_DIFFUSE, @Faces[GL_BACK].DIFFUSE);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_BACK, GL_SPECULAR, @Faces[GL_BACK].SPECULAR);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_BACK, GL_EMISSION, @Faces[GL_BACK].EMISSION);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetMaterialfv(GL_BACK, GL_SHININESS, @Faces[GL_BACK].SHININESS);
 
-  Opengl1x.glGetIntegerv(GL_COLOR_MATERIAL_FACE, @Face);
-  Opengl1x.glGetIntegerv(GL_COLOR_MATERIAL_PARAMETER, @Mode);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_COLOR_MATERIAL_FACE, @Face);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_COLOR_MATERIAL_PARAMETER, @Mode);
 //  if Face = GL_FRONT_AND_BACK then begin
      Faces[GL_FRONT].ColorMaterialMode:=mode;
      Faces[GL_BACK].ColorMaterialMode:=mode;
@@ -1142,9 +1145,9 @@ begin
                     begin
                      GLStateCache.MaterialCache.Faces[face].SHININESS:=trunc(param);
                      GLStateCache.MaterialCache.Faces[face].iSHININESS:=trunc(param);
-                     Opengl1x.glMaterialf(face, pname, param);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialf(face, pname, param);
                     end;
-      Else Opengl1x.glMaterialf(face, pname, param);
+      Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialf(face, pname, param);
     end;
   end else with GLStateCache.MaterialCache do begin
     assert(face=GL_FRONT_AND_BACK, 'Invalid Face Type');
@@ -1156,9 +1159,9 @@ begin
                       Faces[GL_FRONT].iSHININESS:=trunc(param);
                       Faces[GL_BACK].SHININESS:=trunc(param);
                       Faces[GL_BACK].iSHININESS:=trunc(param);
-                      Opengl1x.glMaterialf(face, pname, param);
+                      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialf(face, pname, param);
                     end;
-      Else Opengl1x.glMaterialf(face, pname, param);
+      Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialf(face, pname, param);
     end;
   end;
 end;
@@ -1171,26 +1174,26 @@ begin
       GL_AMBIENT: if not VectorEquals(AMBIENT, PVector(params)^) then begin
                      AMBIENT:=PVector(params)^;
                      iAMBIENT:=FloatTointVector(AMBIENT);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
       GL_DIFFUSE: if not VectorEquals(DIFFUSE, PVector(params)^) then begin
                      DIFFUSE:=PVector(params)^;
                      iDIFFUSE:=FloatTointVector(DIFFUSE);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
       GL_SPECULAR: if not VectorEquals(SPECULAR, PVector(params)^) then begin
                      SPECULAR:=PVector(params)^;
                      iSPECULAR:=FloatTointVector(SPECULAR);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
       GL_EMISSION: if not VectorEquals(EMISSION, PVector(params)^) then begin
                      EMISSION:=PVector(params)^;
                      iEMISSION:=FloatTointVector(EMISSION);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
       GL_SHININESS: if SHININESS<>params^ then begin
                      SHININESS:=trunc(params^); iSHININESS:=trunc(params^);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
     end;
     end;
@@ -1204,7 +1207,7 @@ begin
                      Faces[GL_BACK].AMBIENT:=PVector(params)^;
                      Faces[GL_FRONT].iAMBIENT:=FloatTointVector(Faces[GL_FRONT].AMBIENT);
                      Faces[GL_BACK].iAMBIENT:=FloatTointVector(Faces[GL_BACK].AMBIENT);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
       GL_DIFFUSE: if (not VectorEquals(Faces[GL_FRONT].DIFFUSE, PVector(params)^))
                   or (not VectorEquals(Faces[GL_BACK].DIFFUSE, PVector(params)^)) then begin
@@ -1212,7 +1215,7 @@ begin
                      Faces[GL_BACK].DIFFUSE:=PVector(params)^;
                      Faces[GL_FRONT].iDIFFUSE:=FloatTointVector(Faces[GL_FRONT].DIFFUSE);
                      Faces[GL_BACK].iDIFFUSE:=FloatTointVector(Faces[GL_BACK].DIFFUSE);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
       GL_SPECULAR:if (not VectorEquals(Faces[GL_FRONT].SPECULAR, PVector(params)^))
                   or (not VectorEquals(Faces[GL_BACK].SPECULAR, PVector(params)^)) then begin
@@ -1220,7 +1223,7 @@ begin
                      Faces[GL_BACK].SPECULAR:=PVector(params)^;
                      Faces[GL_FRONT].iSPECULAR:=FloatTointVector(Faces[GL_FRONT].SPECULAR);
                      Faces[GL_BACK].iSPECULAR:=FloatTointVector(Faces[GL_BACK].SPECULAR);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
       GL_EMISSION:if (not VectorEquals(Faces[GL_FRONT].EMISSION, PVector(params)^))
                   or (not VectorEquals(Faces[GL_BACK].EMISSION, PVector(params)^)) then begin
@@ -1228,7 +1231,7 @@ begin
                      Faces[GL_BACK].EMISSION:=PVector(params)^;
                      Faces[GL_FRONT].iEMISSION:=FloatTointVector(Faces[GL_FRONT].EMISSION);
                      Faces[GL_BACK].iEMISSION:=FloatTointVector(Faces[GL_BACK].EMISSION);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
       GL_SHININESS:if (Faces[GL_FRONT].SHININESS<>params^)
                    or (Faces[GL_BACK].SHININESS<>params^) then begin
@@ -1236,7 +1239,7 @@ begin
                      Faces[GL_FRONT].iSHININESS:=trunc(params^);
                      Faces[GL_BACK].SHININESS:=trunc(params^);
                      Faces[GL_BACK].iSHININESS:=trunc(params^);
-                     Opengl1x.glMaterialfv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialfv(face, pname, params);
                   end;
     end;
     end;
@@ -1251,9 +1254,9 @@ begin
                     begin
                      GLStateCache.MaterialCache.Faces[face].SHININESS:=param;
                      GLStateCache.MaterialCache.Faces[face].iSHININESS:=param;
-                     Opengl1x.glMateriali(face, pname, param);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMateriali(face, pname, param);
                     end;
-      Else Opengl1x.glMateriali(face, pname, param);
+      Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMateriali(face, pname, param);
     end;
   end else begin
     assert(face=GL_FRONT_AND_BACK, 'Invalid Face Type');
@@ -1266,9 +1269,9 @@ begin
                      Faces[GL_FRONT].iSHININESS:=param;
                      Faces[GL_BACK].SHININESS:=param;
                      Faces[GL_BACK].iSHININESS:=param;
-                     Opengl1x.glMateriali(face, pname, param);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMateriali(face, pname, param);
                     end;
-      Else Opengl1x.glMateriali(face, pname, param);
+      Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMateriali(face, pname, param);
     end;
 
   end;
@@ -1282,26 +1285,26 @@ begin
       GL_AMBIENT: if not VectorEquals(iAMBIENT, PIntegerVector(params)^) then begin
                      iAMBIENT:=PIntegerVector(params)^;
                      AMBIENT:=IntToFloatVector(iAmbient);
-                     Opengl1x.glMaterialiv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                   end;
       GL_DIFFUSE: if not VectorEquals(iDIFFUSE, PIntegerVector(params)^) then begin
                      iDIFFUSE:=PIntegerVector(params)^;
                      DIFFUSE:=IntToFloatVector(iDIFFUSE);
-                     Opengl1x.glMaterialiv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                   end;
       GL_SPECULAR: if not VectorEquals(iSPECULAR, PIntegerVector(params)^) then begin
                      iSPECULAR:=PIntegerVector(params)^;
                      SPECULAR:=IntToFloatVector(iSPECULAR);
-                     Opengl1x.glMaterialiv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                   end;
       GL_EMISSION: if not VectorEquals(iEMISSION, PIntegerVector(params)^) then begin
                      iEMISSION:=PIntegerVector(params)^;
                      EMISSION:=IntToFloatVector(iEMISSION);
-                     Opengl1x.glMaterialiv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                   end;
       GL_SHININESS: if iSHININESS<>params^ then begin
                      iSHININESS:=params^; SHININESS:=params^;
-                     Opengl1x.glMaterialiv(face, pname, params);
+                     {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                   end;
     end;
     end;
@@ -1316,7 +1319,7 @@ begin
                        Faces[GL_FRONT].AMBIENT:=IntToFloatVector(Faces[GL_FRONT].iAMBIENT);
                        Faces[GL_BACK].iAMBIENT:=Faces[GL_FRONT].iAMBIENT;
                        Faces[GL_BACK].AMBIENT:=Faces[GL_FRONT].AMBIENT;
-                       Opengl1x.glMaterialiv(face, pname, params);
+                       {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                     end;
         GL_DIFFUSE: if (not VectorEquals(Faces[GL_FRONT].iDIFFUSE, PIntegerVector(params)^))
                     or (not VectorEquals(Faces[GL_BACK].iDIFFUSE, PIntegerVector(params)^))
@@ -1325,7 +1328,7 @@ begin
                        Faces[GL_FRONT].DIFFUSE:=IntToFloatVector(Faces[GL_FRONT].iDIFFUSE);
                        Faces[GL_BACK].iDIFFUSE:=Faces[GL_FRONT].iDIFFUSE;
                        Faces[GL_BACK].DIFFUSE:=Faces[GL_FRONT].DIFFUSE;
-                       Opengl1x.glMaterialiv(face, pname, params);
+                       {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                     end;
         GL_SPECULAR:if (not VectorEquals(Faces[GL_FRONT].iSPECULAR, PIntegerVector(params)^))
                     or (not VectorEquals(Faces[GL_BACK].iSPECULAR, PIntegerVector(params)^))
@@ -1334,7 +1337,7 @@ begin
                        Faces[GL_FRONT].SPECULAR:=IntToFloatVector(Faces[GL_FRONT].iSPECULAR);
                        Faces[GL_BACK].iSPECULAR:=Faces[GL_FRONT].iSPECULAR;
                        Faces[GL_BACK].SPECULAR:=Faces[GL_FRONT].SPECULAR;
-                       Opengl1x.glMaterialiv(face, pname, params);
+                       {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                     end;
         GL_EMISSION:if (not VectorEquals(Faces[GL_FRONT].iEMISSION, PIntegerVector(params)^))
                     or (not VectorEquals(Faces[GL_BACK].iEMISSION, PIntegerVector(params)^))
@@ -1343,7 +1346,7 @@ begin
                        Faces[GL_FRONT].EMISSION:=IntToFloatVector(Faces[GL_FRONT].iEMISSION);
                        Faces[GL_BACK].iEMISSION:=Faces[GL_FRONT].iEMISSION;
                        Faces[GL_BACK].EMISSION:=Faces[GL_FRONT].EMISSION;
-                       Opengl1x.glMaterialiv(face, pname, params);
+                       {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                     end;
         GL_SHININESS:if (Faces[GL_FRONT].iSHININESS<>params^)
                      or (Faces[GL_BACK].iSHININESS<>params^)
@@ -1352,7 +1355,7 @@ begin
                         Faces[GL_FRONT].SHININESS:=params^;
                         Faces[GL_BACK].iSHININESS:=params^;
                         Faces[GL_BACK].SHININESS:=params^;
-                        Opengl1x.glMaterialiv(face, pname, params);
+                        {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMaterialiv(face, pname, params);
                     end;
       end;
     end;
@@ -1367,7 +1370,7 @@ begin
    or (FaceMode<>face) then begin
       FaceMode:=face;
       Faces[face].ColorMaterialMode:=mode;
-      Opengl1x.glColorMaterial(face,mode);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glColorMaterial(face,mode);
    end;
   end else
   with GLStateCache.MaterialCache do begin
@@ -1377,7 +1380,7 @@ begin
       FaceMode:=face;
       Faces[GL_FRONT].ColorMaterialMode:=mode;
       Faces[GL_BACK].ColorMaterialMode:=mode;
-      Opengl1x.glColorMaterial(face,mode);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glColorMaterial(face,mode);
     end;
   end;
 end;
@@ -1407,10 +1410,10 @@ begin
     glLightfv(LId,GL_SPOT_DIRECTION, @LightingCache.Lights[i].SPOT_DIRECTION);
   end;
 
-  Opengl1x.glLightModelfv(GL_LIGHT_MODEL_AMBIENT, @LightingCache.LM_AMBIENT);
-  Opengl1x.glLightModeliv(GL_LIGHT_MODEL_LOCAL_VIEWER, @LightingCache.LM_LOCAL_VIEWER);
-  Opengl1x.glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, LightingCache.LM_COLOR_CONTROL);
-  Opengl1x.glLightModeliv(GL_LIGHT_MODEL_TWO_SIDE, @LightingCache.LM_TWO_SIDE);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelfv(GL_LIGHT_MODEL_AMBIENT, @LightingCache.LM_AMBIENT);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeliv(GL_LIGHT_MODEL_LOCAL_VIEWER, @LightingCache.LM_LOCAL_VIEWER);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, LightingCache.LM_COLOR_CONTROL);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeliv(GL_LIGHT_MODEL_TWO_SIDE, @LightingCache.LM_TWO_SIDE);
 
   FChecked:=true;
 end;
@@ -1418,27 +1421,27 @@ end;
 procedure TGLLightingCache.GetCurrentGLStates;
 var LId,i: integer;
 begin
-  Opengl1x.glGetIntegerv(GL_MAX_LIGHTS,@MaxLights);
-  Enabled:=Opengl1x.glIsEnabled(GL_LIGHTING);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_MAX_LIGHTS,@MaxLights);
+  Enabled:={$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glIsEnabled(GL_LIGHTING);
   SetLength(Lights,MaxLights);
   for i:=0 to MaxLights-1 do with Lights[i] do begin
-      LId:=GL_LIGHT0+i; Enabled:=Opengl1x.glIsEnabled(LId);
-      Opengl1x.glGetLightfv(LId, GL_SPOT_EXPONENT, @SPOT_EXPONENT);
-      Opengl1x.glGetLightfv(LId, GL_SPOT_CUTOFF, @SPOT_CUTOFF);
-      Opengl1x.glGetLightfv(LId, GL_CONSTANT_ATTENUATION, @CONSTANT_ATTENUATION);
-      Opengl1x.glGetLightfv(LId, GL_LINEAR_ATTENUATION, @LINEAR_ATTENUATION);
-      Opengl1x.glGetLightfv(LId, GL_QUADRATIC_ATTENUATION, @QUADRATIC_ATTENUATION);
-      Opengl1x.glGetLightfv(LId, GL_AMBIENT, @AMBIENT);
-      Opengl1x.glGetLightfv(LId, GL_DIFFUSE, @DIFFUSE);
-      Opengl1x.glGetLightfv(LId, GL_SPECULAR, @SPECULAR);
-      Opengl1x.glGetLightfv(LId, GL_POSITION, @POSITION);
-      Opengl1x.glGetLightfv(LId, GL_SPOT_DIRECTION, @SPOT_DIRECTION);
+      LId:=GL_LIGHT0+i; Enabled:={$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glIsEnabled(LId);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_SPOT_EXPONENT, @SPOT_EXPONENT);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_SPOT_CUTOFF, @SPOT_CUTOFF);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_CONSTANT_ATTENUATION, @CONSTANT_ATTENUATION);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_LINEAR_ATTENUATION, @LINEAR_ATTENUATION);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_QUADRATIC_ATTENUATION, @QUADRATIC_ATTENUATION);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_AMBIENT, @AMBIENT);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_DIFFUSE, @DIFFUSE);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_SPECULAR, @SPECULAR);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_POSITION, @POSITION);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetLightfv(LId, GL_SPOT_DIRECTION, @SPOT_DIRECTION);
   end;
 
-  Opengl1x.glGetFloatv(GL_LIGHT_MODEL_AMBIENT, @LM_AMBIENT);
-  Opengl1x.glGetBooleanv(GL_LIGHT_MODEL_LOCAL_VIEWER, @LM_LOCAL_VIEWER);
-  Opengl1x.glGetIntegerv(GL_LIGHT_MODEL_COLOR_CONTROL,@LM_COLOR_CONTROL);
-  Opengl1x.glGetBooleanv(GL_LIGHT_MODEL_TWO_SIDE, @LM_TWO_SIDE);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFloatv(GL_LIGHT_MODEL_AMBIENT, @LM_AMBIENT);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetBooleanv(GL_LIGHT_MODEL_LOCAL_VIEWER, @LM_LOCAL_VIEWER);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_LIGHT_MODEL_COLOR_CONTROL,@LM_COLOR_CONTROL);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetBooleanv(GL_LIGHT_MODEL_TWO_SIDE, @LM_TWO_SIDE);
 
   FChecked:=true;
 end;
@@ -1447,9 +1450,9 @@ procedure TGLLightingCache.Reset;
 var i, LId:integer;
 const cWhiteColor: TVector = (1,1,1,1);
 begin
-  Opengl1x.glGetIntegerv(GL_MAX_LIGHTS,@MaxLights);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_MAX_LIGHTS,@MaxLights);
   SetLength(Lights,MaxLights);
-  Enabled:=false; Opengl1x.glDisable(GL_LIGHTING);
+  Enabled:=false; {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(GL_LIGHTING);
   for i:=0 to MaxLights-1 do with Lights[i] do begin
     Enabled:=false; LId:=GL_LIGHT0+i;
     AMBIENT:=NullHmgPoint;
@@ -1467,18 +1470,18 @@ begin
     CONSTANT_ATTENUATION:=1;
     LINEAR_ATTENUATION:=0;
     QUADRATIC_ATTENUATION:=0;
-    Opengl1x.glDisable(LId);
-    Opengl1x.glLightf(LId,GL_SPOT_EXPONENT, SPOT_EXPONENT);
-    Opengl1x.glLightf(LId,GL_SPOT_CUTOFF, SPOT_CUTOFF);
-    Opengl1x.glLightf(LId,GL_CONSTANT_ATTENUATION, CONSTANT_ATTENUATION);
-    Opengl1x.glLightf(LId,GL_LINEAR_ATTENUATION, LINEAR_ATTENUATION);
-    Opengl1x.glLightf(LId,GL_QUADRATIC_ATTENUATION, QUADRATIC_ATTENUATION);
-    Opengl1x.glLightfv(LId,GL_AMBIENT, @AMBIENT);
-    Opengl1x.glLightfv(LId,GL_DIFFUSE, @DIFFUSE);
-    Opengl1x.glLightfv(LId,GL_SPECULAR, @SPECULAR);
-    Opengl1x.glLightfv(LId,GL_POSITION, @POSITION);
-    Opengl1x.glLightfv(LId,GL_SPOT_DIRECTION, @SPOT_DIRECTION);
-    Opengl1x.glDisable(LId);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(LId);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(LId,GL_SPOT_EXPONENT, SPOT_EXPONENT);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(LId,GL_SPOT_CUTOFF, SPOT_CUTOFF);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(LId,GL_CONSTANT_ATTENUATION, CONSTANT_ATTENUATION);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(LId,GL_LINEAR_ATTENUATION, LINEAR_ATTENUATION);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(LId,GL_QUADRATIC_ATTENUATION, QUADRATIC_ATTENUATION);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(LId,GL_AMBIENT, @AMBIENT);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(LId,GL_DIFFUSE, @DIFFUSE);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(LId,GL_SPECULAR, @SPECULAR);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(LId,GL_POSITION, @POSITION);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(LId,GL_SPOT_DIRECTION, @SPOT_DIRECTION);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(LId);
   end;
 
   LM_AMBIENT:=vectormake(0.2,0.2,0.2,1);
@@ -1486,10 +1489,10 @@ begin
   LM_COLOR_CONTROL:=GL_SINGLE_COLOR;
   LM_TWO_SIDE:=false;
 
-  Opengl1x.glLightModelfv(GL_LIGHT_MODEL_AMBIENT, @LM_AMBIENT);
-  Opengl1x.glLightModeliv(GL_LIGHT_MODEL_LOCAL_VIEWER, @LM_LOCAL_VIEWER);
-  Opengl1x.glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, LM_COLOR_CONTROL);
-  Opengl1x.glLightModeliv(GL_LIGHT_MODEL_TWO_SIDE, @LM_TWO_SIDE);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelfv(GL_LIGHT_MODEL_AMBIENT, @LM_AMBIENT);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeliv(GL_LIGHT_MODEL_LOCAL_VIEWER, @LM_LOCAL_VIEWER);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, LM_COLOR_CONTROL);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeliv(GL_LIGHT_MODEL_TWO_SIDE, @LM_TWO_SIDE);
 
   FChecked:=true;
 end;
@@ -1500,17 +1503,17 @@ begin
       case pname of
         GL_LIGHT_MODEL_LOCAL_VIEWER: if LM_LOCAL_VIEWER<>(param=GL_TRUE) then begin
                    LM_LOCAL_VIEWER:=(param=GL_TRUE);
-                   Opengl1x.glLightModelf(pname, param);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelf(pname, param);
                 end;
         GL_LIGHT_MODEL_COLOR_CONTROL: if LM_COLOR_CONTROL<>param then begin
                    LM_COLOR_CONTROL:=trunc(param);
-                   Opengl1x.glLightModelf(pname, param);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelf(pname, param);
                 end;
         GL_LIGHT_MODEL_TWO_SIDE: if LM_TWO_SIDE<>(param=GL_TRUE) then begin
                    LM_LOCAL_VIEWER:=(param=GL_TRUE);
-                   Opengl1x.glLightModelf(pname, param);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelf(pname, param);
                 end;
-        else Opengl1x.glLightModelf(pname, param);
+        else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelf(pname, param);
       end;
    end;
 end;
@@ -1521,17 +1524,17 @@ begin
       case pname of
         GL_LIGHT_MODEL_LOCAL_VIEWER: if LM_LOCAL_VIEWER<>(param=GL_TRUE) then begin
                    LM_LOCAL_VIEWER:=(param=GL_TRUE);
-                   Opengl1x.glLightModeli(pname, param);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeli(pname, param);
                 end;
         GL_LIGHT_MODEL_COLOR_CONTROL: if LM_COLOR_CONTROL<>param then begin
                    LM_COLOR_CONTROL:=param;
-                   Opengl1x.glLightModeli(pname, param);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeli(pname, param);
                 end;
         GL_LIGHT_MODEL_TWO_SIDE: if LM_TWO_SIDE<>(param=GL_TRUE) then begin
                    LM_LOCAL_VIEWER:=(param=GL_TRUE);
-                   Opengl1x.glLightModeli(pname, param);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeli(pname, param);
                 end;
-        else Opengl1x.glLightModeli(pname, param);
+        else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeli(pname, param);
       end;
    end;
 end;
@@ -1542,21 +1545,21 @@ begin
       case pname of
         GL_LIGHT_MODEL_LOCAL_VIEWER: if LM_LOCAL_VIEWER<>(params^=GL_TRUE) then begin
                    LM_LOCAL_VIEWER:=(params^=GL_TRUE);
-                   Opengl1x.glLightModelfv(pname, params);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelfv(pname, params);
                 end;
         GL_LIGHT_MODEL_COLOR_CONTROL: if LM_COLOR_CONTROL<>params^ then begin
                    LM_COLOR_CONTROL:=trunc(params^);
-                   Opengl1x.glLightModelfv(pname, params);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelfv(pname, params);
                 end;
         GL_LIGHT_MODEL_TWO_SIDE: if LM_TWO_SIDE<>(params^=GL_TRUE) then begin
                    LM_LOCAL_VIEWER:=(params^=GL_TRUE);
-                   Opengl1x.glLightModelfv(pname, params);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelfv(pname, params);
                 end;
         GL_LIGHT_MODEL_AMBIENT: if not VectorEquals(LM_AMBIENT, PVector(params)^) then begin
                    LM_AMBIENT:=PVector(params)^;
-                   Opengl1x.glLightModelfv(pname, params);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelfv(pname, params);
                 end;
-        else Opengl1x.glLightModelfv(pname, params);
+        else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModelfv(pname, params);
       end;
    end;
 end;
@@ -1567,21 +1570,21 @@ begin
       case pname of
         GL_LIGHT_MODEL_LOCAL_VIEWER: if LM_LOCAL_VIEWER<>(params^=GL_TRUE) then begin
                    LM_LOCAL_VIEWER:=(params^=GL_TRUE);
-                   Opengl1x.glLightModeliv(pname, params);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeliv(pname, params);
                 end;
         GL_LIGHT_MODEL_COLOR_CONTROL: if LM_COLOR_CONTROL<>params^ then begin
                    LM_COLOR_CONTROL:=params^;
-                   Opengl1x.glLightModeliv(pname, params);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeliv(pname, params);
                 end;
         GL_LIGHT_MODEL_TWO_SIDE: if LM_TWO_SIDE<>(params^=GL_TRUE) then begin
                    LM_LOCAL_VIEWER:=(params^=GL_TRUE);
-                   Opengl1x.glLightModeliv(pname, params);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeliv(pname, params);
                 end;
         GL_LIGHT_MODEL_AMBIENT: if not VectorEquals(LM_AMBIENT, PVector(params)^) then begin
                    LM_AMBIENT:=PVector(params)^;
-                   Opengl1x.glLightModeliv(pname, params);
+                   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeliv(pname, params);
                 end;
-        else Opengl1x.glLightModeliv(pname, params);
+        else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightModeliv(pname, params);
       end;
    end;
 end;
@@ -1594,25 +1597,25 @@ begin
      case pname of
         GL_SPOT_EXPONENT: if SPOT_EXPONENT<>param then begin
                 SPOT_EXPONENT:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
         GL_SPOT_CUTOFF: if SPOT_CUTOFF<>param then begin
                 SPOT_CUTOFF:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
         GL_CONSTANT_ATTENUATION: if CONSTANT_ATTENUATION<>param then begin
                 CONSTANT_ATTENUATION:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
         GL_LINEAR_ATTENUATION: if LINEAR_ATTENUATION<>param then begin
                 LINEAR_ATTENUATION:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
         GL_QUADRATIC_ATTENUATION: if QUADRATIC_ATTENUATION<>param then begin
                 QUADRATIC_ATTENUATION:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
-        Else Opengl1x.glLightf(light, pname,param);
+        Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
      end;
   end;
 end;
@@ -1625,25 +1628,25 @@ begin
      case pname of
         GL_SPOT_EXPONENT: if SPOT_EXPONENT<>param then begin
                 SPOT_EXPONENT:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
         GL_SPOT_CUTOFF: if SPOT_CUTOFF<>param then begin
                 SPOT_CUTOFF:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
         GL_CONSTANT_ATTENUATION: if CONSTANT_ATTENUATION<>param then begin
                 CONSTANT_ATTENUATION:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
         GL_LINEAR_ATTENUATION: if LINEAR_ATTENUATION<>param then begin
                 LINEAR_ATTENUATION:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
         GL_QUADRATIC_ATTENUATION: if QUADRATIC_ATTENUATION<>param then begin
                 QUADRATIC_ATTENUATION:=param;
-                Opengl1x.glLightf(light, pname,param);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
               end;
-        Else Opengl1x.glLightf(light, pname,param);
+        Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightf(light, pname,param);
      end;
   end;
 end;
@@ -1656,45 +1659,45 @@ begin
      case pname of
         GL_SPOT_EXPONENT: if SPOT_EXPONENT<>params^ then begin
                 SPOT_EXPONENT:=params^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
         GL_SPOT_CUTOFF: if SPOT_CUTOFF<>params^ then begin
                 SPOT_CUTOFF:=params^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
         GL_CONSTANT_ATTENUATION: if CONSTANT_ATTENUATION<>params^ then begin
                 CONSTANT_ATTENUATION:=params^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
         GL_LINEAR_ATTENUATION: if LINEAR_ATTENUATION<>params^ then begin
                 LINEAR_ATTENUATION:=params^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
         GL_QUADRATIC_ATTENUATION: if QUADRATIC_ATTENUATION<>params^ then begin
                 QUADRATIC_ATTENUATION:=params^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
         GL_AMBIENT: if not VectorEquals(AMBIENT,PVector(params)^) then begin
                 AMBIENT:=PVector(params)^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
         GL_DIFFUSE: if not VectorEquals(DIFFUSE,PVector(params)^) then begin
                 DIFFUSE:=PVector(params)^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
         GL_SPECULAR: if not VectorEquals(SPECULAR,PVector(params)^) then begin
                 SPECULAR:=PVector(params)^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
         GL_POSITION: if not VectorEquals(POSITION,PVector(params)^) then begin
                 POSITION:=PVector(params)^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
         GL_SPOT_DIRECTION: if not VectorEquals(SPOT_DIRECTION,PVector(params)^) then begin
                 SPOT_DIRECTION:=PVector(params)^;
-                Opengl1x.glLightfv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
               end;
-        Else Opengl1x.glLightfv(light, pname,params);
+        Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname,params);
      end;
   end;
 end;
@@ -1707,45 +1710,45 @@ begin
      case pname of
         GL_SPOT_EXPONENT: if SPOT_EXPONENT<>params^ then begin
                 SPOT_EXPONENT:=params^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
         GL_SPOT_CUTOFF: if SPOT_CUTOFF<>params^ then begin
                 SPOT_CUTOFF:=params^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
         GL_CONSTANT_ATTENUATION: if CONSTANT_ATTENUATION<>params^ then begin
                 CONSTANT_ATTENUATION:=params^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
         GL_LINEAR_ATTENUATION: if LINEAR_ATTENUATION<>params^ then begin
                 LINEAR_ATTENUATION:=params^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
         GL_QUADRATIC_ATTENUATION: if QUADRATIC_ATTENUATION<>params^ then begin
                 QUADRATIC_ATTENUATION:=params^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
         GL_AMBIENT: if not VectorEquals(AMBIENT,PVector(params)^) then begin
                 AMBIENT:=PVector(params)^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
         GL_DIFFUSE: if not VectorEquals(DIFFUSE,PVector(params)^) then begin
                 DIFFUSE:=PVector(params)^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
         GL_SPECULAR: if not VectorEquals(SPECULAR,PVector(params)^) then begin
                 SPECULAR:=PVector(params)^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
         GL_POSITION: if not VectorEquals(POSITION,PVector(params)^) then begin
                 POSITION:=PVector(params)^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
         GL_SPOT_DIRECTION: if not VectorEquals(SPOT_DIRECTION,PVector(params)^) then begin
                 SPOT_DIRECTION:=PVector(params)^;
-                Opengl1x.glLightiv(light, pname, params);
+                {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
               end;
-        Else Opengl1x.glLightiv(light, pname,params);
+        Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname,params);
      end;
   end;
 end;
@@ -1767,7 +1770,7 @@ begin
         GL_SPECULAR: PVector(p)^:=SPECULAR;
         GL_POSITION: PVector(p)^:=POSITION;
         GL_SPOT_DIRECTION: PVector(p)^:=SPOT_DIRECTION;
-        Else Opengl1x.glLightfv(light, pname, params);
+        Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightfv(light, pname, params);
      end;
   end;
 end;
@@ -1789,7 +1792,7 @@ begin
         GL_SPECULAR: PIntegerVector(p)^:=FloatToIntVector(SPECULAR);
         GL_POSITION: PIntegerVector(p)^:=FloatToIntVector(POSITION);
         GL_SPOT_DIRECTION: PIntegerVector(p)^:=FloatToIntVector(SPOT_DIRECTION);
-        Else Opengl1x.glLightiv(light, pname, params);
+        Else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLightiv(light, pname, params);
      end;
   end;
 end;
@@ -1797,10 +1800,10 @@ end;
 
 procedure glBindTexture(target: TGLEnum; texture: TGLuint);
 begin
-//Opengl1x.glBindTexture(target,Texture); exit;
+//{$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glBindTexture(target,Texture); exit;
   with GLStateCache.TextureCache do begin
        if Units[CurrentUnit].ID<>texture then begin
-          Opengl1x.glBindTexture(target,Texture);
+          {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glBindTexture(target,Texture);
           Units[CurrentUnit].Target:=target;
           Units[CurrentUnit].ID:=Texture;
        end;
@@ -1809,10 +1812,10 @@ end;
 
 procedure glActiveTexture(target: TGLenum);
 begin
-//  opengl1x.glActiveTexture(target); exit;
+//  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glActiveTexture(target); exit;
   if target<>GLStateCache.TextureCache.CurrentUnit+GL_Texture0
   then begin
-    opengl1x.glActiveTexture(target);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glActiveTexture(target);
     GLStateCache.TextureCache.CurrentUnit:=target-GL_Texture0;
   end;
 end;
@@ -1821,7 +1824,7 @@ procedure glClientActiveTexture(target: TGLenum);
 begin
   if target<>GLStateCache.TextureCache.CurrentClientUnit+GL_Texture0
   then begin
-    opengl1x.glClientActiveTexture(target);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glClientActiveTexture(target);
     GLStateCache.TextureCache.CurrentClientUnit:=target-GL_Texture0;
   end;
 end;
@@ -1956,16 +1959,16 @@ end;
 procedure TGLTextureCache.GetCurrentGLStates;
 var maxTU, ctu, i: integer;
 begin
-  OpenGL1x.glGetIntegerv(GL_MAX_TEXTURE_UNITS,@MaxTU);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS,@MaxTU);
   setlength(Units,MaxTU);
-  if OpenGL1x.glIsEnabled(GL_TEXTURE_1D) then Texture1D:=true else Texture1D:=false;
-  if OpenGL1x.glIsEnabled(GL_TEXTURE_2D) then Texture2D:=true else Texture2D:=false;
-  if OpenGL1x.glIsEnabled(GL_TEXTURE_3D) then Texture3D:=true else Texture3D:=false;
-  if OpenGL1x.glIsEnabled(GL_TEXTURE_CUBE_MAP) then TextureCubeMap:=true else TextureCubeMap:=false;
-  if OpenGL1x.glIsEnabled(GL_TEXTURE_RECTANGLE) then TextureRectangle:=true else TextureRectangle:=false;
+  if {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glIsEnabled(GL_TEXTURE_1D) then Texture1D:=true else Texture1D:=false;
+  if {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glIsEnabled(GL_TEXTURE_2D) then Texture2D:=true else Texture2D:=false;
+  if {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glIsEnabled(GL_TEXTURE_3D) then Texture3D:=true else Texture3D:=false;
+  if {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glIsEnabled(GL_TEXTURE_CUBE_MAP) then TextureCubeMap:=true else TextureCubeMap:=false;
+  if {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glIsEnabled(GL_TEXTURE_RECTANGLE) then TextureRectangle:=true else TextureRectangle:=false;
   glGetIntegerv(GL_ACTIVE_TEXTURE,@CTU);
   CurrentUnit:=CTU-GL_TEXTURE0;
-  OpenGL1x.glGetIntegerv(GL_CLIENT_ACTIVE_TEXTURE,@CTU);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_CLIENT_ACTIVE_TEXTURE,@CTU);
   CurrentClientUnit:=CTU-GL_TEXTURE0;
   for i:=0 to maxTU-1 do begin
      Units[i].Target:=GL_TEXTURE_2D;
@@ -2030,20 +2033,20 @@ end;
 
 procedure TGLMatrixCache.GetCurrentGLStates;
 begin
-  OpenGL1x.glGetIntegerv(GL_MATRIX_MODE, @MatrixMode);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_MATRIX_MODE, @MatrixMode);
   with Current do begin
-    OpenGL1x.glGetFLoatv(GL_MODELVIEW_MATRIX,PGLFloat(@ModelViewMatrix));
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFLoatv(GL_MODELVIEW_MATRIX,PGLFloat(@ModelViewMatrix));
     MVLoaded:=true;
-    OpenGL1x.glGetFLoatv(GL_PROJECTION_MATRIX,PGLFloat(@ProjectionMatrix));
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFLoatv(GL_PROJECTION_MATRIX,PGLFloat(@ProjectionMatrix));
     PMLoaded:=true;
-    OpenGL1x.glGetFLoatv(GL_TEXTURE_MATRIX,PGLFloat(@TextureMatrix));
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFLoatv(GL_TEXTURE_MATRIX,PGLFloat(@TextureMatrix));
     TMLoaded:=true;
-    OpenGL1x.glGetFLoatv(GL_COLOR_MATRIX,PGLFloat(@ColorMatrix));
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetFLoatv(GL_COLOR_MATRIX,PGLFloat(@ColorMatrix));
     CMLoaded:=true;
   end;
   FChecked:=true;
 end;
-{
+(*
 procedure glPushMatrix;
 var m: PMatrix;
 begin
@@ -2072,7 +2075,7 @@ begin
               glLoadMatrixf(PGLFloat(m));
               dispose(m);ModelMatrix.Delete(ModelMatrix.Count-1);
            end else begin
-              Opengl1x.glPopMatrix; Current.MVLoaded:=true;
+              {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPopMatrix; Current.MVLoaded:=true;
               glGetFLoatv(GL_MODELVIEW_MATRIX,PGLFloat(@Current.ModelViewMatrix));
            end;
     GL_PROJECTION :
@@ -2083,7 +2086,7 @@ begin
               glLoadMatrixf(PGLFloat(m));
               dispose(m);ProjectionMatrix.Delete(ProjectionMatrix.Count-1);
            end else begin
-              Opengl1x.glPopMatrix; Current.PMLoaded:=true;
+              {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPopMatrix; Current.PMLoaded:=true;
               glGetFLoatv(GL_PROJECTION_MATRIX,PGLFloat(@Current.ProjectionMatrix));
            end;
     GL_TEXTURE    :
@@ -2094,7 +2097,7 @@ begin
               glLoadMatrixf(PGLFloat(m));
               dispose(m);TextureMatrix.Delete(TextureMatrix.Count-1);
            end else begin
-              Opengl1x.glPopMatrix; Current.TMLoaded:=true;
+              {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPopMatrix; Current.TMLoaded:=true;
               glGetFLoatv(GL_TEXTURE_MATRIX,PGLFloat(@Current.TextureMatrix));
            end;
     GL_COLOR      :
@@ -2105,7 +2108,7 @@ begin
               glLoadMatrixf(PGLFloat(m));
               dispose(m);ColorMatrix.Delete(ColorMatrix.Count-1);
            end else begin
-              Opengl1x.glPopMatrix; Current.CMLoaded:=true;
+              {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glPopMatrix; Current.CMLoaded:=true;
               glGetFLoatv(GL_COLOR_MATRIX,PGLFloat(@Current.ColorMatrix));
            end;
    end;
@@ -2126,7 +2129,7 @@ begin
                     Current.CMLoaded:=false; end;
    end;
   end;
-  Opengl1x.glLoadMatrixf(m);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLoadMatrixf(m);
 end;
 
 procedure glLoadIdentity;
@@ -2143,7 +2146,7 @@ begin
                     Current.CMLoaded:=false; end;
    end;
   end;
-  Opengl1x.glLoadIdentity;
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glLoadIdentity;
 end;
 
 procedure glMultMatrixf(m: PGLfloat);
@@ -2168,7 +2171,7 @@ begin
         end;
    end;
   end;
-//  Opengl1x.glMultMatrixf(m);
+//  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glMultMatrixf(m);
 end;
 
 procedure glScalef(x, y, z: TGLfloat);
@@ -2195,7 +2198,7 @@ begin
         end;
    end;
   end;
-//  Opengl1x.glScalef(x, y, z);
+//  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glScalef(x, y, z);
 end;
 
 procedure glTranslatef(x, y, z: TGLfloat);
@@ -2249,7 +2252,7 @@ begin
    end;
   end;
 end;
-}
+*)
 
 procedure TGLMatrixCache.Reset;
 begin
@@ -2261,7 +2264,7 @@ procedure glUseProgram(_program: TGLuint);
 begin
   if _program<>GLStateCache.FActiveProgram then begin
     GLStateCache.FActiveProgram:=_program;
-    OpenGL1x.glUseProgram(_program);
+    {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glUseProgram(_program);
   end;
 end;
 
@@ -2269,7 +2272,7 @@ procedure glGetIntegerv(pname: TGLEnum; params: PGLint);
 begin
   case pname of
     GL_CURRENT_PROGRAM: params^:=GLStateCache.FActiveProgram;
-  else OpenGL1x.glGetIntegerv(pname,params);
+  else {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(pname,params);
   end;
 
 end;
@@ -2286,12 +2289,12 @@ begin
   CurrentFFPVBO:=GLStateCache.GLVBOManager.GetBuffer(Id);
 }
 begin
-  OpenGL1x.glBegin(mode);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glBegin(mode);
 end;
 
 procedure glVertex3f(x, y, z: TGLfloat);
 begin
-  OpenGL1x.glVertex3f(x, y, z);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glVertex3f(x, y, z);
 end;
 
 { TGLVBOManager }
@@ -2312,7 +2315,7 @@ begin
     if assigned(FFPBuff) then begin
       if assigned(FFPBuff.BuffData)
       then dispose(FFPBuff.BuffData);
-      OpenGL1x.glDeleteBuffers(1,@FFPBuff.VBOId);
+      {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDeleteBuffers(1,@FFPBuff.VBOId);
       dispose(FFPBuff);
     end;
   end;
@@ -2521,7 +2524,7 @@ end;
 
 procedure TGLShaderCache.GetCurrentGLStates;
 begin
-  OpenGL1x.glGetIntegerv(GL_CURRENT_PROGRAM,@GLStateCache.FActiveProgram);
+  {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glGetIntegerv(GL_CURRENT_PROGRAM,@GLStateCache.FActiveProgram);
 end;
 
 function TGLShaderCache.Last: cardinal;

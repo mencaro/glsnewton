@@ -1,7 +1,7 @@
 unit MTLLoader;
 interface
 
-Uses Classes, SysUtilsLite, VectorGeometry,
+Uses Classes, SysUtils, VectorGeometry,
      uMaterials, uTextures, uMaterialObjects;
 Type
    TMTLProgressEvent = procedure (CurrentMatName:string; CurrentMatIndex:integer; MatCount:integer);

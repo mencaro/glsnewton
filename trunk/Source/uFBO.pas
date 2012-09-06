@@ -7,8 +7,9 @@ unit uFBO;
 
 interface
 
-Uses Classes, OpenGL1x, uTextures, OGLStateEmul;
-
+Uses Classes,
+     {$IFNDEF DIRECTGL}OpenGL1x,{$ELSE}dglOpenGL,{$ENDIF}
+     uTextures, OGLStateEmul;
 Type
   TRenderBuffer = (rbDepth, rbStencil);
   TRenderBuffers = set of TRenderBuffer;
