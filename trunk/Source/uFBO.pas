@@ -223,7 +223,7 @@ var i:integer;
     FBTarget: GLEnum;
 begin
   if (Width=FWidth) and (Height=FHeight) and FInit then exit else
-    if FInit then ResetFBO;
+    if FInit then ResetFBO(False);
   FWidth:=width; FHeight:=height;
   FBTarget:=GL_FRAMEBUFFER_EXT;
 //  FBTarget:=GL_DRAW_FRAMEBUFFER_EXT;
@@ -407,11 +407,13 @@ var buffers: array of GLEnum;
     cb: GLUInt;
     FBTarget: GLEnum;
 begin
+  assert(glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT)=GL_FRAMEBUFFER_COMPLETE_EXT,
+    'FBO incomplete');
 //  FBTarget:=GL_DRAW_FRAMEBUFFER_EXT;
   FBTarget:=GL_FRAMEBUFFER_EXT;
   if ClearBuffers then begin
     glGetIntegerv(GL_VIEWPORT, @Fviewport);
-    if (FViewport[2]<>FWidth) or (FViewport[2]<>FHeight) then
+    if (FViewport[2]<>FWidth) or (FViewport[3]<>FHeight) then
       glViewport(0,0,FWidth,FHeight);
   end;
   glBindFramebufferEXT(FBTarget, fboId);

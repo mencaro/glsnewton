@@ -769,7 +769,6 @@ begin
    for i:=0 to SMD.NodesCount-1 do bones[i]:=SMD.Frames[FrameNo,i];
    new(p); InitVBOBuff(p^,GL_LINES,DrawArrays);
    new(t); InitVBOBuff(t^,GL_POINTS,DrawArrays);
-   glPointSize(3);
    for i:=0 to SMD.NodesCount-1 do begin
      np:=bones[i];
      if np.parent>=0 then begin

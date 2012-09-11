@@ -136,6 +136,8 @@ Type
     FActive: Boolean;
     FAttachments: array of TFBOTarget;
     FPolyCount: integer;
+    FViewerWidth, FViewerHeight: integer;
+    FViewerToTextureSize: boolean;
     procedure setProjMatrix(const Value: TMatrix);
     procedure setViewMatrix(const Value: TMatrix);
     function GetVisibleObjects(MeshList: TList;
@@ -171,6 +173,7 @@ Type
     property ViewportWidth: integer read FSceneViewer.ViewPort[2] write setWidth;
     property ViewportHeight: integer read FSceneViewer.ViewPort[3] write setHeight;
     property Textures: TTextureLibrary read FTextures;
+    property ViewerToTextureSize: boolean read FViewerToTextureSize write FViewerToTextureSize;
   end;
 
   TMeshGroupItem = class (TVBOMeshItem)
@@ -320,7 +323,7 @@ Type
     {$ENDIF}
       FViewMatrix: TMatrix;
       FProjectionMatrix: TMatrix;
-      FViewPort: array [0..3] of integer;
+      FViewPort: TVector4i;
       FPolyCount: integer;
       FonBeforeRender: TVBOMeshRenderEvents;
       FonAfterRender: TVBOMeshRenderEvents;
@@ -669,11 +672,12 @@ var i{,n}: integer;
 begin
   FPolyCount:=0;
   if (not Visible) then exit;
-
   OGLStateEmul.GLStateCache.CheckStates;
+//{$IFNDEF DIRECTGL}
   OGLStateEmul.GLStateCache.PushStates;
-
-  time:=GetTime;
+//{$ENDIF}
+{$IFDEF DIRECTGL}  OGLStateEmul.GLStateCache.ResetStates;{$ENDIF}
+  time:=GetTime;   glGetIntegerv(GL_VIEWPORT, @FViewPort);
   if assigned(FCamera) then begin
     FRender.FSceneViewer.ViewMatrix:=FCamera.ViewMatrix;
     FRender.FSceneViewer.ProjectionMatrix:=FCamera.ProjectionMatrix;
@@ -687,10 +691,9 @@ begin
     FRender.FSceneViewer.ProjectionMatrix:=FProjectionMatrix;
   end;
   F := GetFrustum(FProjectionMatrix, FViewMatrix);
+  FRender.FSceneViewer.ViewPort:=FViewPort;
   FRender.FSceneViewer.Frustum:=F;
   FRender.FSceneViewer.CurrentTime:=time;
-
-  glGetIntegerv(GL_VIEWPORT, @FViewPort);
 
   if not FOldRender then begin
     glEnable(GL_LIGHTING); glEnable(GL_LIGHT0); glDisable(GL_TEXTURE_2D);
@@ -798,7 +801,9 @@ begin
 //  QueryObjectList.Free;
 //  inc(FRenderPass); if FRenderPass=2 then FRenderPass:=0;
   if assigned(onAfterRender) then onAfterRender;
+//{$IFNDEF DIRECTGL}
   OGLStateEmul.GLStateCache.PopStates;
+//{$ENDIF}
 end;
 
 function TVBOMesh.ExtentsIntersect(const rayStart, rayVector: TVector; var List:Tlist): boolean;
@@ -2558,11 +2563,14 @@ var i,j: integer;
     mi: TVBOMeshItem;
     mc1,mc2: TMeshCollection;
 begin
-  clear;
   for i:=0 to MeshCollection.Count-1 do begin
     mi:=MeshCollection[i];
     case mi.MeshItemType of
-      mcCollection,mcContainer: FContainers.Add(mi);
+      mcCollection,mcContainer: begin
+        if TMeshCollection(mi).ExpandingRequired
+        then ParseCollection(TMeshCollection(mi))
+        else FContainers.Add(mi);
+      end;
       mcMeshObject: begin
         if TVBOMeshObject(mi).MeshPlacement=mpBackground then FEnvObjects.Add(mi)
         else if TVBOMeshObject(mi).MeshPlacement=mpForeground then FFGObjects.Add(mi)
@@ -2603,6 +2611,13 @@ begin
     assert(FAttachments[i].TargetTo<>aTarget,
       'Texture with this target already attached.');
   setlength(FAttachments,n+1);
+  if n>0 then begin
+    assert((aTexture.Width=FViewerWidth) and (aTexture.Height=FViewerHeight),
+      'Attachments dimensions must be equal');
+  end else begin
+    FViewerWidth:=aTexture.Width; FViewerHeight:=aTexture.Height;
+  end;
+
   FAttachments[n].Texture:=aTexture;
   FAttachments[n].TargetTo:=aTarget;
 end;
@@ -2624,6 +2639,8 @@ begin
   FSceneParser:=TSceneParser.Create;
   FTextures:=TTextureLibrary.Create;
   FLastTime:=-1;
+  FViewerWidth:=-1; FViewerHeight:=-1;
+  FViewerToTextureSize:=false;
 end;
 
 destructor TRenderShell.Destroy;
@@ -2679,6 +2696,7 @@ procedure TRenderShell.Process;
 begin
   FPolyCount:=0;
   if FCollection.FStructureChanged then begin
+    FSceneParser.Clear;
     FSceneParser.ParseCollection(FCollection);
     FCollection.FStructureChanged:=false;
   end;
@@ -2692,8 +2710,11 @@ begin
   if FRenderBuffer=rtFrameBuffer then
   with FSceneViewer do begin
     //glViewport(0,0,ViewPort[2],ViewPort[3]);
-    FFBO.InitFBO(ViewPort[2],ViewPort[3]);
     UpdateRenderTarget;
+    if FViewerToTextureSize then
+      FFBO.InitFBO(FViewerWidth,FViewerHeight)
+    else
+      FFBO.InitFBO(ViewPort[2],ViewPort[3]);
     FFBO.Apply;
   end;
 
@@ -2710,7 +2731,9 @@ begin
   //Process Foreground objects
   ProcessFGObjects;
 
-  if FRenderBuffer=rtFrameBuffer then FFBO.UnApply;
+  if FRenderBuffer=rtFrameBuffer then begin
+    FFBO.UnApply; //glViewport(0,0,ViewPort[2],ViewPort[3]
+  end;
 end;
 
 procedure TRenderShell.ProcessCollection(Before: boolean);
@@ -2929,13 +2952,25 @@ var i: integer;
     tex: TTexture;
 begin
   if length(FAttachments)=0 then exit;
+  if FViewerToTextureSize then begin
+    tex:=FAttachments[0].Texture;
+    FViewerHeight:=tex.Height; FViewerWidth:=tex.Width;
+    for i:=1 to length(FAttachments)-1 do begin
+      tex:=FAttachments[i].Texture;
+      assert((tex.Width<>FViewerWidth) or (tex.Height<>FViewerHeight),
+        'Attachments dimensions is not equal');
+    end;
+  end;
+  for i:=0 to FFBO.AttachmentsCount-1 do FFBO.DetachTexture(i);
   for i:=0 to high(FAttachments) do begin
     tex:=FAttachments[i].Texture;
-    FFBO.AttachTexture(tex,FAttachments[i].TargetTo);
     if assigned(tex) then begin
-      if (tex.Width<>ViewportWidth) or (tex.Height<>ViewportHeight)
-      then tex.SetDimensions(ViewportWidth,ViewportHeight);
+      if not FViewerToTextureSize then begin
+        if (tex.Width<>ViewportWidth) or (tex.Height<>ViewportHeight)
+        then tex.SetDimensions(ViewportWidth,ViewportHeight);
+      end;
     end;
+    FFBO.AttachTexture(tex,FAttachments[i].TargetTo);
   end;
 end;
 
@@ -2968,6 +3003,8 @@ begin
     FRender.FSceneViewer.ViewMatrix:=FCamera.ViewMatrix;
     FRender.FSceneViewer.ProjectionMatrix:=FCamera.ProjectionMatrix;
     FRender.FSceneViewer.Frustum:=GetFrustum(FCamera.ProjectionMatrix,FCamera.ViewMatrix);
+  end else begin
+    FRender.FSceneViewer:=TVBOMesh(FOwner).FRender.FSceneViewer;
   end;
   FRender.FSceneViewer.CurrentTime:=GetTime;
 
