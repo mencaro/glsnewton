@@ -171,10 +171,12 @@ type
 
   _TSingleList = class(TVectorAttribList)
   public
+    constructor Create;
   end;
 
   _TTexPointList = class(TVectorAttribList)
   public
+    constructor Create;
   end;
 
   _TAffineVectorList = class (_TBaseVectorList)
@@ -184,6 +186,7 @@ type
     function getList: PAffineVectorArray;
   public
     constructor Create;
+    procedure Assign(SourceList: _TAffineVectorList);
 
     procedure Normalize; override;
     procedure Translate(const delta: TAffineVector);
@@ -204,6 +207,7 @@ type
     function getList: PVectorArray;
   public
     constructor Create;
+    procedure Assign(SourceList: _TVectorList);
 
     procedure Normalize; override;
     procedure Translate(const delta: TVector); overload;
@@ -308,7 +312,7 @@ begin
     vtVector: begin
       FList[FLastIndex+0]:=x;
       FList[FLastIndex+1]:=y;
-      FList[FLastIndex+3]:=0;
+      FList[FLastIndex+2]:=0;
       inc(FLastIndex,3);
     end;
     vtPoint: begin
@@ -603,7 +607,7 @@ end;
 procedure TVectorAttribList.setCount(const Value: integer);
 begin
   FCount:=Value; setCapacity(Value);
-  FLastIndex:=FCount-1;
+//  FLastIndex:=FCount-1;
 end;
 
 procedure TVectorAttribList.setItem(Index: integer; const Value: single);
@@ -657,9 +661,9 @@ end;
 
 procedure TVectorAttribList.Add(SourceList: TVectorAttribList);
 begin
-  setCapacity(SourceList.Capacity);
+  setCapacity(FCapacity+SourceList.Capacity);
   System.move(SourceList.FList[0],FList[FLastIndex],SourceList.DataSize);
-  FCount:=FCount+SourceList.Count; FLastIndex:=FCount+1;
+  FCount:=FCount+SourceList.Count; FLastIndex:=FCount*CVectorSize[FVectorType];
 end;
 
 { TIntegerAttribList }
@@ -695,9 +699,9 @@ end;
 
 procedure TIntegerAttribList.Add(SourceList: TIntegerAttribList);
 begin
-  setCapacity(SourceList.Capacity);
+  setCapacity(FCapacity+SourceList.Capacity);
   System.move(SourceList.FList[0],FList[FLastIndex],SourceList.DataSize);
-  FCount:=FCount+SourceList.Count; FLastIndex:=FCount+1;
+  FCount:=FCount+SourceList.Count; FLastIndex:=FCount*CVectorSize[FVectorType];
 end;
 
 function TIntegerAttribList.Addb(a, b, c, d: byte): integer;
@@ -773,7 +777,7 @@ end;
 procedure TIntegerAttribList.setCount(const Value: integer);
 begin
   FCount:=Value; setCapacity(Value);
-  FLastIndex:=FCount;
+  //FLastIndex:=FCount;
 end;
 
 procedure TIntegerAttribList.setItem(Index: integer; const Value: integer);
@@ -863,6 +867,14 @@ end;
 
 { _TAffineVectorList }
 
+procedure _TAffineVectorList.Assign(SourceList: _TAffineVectorList);
+begin
+  Capacity:=SourceList.Capacity;
+  System.Move(SourceList.List^,FList[0],SourceList.Capacity);
+  FCount:=SourceList.Count;
+  FLastIndex:=FCount*CVectorSize[FVectorType];
+end;
+
 procedure _TAffineVectorList.CombineItem(Index: Integer;
   const vector: TAffineVector; const f: Single);
 var v: TAffineVector;
@@ -898,7 +910,8 @@ end;
 procedure _TAffineVectorList.TransformAsPoints(const matrix: TMatrix);
 var i: integer;
 begin
-  for i:=0 to Count-1 do Items[i]:=VectorTransform(Items[I], matrix);
+  for i:=0 to Count-1 do
+    Items[i]:=VectorTransform(Items[I], matrix);
 end;
 
 procedure _TAffineVectorList.TransformAsVectors(const matrix: TMatrix);
@@ -917,7 +930,7 @@ procedure _TAffineVectorList.Translate(const delta: TAffineVector);
 var v: TVector3f;
     i: integer;
 begin
-  for i:=0 to Count do begin
+  for i:=0 to Count-1 do begin
     v:=GetAsVector3f(i); AddVector(v,delta); SetAsVector3f(i,v);
   end;
 end;
@@ -930,6 +943,14 @@ begin
 end;
 
 { _TVectorList }
+
+procedure _TVectorList.Assign(SourceList: _TVectorList);
+begin
+  Capacity:=SourceList.Capacity;
+  System.Move(SourceList.List^,FList[0],SourceList.Capacity);
+  FCount:=SourceList.Count;
+  FLastIndex:=FCount*CVectorSize[FVectorType];
+end;
 
 procedure _TVectorList.CombineItem(Index: Integer; const vector: TAffineVector;
   const f: Single);
@@ -990,7 +1011,7 @@ procedure _TVectorList.Translate(const delta: TAffineVector);
 var v: TVector3f;
     i: integer;
 begin
-  for i:=0 to Count do begin
+  for i:=0 to Count-1 do begin
     v:=AffineVectorMake(Items[i]); AddVector(v,delta);
     Items[i]:=VectorMake(v);
   end;
@@ -1000,7 +1021,7 @@ procedure _TVectorList.Translate(const delta: TVector);
 var v: TVector;
     i: integer;
 begin
-  for i:=0 to Count do begin
+  for i:=0 to Count-1 do begin
     v:=Items[i]; AddVector(v,delta); Items[i]:=v;
   end;
 end;
@@ -1027,7 +1048,7 @@ begin
   Capacity:=SourceList.Capacity;
   System.Move(SourceList.List^,FList[0],SourceList.Capacity);
   FCount:=SourceList.Count;
-  FLastIndex:=FCount+1;
+  FLastIndex:=FCount*CVectorSize[FVectorType];
 end;
 
 function _TIntegerList.Get(Index: Integer): Integer;
@@ -1051,6 +1072,20 @@ end;
 procedure _TIntegerList.Put(Index: Integer; const Value: Integer);
 begin
   FList[Index]:=Value;
+end;
+
+{ _TSingleList }
+
+constructor _TSingleList.Create;
+begin
+  inherited Create(vtSingle);
+end;
+
+{ _TTexPointList }
+
+constructor _TTexPointList.Create;
+begin
+  inherited Create(vtDouble);
 end;
 
 end.

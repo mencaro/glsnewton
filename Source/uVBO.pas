@@ -4,7 +4,7 @@ unit uVBO;
 
 interface
 
-uses VectorTypes, VectorGeometry, Classes, Types,
+uses Classes, Types, VectorTypes, VectorGeometry,
      {$IFNDEF DIRECTGL}
      OpenGL1x, VectorLists,
      {$ELSE}
@@ -1670,7 +1670,7 @@ begin
             glColorPointer(4,GL_FLOAT, 0, nil);
             glEnable(GL_COLOR_MATERIAL);
             glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-          end;
+          end else glDisable(GL_COLOR_MATERIAL);
 
           for i:=0 to AttribList.Count-1 do begin
             attr:=AttribList[i];

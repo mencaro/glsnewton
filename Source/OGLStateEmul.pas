@@ -702,18 +702,19 @@ procedure glEnable(cap: TGLEnum);
 var state: TEnStates;
 begin
   state:=StateByEnum(cap);
+  case cap of
+    GL_Texture_1D,GL_Texture_2D,GL_Texture_3D,GL_TEXTURE_CUBE_MAP,
+    GL_TEXTURE_RECTANGLE: begin
+       SetTextureStates(cap,true);exit;
+    end;
+  end;
+
   if state<>sNone then begin
      if not (state in GLStateCache.States) then begin
         {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glEnable(cap);
         GLStateCache.States:=GLStateCache.States+[state];
         exit;
      end else exit;
-  end;
-  case cap of
-    GL_Texture_1D,GL_Texture_2D,GL_Texture_3D,GL_TEXTURE_CUBE_MAP,
-    GL_TEXTURE_RECTANGLE: begin
-       SetTextureStates(cap,true);exit;
-    end;
   end;
   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glEnable(cap);
 end;
@@ -722,19 +723,19 @@ procedure glDisable(cap: TGLEnum);
 var state: TEnStates;
 begin
   state:=StateByEnum(cap);
-  if state<>sNone then begin
-     if (state in GLStateCache.States) then begin
-        {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(cap);
-        GLStateCache.States:=GLStateCache.States-[state];
-        exit;
-     end else exit;
-  end;
   case cap of
     GL_Texture_1D,GL_Texture_2D,GL_Texture_3D,GL_TEXTURE_CUBE_MAP,
     GL_TEXTURE_RECTANGLE: begin
        SetTextureStates(cap,false);
        exit;
     end;
+  end;
+  if state<>sNone then begin
+     if (state in GLStateCache.States) then begin
+        {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(cap);
+        GLStateCache.States:=GLStateCache.States-[state];
+        exit;
+     end else exit;
   end;
   {$IFNDEF DIRECTGL}OpenGl1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(cap);
 end;
@@ -1897,6 +1898,7 @@ end;
 procedure TGLStateCache.ResetStates(CheckGLStates: boolean);
 begin
     if CheckGLStates then CheckStates;
+
     DepthCache.Reset;
     AlphaCache.Reset;
     BlendingCache.Reset;

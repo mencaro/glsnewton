@@ -1283,8 +1283,10 @@ begin
   if FTwoSides then begin
     //glCullFace(GL_FRONT); glDisable(GL_CULL_FACE);
     //glCullFace(GL_BACK);
-    glDisable(GL_CULL_FACE);
-  end else glEnable(GL_CULL_FACE);
+
+    {$IFNDEF DIRECTGL}OpenGL1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(GL_CULL_FACE);
+  end else
+    {$IFNDEF DIRECTGL}OpenGL1x.{$ELSE}dglOpenGL.{$ENDIF}glEnable(GL_CULL_FACE);
   singleMat:=false; CMName:='';
   if not FCulled then begin
     SetFaceMode;

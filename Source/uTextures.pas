@@ -532,7 +532,10 @@ begin
   FSettedParams:=FSettedParams+[stSizes];
   exclude(FSettedParams,stData);
   FTexture.Data:=nil;
-  if FTexture.Created then result:=CreateTexture;
+  if FTexture.Created then begin
+    FTexture.Created:=false;
+    result:=CreateTexture;
+  end;
 end;
 
 function TTexture.SetInternalFormat(texFormat: TGLInternalFormat): boolean;
