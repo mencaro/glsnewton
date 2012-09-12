@@ -1,8 +1,9 @@
 uniform sampler2D image;
-
-uniform float offset[3] = float[]( 0.0, 1.3846153846, 3.2307692308 );
-uniform float weight[3] = float[]( 0.2270270270, 0.3162162162, 0.0702702703 );
 uniform vec4 TexSize;
+
+const float offset[3] = { 0.0, 1.3846153846, 3.2307692308 };
+const float weight[3] = { 0.2270270270, 0.3162162162, 0.0702702703 };
+
 
 void main(void)
 {
