@@ -2710,11 +2710,12 @@ begin
   if FRenderBuffer=rtFrameBuffer then
   with FSceneViewer do begin
     //glViewport(0,0,ViewPort[2],ViewPort[3]);
-    UpdateRenderTarget;
     if FViewerToTextureSize then
       FFBO.InitFBO(FViewerWidth,FViewerHeight)
-    else
+    else begin
       FFBO.InitFBO(ViewPort[2],ViewPort[3]);
+    end;
+    UpdateRenderTarget;
     FFBO.Apply;
   end;
 
@@ -2961,13 +2962,21 @@ begin
         'Attachments dimensions is not equal');
     end;
   end;
-  for i:=0 to FFBO.AttachmentsCount-1 do FFBO.DetachTexture(i);
+  FFBO.DetachAllTextures;
+  FFBO.DetachDepthTexture;
+  FFBO.DetachStencilTexture;
+  FFBO.DetachDepthStencilTexture;
+
   for i:=0 to high(FAttachments) do begin
     tex:=FAttachments[i].Texture;
     if assigned(tex) then begin
       if not FViewerToTextureSize then begin
         if (tex.Width<>ViewportWidth) or (tex.Height<>ViewportHeight)
-        then tex.SetDimensions(ViewportWidth,ViewportHeight);
+        then begin
+          tex.SetDimensions(ViewportWidth,ViewportHeight);
+          if FAttachments[i].TargetTo=tgDepth then begin
+          end;
+        end;
       end;
     end;
     FFBO.AttachTexture(tex,FAttachments[i].TargetTo);

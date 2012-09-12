@@ -58,6 +58,7 @@ Type
     function GetTexture(index: integer): TTexture;
     procedure SetTexture(index: integer; const Value: TTexture);
     function GetAttachmentsCount: integer;
+    function CheckCompleteness: boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -198,6 +199,25 @@ begin
   FAttachments.Textures[index]:=Value;
 end;
 
+function TFrameBufferObject.CheckCompleteness: boolean;
+var status: cardinal;
+begin
+  status:=glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+  result:=false;
+  if status=GL_FRAMEBUFFER_COMPLETE_EXT then begin result:=true; exit; end;
+  case status of
+    GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT_EXT: assert(false, 'Incomplete attachment');
+    GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT: assert(false, 'Incompleate or missing attachment');
+    GL_FRAMEBUFFER_INCOMPLETE_DUPLICATE_ATTACHMENT_EXT: assert(false, 'Dublicate attachments');
+    GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT: assert(false, 'Incomplete dimensions');
+    GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT: assert(false, 'Incomplete formats');
+    GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER_EXT: assert(false, 'Incomplete draw buffer');
+    GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER_EXT: assert(false, 'Incomplete read buffer');
+    GL_FRAMEBUFFER_UNSUPPORTED_EXT: assert(false, 'Unsupported configuration');
+    //GL_FRAMEBUFFER_STATUS_ERROR: assert(false, 'Status Error');
+  end;
+end;
+
 procedure TFrameBufferObject.ConfigDepthBuffer(mode: TBufferMode;
   precision: TDepthPrecision);
 begin
@@ -278,6 +298,7 @@ begin
     end;
   end;
   FInit:=true;
+  //CheckCompleteness;
 end;
 
 procedure TFrameBufferObject.AttachDepthTexture(tex: TTexture);
@@ -407,8 +428,6 @@ var buffers: array of GLEnum;
     cb: GLUInt;
     FBTarget: GLEnum;
 begin
-  assert(glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT)=GL_FRAMEBUFFER_COMPLETE_EXT,
-    'FBO incomplete');
 //  FBTarget:=GL_DRAW_FRAMEBUFFER_EXT;
   FBTarget:=GL_FRAMEBUFFER_EXT;
   if ClearBuffers then begin
@@ -427,10 +446,15 @@ begin
        end; setlength(buffers,n);
        glDrawBuffers(n,@buffers[0]);
     end else begin glDrawBuffer(GL_NONE);  glReadBuffer(GL_NONE); end;
+    CheckCompleteness;
     if ClearBuffers then begin
       if Textures.Count>0 then cb:= GL_COLOR_BUFFER_BIT else cb:=0;
-      if rbDepth in FRenderBuffers then cb:= cb or GL_DEPTH_BUFFER_BIT;
-      if rbStencil in FRenderBuffers then cb:= cb or GL_STENCIL_BUFFER_BIT;
+      if (rbDepth in FRenderBuffers)
+      or ((DepthBuffer.BuffId>0) and (DepthBuffer.Mode=bmTexture))
+      then cb:= cb or GL_DEPTH_BUFFER_BIT;
+      if (rbStencil in FRenderBuffers)
+      or ((StencilBuffer.BuffId>0) and (StencilBuffer.Mode=bmTexture))
+      then cb:= cb or GL_STENCIL_BUFFER_BIT;
       if cb<>0 then glClear(cb);
     end;
   end;
