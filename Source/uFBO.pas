@@ -353,27 +353,36 @@ end;
 
 procedure TFrameBufferObject.DetachDepthStencilTexture;
 begin
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
-  AttachTextureTarget(nil, GL_DEPTH_ATTACHMENT_EXT);
-  AttachTextureTarget(nil, GL_STENCIL_ATTACHMENT_EXT);
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-  FAttachments.DepthStencilBuffer.Texture:=nil;
+  if FAttachments.DepthStencilBuffer.Mode=bmTexture then begin
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
+    AttachTextureTarget(nil, GL_DEPTH_ATTACHMENT_EXT);
+    AttachTextureTarget(nil, GL_STENCIL_ATTACHMENT_EXT);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    FAttachments.DepthStencilBuffer.Texture:=nil;
+    FAttachments.DepthStencilBuffer.Mode:=bmNone;
+  end;
 end;
 
 procedure TFrameBufferObject.DetachDepthTexture;
 begin
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
-  AttachTextureTarget(nil, GL_DEPTH_ATTACHMENT_EXT);
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-  FAttachments.DepthBuffer.Texture:=nil;
+  if FAttachments.DepthBuffer.Mode=bmTexture then begin
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
+    AttachTextureTarget(nil, GL_DEPTH_ATTACHMENT_EXT);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    FAttachments.DepthBuffer.Texture:=nil;
+    FAttachments.DepthBuffer.Mode:=bmNone;
+  end;
 end;
 
 procedure TFrameBufferObject.DetachStencilTexture;
 begin
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
-  AttachTextureTarget(nil, GL_STENCIL_ATTACHMENT_EXT);
-  glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-  FAttachments.StencilBuffer.Texture:=nil;
+  if FAttachments.StencilBuffer.Mode=bmTexture then begin
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
+    AttachTextureTarget(nil, GL_STENCIL_ATTACHMENT_EXT);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    FAttachments.StencilBuffer.Texture:=nil;
+    FAttachments.StencilBuffer.Mode:=bmNone;
+  end;
 end;
 
 function TFrameBufferObject.OGLDBPrecision(

@@ -2031,7 +2031,7 @@ begin
  Result := inherited Add(Texture);
  Hash:=StringHashKey(texture.FInternalName);
  FHashList.Add(Hash);
- Hash:=StringHashKey(texture.FLocation);
+ Hash:=StringHashKey(lowercase(texture.FLocation));
  FLocHashList.Add(Hash);
  if assigned(FOnAdding) then FOnAdding(self);
 end;
@@ -2101,7 +2101,7 @@ begin
   inherited Insert(Index, Texture);
   Hash:=StringHashKey(Texture.FInternalName+'_');
   FHashList.Insert(Index,Hash);
-  Hash:=StringHashKey(Texture.FLocation);
+  Hash:=StringHashKey(lowercase(Texture.FLocation));
   FLocHashList.Insert(Index,Hash);
 end;
 
@@ -2117,18 +2117,20 @@ begin
   if Item.Owner=nil then Item.Owner:=Self;
   Hash:=StringHashKey(Item.FInternalName+'_'+Item.FLocation);
   FHashList[Index]:=Hash;
-  Hash:=StringHashKey(Item.FLocation);
+  Hash:=StringHashKey(lowercase(Item.FLocation));
   FLocHashList[Index]:=Hash;
 end;
 
 function TTextureLibrary.TextureByLocation(Location: string): TTexture;
 var n, i: integer;
+    loc: string;
 begin
   if Location='' then begin result:=nil; exit; end;
-  n:=StringHashKey(Location); i:=0;
+  loc:=lowercase(location);
+  n:=StringHashKey(Loc); i:=0;
   while (i<=FLocHashList.Count-1) do begin
     if n=FLocHashList[i] then
-      if Items[i].FLocation=Location then Break;
+      if lowercase(Items[i].FLocation)=Loc then Break;
       inc(i);
   end;
   if i<FLocHashList.Count then result:=Items[i] else result:=nil;
