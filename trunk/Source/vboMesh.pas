@@ -2958,8 +2958,7 @@ begin
     FViewerHeight:=tex.Height; FViewerWidth:=tex.Width;
     for i:=1 to length(FAttachments)-1 do begin
       tex:=FAttachments[i].Texture;
-      assert((tex.Width<>FViewerWidth) or (tex.Height<>FViewerHeight),
-        'Attachments dimensions is not equal');
+      tex.SetDimensions(FViewerWidth,FViewerHeight);
     end;
   end;
   FFBO.DetachAllTextures;
