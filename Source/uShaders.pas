@@ -129,7 +129,9 @@ Type
 
    end;
 
-   TShaderEvents = procedure (ShaderProgram: TObject) of object;
+   TShaderProgram = class;
+
+   TShaderEvents = procedure (ShaderProgram: TShaderProgram) of object;
 
    TShaderLibrary = class;
 
