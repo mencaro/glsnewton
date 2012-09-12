@@ -132,7 +132,6 @@ Type
     FFBO: TFrameBufferObject;
     FLastTime: double;
     FSceneParser: TSceneParser;
-    FTextures: TTextureLibrary;
     FActive: Boolean;
     FAttachments: array of TFBOTarget;
     FPolyCount: integer;
@@ -172,7 +171,6 @@ Type
     property FBOAttachments[index: integer]: TFBOTarget read getAttachments;
     property ViewportWidth: integer read FSceneViewer.ViewPort[2] write setWidth;
     property ViewportHeight: integer read FSceneViewer.ViewPort[3] write setHeight;
-    property Textures: TTextureLibrary read FTextures;
     property ViewerToTextureSize: boolean read FViewerToTextureSize write FViewerToTextureSize;
   end;
 
@@ -293,19 +291,23 @@ Type
     FRender: TRenderShell;
     FCollection: TMeshCollection;
     FCamera: TCameraController;
+    FShader: TShaderProgram;
     FLights: TLightLibrary;
     FApplyLights: boolean;
+    procedure setShader(const Value: TShaderProgram);
   public
     constructor Create(aCollection: TMeshCollection);
     destructor Destroy;override;
 
     procedure Process; override;
+    function CreateShader: TShaderProgram;
 
     property Collection: TMeshCollection read FCollection;
     property Render: TRenderShell read FRender;
     property Camera: TCameraController read FCamera write FCamera;
     property Lights: TLightLibrary read FLights;
     property ApplyLights: boolean read FApplyLights write FApplyLights;
+    property Shader: TShaderProgram read FShader write setShader;
   end;
 
 {$IFNDEF DIRECTGL}
@@ -2637,7 +2639,6 @@ begin
   FCollection:=aParent;
   FActive:=false;
   FSceneParser:=TSceneParser.Create;
-  FTextures:=TTextureLibrary.Create;
   FLastTime:=-1;
   FViewerWidth:=-1; FViewerHeight:=-1;
   FViewerToTextureSize:=false;
@@ -2645,7 +2646,7 @@ end;
 
 destructor TRenderShell.Destroy;
 begin
-  FFBO.Free; FSceneParser.Free; FTextures.Free;
+  FFBO.Free; FSceneParser.Free;
   inherited;
 end;
 
@@ -2993,11 +2994,22 @@ begin
   FLights:=TLightLibrary.Create;
   FApplyLights:=false;
   FCamera:=nil;
+  FShader:=nil;
+end;
+
+function TMeshContainer.CreateShader: TShaderProgram;
+begin
+  if (not assigned(FShader)) or (FShader.Owner<>Self)
+  then begin
+    FShader:=TShaderProgram.Create; FShader.Owner:=Self;
+  end;
+  result:=FShader;
 end;
 
 destructor TMeshContainer.Destroy;
 begin
   FRender.Free; FLights.Free;
+  if assigned(FShader) and (FShader.Owner=Self) then FShader.Free;
   inherited;
 end;
 
@@ -3025,7 +3037,9 @@ begin
     if FCollection.FProcessChilds=pcBefore then FCollection.FChilde.Process;
   end;
   //Rendering Containers
+  if assigned(FShader) then FShader.Apply;
   if FRender.Active then Render.Process;
+  if assigned(FShader) then FShader.UnApply;
   //Process Collection childs after container rendering
   if assigned(FCollection.FChilde) then begin
     if FCollection.FProcessChilds=pcAfter then FCollection.FChilde.Process;
@@ -3034,6 +3048,12 @@ begin
   if assigned(FChilde) then begin
     if FProcessChilds=pcAfter then FChilde.Process;
   end;
+end;
+
+procedure TMeshContainer.setShader(const Value: TShaderProgram);
+begin
+  if assigned(FShader) and (FShader.Owner=Self) then FShader.Free;
+  FShader := Value;
 end;
 
 end.
