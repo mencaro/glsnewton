@@ -303,37 +303,48 @@ end;
 
 procedure TFrameBufferObject.AttachDepthTexture(tex: TTexture);
 begin
-  if FAttachments.DepthBuffer.Mode=bmTexture then begin
+  if FAttachments.DepthBuffer.Mode<>bmBuffer then begin
     if tex<>FAttachments.DepthBuffer.Texture then begin
       glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
+      if assigned(FAttachments.DepthBuffer.Texture) then
+        AttachTextureTarget(nil, GL_DEPTH_ATTACHMENT_EXT);
       AttachTextureTarget(tex, GL_DEPTH_ATTACHMENT_EXT);
       glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
       FAttachments.DepthBuffer.Texture:=tex;
+      FAttachments.DepthBuffer.Mode:=bmTexture;
     end;
   end;
 end;
 
 procedure TFrameBufferObject.AttachStencilTexture(tex: TTexture);
 begin
-  if FAttachments.StencilBuffer.Mode=bmTexture then begin
+  if FAttachments.StencilBuffer.Mode<>bmBuffer then begin
     if tex<>FAttachments.StencilBuffer.Texture then begin
       glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
+      if assigned(FAttachments.StencilBuffer.Texture) then
+        AttachTextureTarget(nil, GL_STENCIL_ATTACHMENT_EXT);
       AttachTextureTarget(tex, GL_STENCIL_ATTACHMENT_EXT);
       glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
       FAttachments.StencilBuffer.Texture:=tex;
+      FAttachments.StencilBuffer.Mode:=bmTexture;
     end;
   end;
 end;
 
 procedure TFrameBufferObject.AttachDepthStencilTexture(tex: TTexture);
 begin
-  if FAttachments.DepthStencilBuffer.Mode=bmTexture then begin
+  if FAttachments.DepthStencilBuffer.Mode<>bmBuffer then begin
     if tex<>FAttachments.DepthStencilBuffer.Texture then begin
       glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fboId);
+      if assigned(FAttachments.DepthStencilBuffer.Texture) then begin
+        AttachTextureTarget(nil, GL_STENCIL_ATTACHMENT_EXT);
+        AttachTextureTarget(nil, GL_DEPTH_ATTACHMENT);
+      end;
       AttachTextureTarget(tex, GL_DEPTH_ATTACHMENT);
       AttachTextureTarget(tex, GL_STENCIL_ATTACHMENT);
       glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
       FAttachments.DepthStencilBuffer.Texture:=tex;
+      FAttachments.DepthStencilBuffer.Mode:=bmTexture;
     end;
   end;
 end;
@@ -439,12 +450,12 @@ var buffers: array of GLEnum;
 begin
 //  FBTarget:=GL_DRAW_FRAMEBUFFER_EXT;
   FBTarget:=GL_FRAMEBUFFER_EXT;
-  if ClearBuffers then begin
-    glGetIntegerv(GL_VIEWPORT, @Fviewport);
-    if (FViewport[2]<>FWidth) or (FViewport[3]<>FHeight) then
-      glViewport(0,0,FWidth,FHeight);
-  end;
+//  if ClearBuffers then begin end;
   glBindFramebufferEXT(FBTarget, fboId);
+  glGetIntegerv(GL_VIEWPORT, @Fviewport);
+  if (FViewport[2]<>FWidth) or (FViewport[3]<>FHeight)
+  then glViewport(0,0,FWidth,FHeight);
+
   with FAttachments do begin
     if Textures.Count>0 then begin
        n:=0; setlength(buffers,Textures.Count);
@@ -454,12 +465,16 @@ begin
          end;
        end; setlength(buffers,n);
        glDrawBuffers(n,@buffers[0]);
-    end else begin glDrawBuffer(GL_NONE);  glReadBuffer(GL_NONE); end;
+       glColorMask(TRUE, TRUE, TRUE, TRUE);
+    end else begin
+      glDrawBuffer(GL_NONE);  glReadBuffer(GL_NONE);
+      glColorMask(FALSE, FALSE, FALSE, FALSE);
+    end;
     CheckCompleteness;
     if ClearBuffers then begin
       if Textures.Count>0 then cb:= GL_COLOR_BUFFER_BIT else cb:=0;
       if (rbDepth in FRenderBuffers)
-      or ((DepthBuffer.BuffId>0) and (DepthBuffer.Mode=bmTexture))
+      or ((DepthBuffer.Mode=bmTexture) and assigned(DepthBuffer.Texture))
       then cb:= cb or GL_DEPTH_BUFFER_BIT;
       if (rbStencil in FRenderBuffers)
       or ((StencilBuffer.BuffId>0) and (StencilBuffer.Mode=bmTexture))
@@ -487,12 +502,11 @@ begin
       end;
     end;
   end;
-
-  glBindFramebufferEXT(FBTarget, 0);
-  glReadBuffer(GL_BACK); glDrawBuffer(GL_BACK);
   if (FViewport[2]<>FWidth) or (FViewport[2]<>FHeight) then
     glViewport(Fviewport[0],Fviewport[1],Fviewport[2],Fviewport[3]);
 
+  glBindFramebufferEXT(FBTarget, 0);
+  glReadBuffer(GL_BACK); glDrawBuffer(GL_BACK);
   with FAttachments do begin
     for i:=0 to Textures.Count-1 do begin
       tex:=Textures[i];
