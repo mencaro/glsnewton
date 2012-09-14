@@ -210,6 +210,7 @@ Type
     function GetMesh(Index: Integer): TVBOMeshItem;
     function GetCount: integer;
     function AddItem(mi: TVBOMeshItem): integer;virtual;
+    procedure ImportMaterials(mo: TVBOMeshObject);
   public
     OctreeBuilded: Boolean;
     Visible: boolean;
@@ -295,6 +296,7 @@ Type
     FLights: TLightLibrary;
     FApplyLights: boolean;
     procedure setShader(const Value: TShaderProgram);
+    function getExtents: TExtents;
   public
     constructor Create(aCollection: TMeshCollection);
     destructor Destroy;override;
@@ -308,6 +310,7 @@ Type
     property Lights: TLightLibrary read FLights;
     property ApplyLights: boolean read FApplyLights write FApplyLights;
     property Shader: TShaderProgram read FShader write setShader;
+    property Extents: TExtents read getExtents;
   end;
 
 {$IFNDEF DIRECTGL}
@@ -1393,13 +1396,16 @@ begin
   if mi is TVBOMeshObject then begin
     mo:=TVBOMeshObject(mi);
     mo.IndexInMesh:=FMeshList.Add(mo);
-    mo.MatLib:=FMaterials; mo.TexLib:=FTextures;
-    mo.MatObjLib:=FMaterialObjects;
+    if not assigned(mo.MatLib) then mo.MatLib:=FMaterials;
+    if not assigned(mo.TexLib) then mo.TexLib:=FTextures;
+    if not assigned(mo.MatObjLib) then mo.MatObjLib:=FMaterialObjects;
     result:=mo.IndexInMesh; exit;
   end;
   if mi is TMeshCollection then begin
-    if not TMeshCollection(mi).FExpand then result:=FMeshList.Add(mi)
+    result:=FMeshList.Add(mi);
+{    if not TMeshCollection(mi).FExpand then result:=FMeshList.Add(mi)
     else begin TMeshCollection(mi).Unpack(FMeshList); result:=-1; end;
+}
     exit;
   end;
 end;
@@ -1524,6 +1530,20 @@ begin
   end;
 end;
 
+procedure TMeshCollection.ImportMaterials(mo: TVBOMeshObject);
+var mat: TMaterialObject;
+    j: integer;
+begin
+  for j:=0 to mo.Materials.Count-1 do begin
+    mat:=mo.MatObjLib.MaterialByName(mo.Materials[j]);
+    if assigned(mat) then
+      if MaterialObjects.IndexOf(mat)<0 then MaterialObjects.Add(mat);
+  end;
+  if assigned(mo.MaterialObject) then
+    if MaterialObjects.IndexOf(mo.MaterialObject)<0
+    then MaterialObjects.Add(mo.MaterialObject);
+end;
+
 function TMeshCollection.AddBox(Width,Height, Depth: single; TilesX, TilesY, TilesZ: integer): TVBOMeshObject;
 var mo:TVBOMeshObject;
     Temp,Res:PVBOBuffer;
@@ -1583,6 +1603,8 @@ begin
     result:=-1;
     for i:=0 to MeshCollection.Count-1 do begin
       AddItem(MeshCollection[i]);
+//      if MeshCollection[i] is TVBOMeshObject then
+//        ImportMaterials(TVBOMeshObject(MeshCollection[i]))
     end;
   end else result:=AddItem(MeshCollection);
   FStructureChanged:=true;
@@ -2952,34 +2974,33 @@ end;
 procedure TRenderShell.UpdateRenderTarget;
 var i: integer;
     tex: TTexture;
+    upd: boolean;
 begin
   if length(FAttachments)=0 then exit;
+  tex:=FAttachments[0].Texture; upd:=false;
+  FViewerHeight:=tex.Height; FViewerWidth:=tex.Width;
   if FViewerToTextureSize then begin
-    tex:=FAttachments[0].Texture;
-    FViewerHeight:=tex.Height; FViewerWidth:=tex.Width;
     for i:=1 to length(FAttachments)-1 do begin
       tex:=FAttachments[i].Texture;
-      tex.SetDimensions(FViewerWidth,FViewerHeight);
+      if (tex.Width<>FViewerWidth) or (tex.Height<>FViewerHeight)
+      then begin tex.SetDimensions(FViewerWidth,FViewerHeight); upd:=true; end;
+    end;
+  end else begin
+    for i:=0 to high(FAttachments) do begin
+      tex:=FAttachments[i].Texture;
+      if (tex.Width<>ViewportWidth) or (tex.Height<>ViewportHeight)
+      then begin tex.SetDimensions(ViewportWidth,ViewportHeight); upd:=true; end;
     end;
   end;
-  FFBO.DetachAllTextures;
-  FFBO.DetachDepthTexture;
-  FFBO.DetachStencilTexture;
-  FFBO.DetachDepthStencilTexture;
-
-  for i:=0 to high(FAttachments) do begin
-    tex:=FAttachments[i].Texture;
-    if assigned(tex) then begin
-      if not FViewerToTextureSize then begin
-        if (tex.Width<>ViewportWidth) or (tex.Height<>ViewportHeight)
-        then begin
-          tex.SetDimensions(ViewportWidth,ViewportHeight);
-          if FAttachments[i].TargetTo=tgDepth then begin
-          end;
-        end;
-      end;
+  if upd then begin
+    FFBO.DetachAllTextures;
+    FFBO.DetachDepthTexture;
+    FFBO.DetachStencilTexture;
+    FFBO.DetachDepthStencilTexture;
+    for i:=0 to high(FAttachments) do begin
+      tex:=FAttachments[i].Texture;
+      FFBO.AttachTexture(tex,FAttachments[i].TargetTo);
     end;
-    FFBO.AttachTexture(tex,FAttachments[i].TargetTo);
   end;
 end;
 
@@ -3013,6 +3034,17 @@ begin
   inherited;
 end;
 
+function TMeshContainer.getExtents: TExtents;
+var vm: TMatrix;
+    ext: TExtents;
+begin
+  if assigned(FCamera) then vm:=FCamera.ViewMatrix
+  else vm:=TVBOMesh(FOwner).FViewMatrix;
+  ext:=FCollection.GetExtents;
+  result.emin:=VectorTransform(ext.emin,vm);
+  result.emax:=VectorTransform(ext.emax,vm);
+end;
+
 procedure TMeshContainer.Process;
 begin
   inherited;
@@ -3020,6 +3052,7 @@ begin
   if FApplyLights then FLights.Apply;
 
   if assigned(FCamera) then begin
+    FRender.FSceneViewer.ViewPort:=TVBOMesh(FOwner).FRender.FSceneViewer.ViewPort;
     FRender.FSceneViewer.ViewMatrix:=FCamera.ViewMatrix;
     FRender.FSceneViewer.ProjectionMatrix:=FCamera.ProjectionMatrix;
     FRender.FSceneViewer.Frustum:=GetFrustum(FCamera.ProjectionMatrix,FCamera.ViewMatrix);
@@ -3036,10 +3069,21 @@ begin
   if assigned(FCollection.FChilde) then begin
     if FCollection.FProcessChilds=pcBefore then FCollection.FChilde.Process;
   end;
+
+  glPushMatrix;
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix;
+  glLoadMatrixf(PGLFloat(@FRender.FSceneViewer.ProjectionMatrix));
+  glMatrixMode(GL_MODELVIEW);
+
   //Rendering Containers
   if assigned(FShader) then FShader.Apply;
   if FRender.Active then Render.Process;
   if assigned(FShader) then FShader.UnApply;
+
+  glPopMatrix; glMatrixMode(GL_PROJECTION);
+  glPopMatrix; glMatrixMode(GL_MODELVIEW);
+
   //Process Collection childs after container rendering
   if assigned(FCollection.FChilde) then begin
     if FCollection.FProcessChilds=pcAfter then FCollection.FChilde.Process;

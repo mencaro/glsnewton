@@ -1,6 +1,7 @@
 {: uTextures - ћодуль дл€ работы с текстурами OpenGL
 
 	Historique:
+        13/09/12 - Fantom - ƒобавлено свойство CompareMode дл€ текстуры глубины
   28/12/11 - Fantom - ƒобавлена загрузка кубической текстуры из dds
                     - ƒобавлена установка режима генерации текстурных координат
         14/05/11 - Fantom - ƒобавлено создание 3D текстуры
@@ -108,6 +109,7 @@ Type
        FMinFilter: TMinFilter;
        FMagFilter: TMagFilter;
        FWrapS, FWrapT, FWrapR: TTextureWraps;
+       FCompareMode: boolean;
        FName, FLocation: string;
        FInternalName: string;
        FTarget: TTexTarget;
@@ -139,6 +141,7 @@ Type
        procedure CreateCompressedTexture(dds: PDDSImageDesc);
        procedure CreateUnCompressedTexture2D(dds: PDDSImageDesc);
        procedure CreateUnCompressedTextureCube(dds: PDDSImageDesc);
+    procedure setCompareMode(const Value: boolean);
 //       function CreateCompressedTexture(DDSDesc: PDDSImageDesc): boolean;
      public
        constructor Create;
@@ -235,6 +238,7 @@ Type
        property WrapS: TTextureWraps read FWrapS write SetWrap_S;
        property WrapT: TTextureWraps read FWrapT write SetWrap_T;
        property WrapR: TTextureWraps read FWrapR write SetWrap_R;
+       property CompareMode: boolean read FCompareMode write setCompareMode;
        property GLTarget: cardinal read FTexture.Target;
 
        property Handle: GLUint read FTexture.Id;
@@ -351,6 +355,7 @@ begin
    FTexMatrixChanged:=false;
    FBlendingMode:=tbmMesh;
    FDisabled:=false;
+   FCompareMode:=false;
    with FTexture do begin
       Created:=False;
       UsePBO:=false;
@@ -390,6 +395,9 @@ glPixelStorei ( GL_PACK_ALIGNMENT,   1 );
 glPixelStorei ( GL_PACK_ROW_LENGTH,  0 );
 glPixelStorei ( GL_PACK_SKIP_ROWS,   0 );
 glPixelStorei ( GL_PACK_SKIP_PIXELS, 0 );
+
+    if FCompareMode then
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
     if stWraps in FSettedParams then begin
       glTexParameteri(Target, GL_TEXTURE_WRAP_S, WrapS);
@@ -2011,6 +2019,12 @@ begin
         glAlphaFunc(GL_GREATER,0);
       end;
   end;
+end;
+
+procedure TTexture.setCompareMode(const Value: boolean);
+begin
+  if FTexture.ColorChanels=GL_DEPTH_COMPONENT then
+  FCompareMode := Value else FCompareMode := false;
 end;
 
 procedure TTexture.ResetBlending;
