@@ -27,7 +27,8 @@ type
 
        procedure UpdateWorldMatrix;
        procedure UpdateViewMatrix;
-       procedure LookAt(aDirection: TVector);
+       procedure LookAt(aDirection: TVector); overload;
+       function LookAt(const CamPos,CamTarget: TAffineVector): TMatrix; overload;
        procedure PointTo(aPosition: TVector);overload;
        procedure PointTo(Obj: TMovableObject);overload;
        //Перемещение камеры в плоскости
@@ -72,8 +73,8 @@ function TCameraController.CreateViewMatrix: TMatrix;
 var d: TVector;
     mat3: TAffineMatrix;
 begin
-  if not WorldMatrixUpdated then UpdateWorldMatrix;
-//  else begin result:=Matrices.ViewMatrix; exit; end;
+  if not WorldMatrixUpdated then UpdateWorldMatrix
+  else begin result:=FViewMatrix; exit; end;
   d:=Matrices.WorldMatrix[3];
   Setmatrix(mat3,Matrices.WorldMatrix);
   TransposeMatrix(mat3);
@@ -270,6 +271,25 @@ begin
   Matrices.RotationMatrix:=rm;
   Matrices.TranslationMatrix:=CreateTranslationMatrix(VectorMake(Position[0],Position[1],Position[2],1));
   UpdateViewMatrix;
+end;
+
+function TCameraController.LookAt(const CamPos, CamTarget: TAffineVector): TMatrix;
+var zaxis, xaxis, yaxis: TAffineVector;
+    cameraUpVector: TAffineVector;
+begin
+  cameraUpVector:=AffineVectorMake(0,1,0);
+  zaxis := VectorNormalize(VectorSubtract(CamPos,CamTarget));
+  xaxis := VectorNormalize(VectorCrossProduct(cameraUpVector, zaxis));
+  yaxis := VectorCrossProduct(zaxis, xaxis);
+
+  result[0]:=VectorMake(xaxis[0], yaxis[0], zaxis[0], 0);
+  result[1]:=VectorMake(xaxis[1], yaxis[1], zaxis[1], 0);
+  result[2]:=VectorMake(xaxis[2], yaxis[2], zaxis[2], 0);
+  result[3]:=VectorMake(-VectorDotProduct(xaxis, CamPos),
+            -VectorDotProduct(yaxis, CamPos),
+            -VectorDotProduct(zaxis, CamPos),  1);
+  FViewMatrix:=result;
+  WorldMatrixUpdated:=true;
 end;
 
 procedure TCameraController.LookUp(Angle: single);
