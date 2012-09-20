@@ -137,6 +137,7 @@ Type
     FPolyCount: integer;
     FViewerWidth, FViewerHeight: integer;
     FViewerToTextureSize: boolean;
+    FFBOViewportUpdated: boolean;
     procedure setProjMatrix(const Value: TMatrix);
     procedure setViewMatrix(const Value: TMatrix);
     function GetVisibleObjects(MeshList: TList;
@@ -153,7 +154,9 @@ Type
     procedure setHeight(const Value: integer);
     procedure setWidth(const Value: integer);
     procedure UpdateRenderTarget;
+    procedure UpdateRenderTargetToTexture;
     function getAttachments(index: integer): TFBOTarget;
+
   public
     constructor Create(aParent: TMeshCollection);
     destructor Destroy; override;
@@ -2663,6 +2666,7 @@ begin
   FSceneParser:=TSceneParser.Create;
   FLastTime:=-1;
   FViewerWidth:=-1; FViewerHeight:=-1;
+  FFBOViewportUpdated:=false;
   FViewerToTextureSize:=false;
 end;
 
@@ -2733,12 +2737,14 @@ begin
   if FRenderBuffer=rtFrameBuffer then
   with FSceneViewer do begin
     //glViewport(0,0,ViewPort[2],ViewPort[3]);
-    if FViewerToTextureSize then
+    if FViewerToTextureSize then begin
+      UpdateRenderTargetToTexture;
       FFBO.InitFBO(FViewerWidth,FViewerHeight)
-    else begin
+    end else begin
       FFBO.InitFBO(ViewPort[2],ViewPort[3]);
+      UpdateRenderTarget;
     end;
-    UpdateRenderTarget;
+
     FFBO.Apply;
   end;
 
@@ -2977,20 +2983,40 @@ var i: integer;
     upd: boolean;
 begin
   if length(FAttachments)=0 then exit;
-  tex:=FAttachments[0].Texture; upd:=false;
-  FViewerHeight:=tex.Height; FViewerWidth:=tex.Width;
-  if FViewerToTextureSize then begin
-    for i:=1 to length(FAttachments)-1 do begin
-      tex:=FAttachments[i].Texture;
-      if (tex.Width<>FViewerWidth) or (tex.Height<>FViewerHeight)
-      then begin tex.SetDimensions(FViewerWidth,FViewerHeight); upd:=true; end;
-    end;
-  end else begin
+  upd:=false;
+  for i:=0 to high(FAttachments) do begin
+    tex:=FAttachments[i].Texture;
+    if (tex.Width<>ViewportWidth) or (tex.Height<>ViewportHeight)
+    then begin tex.SetDimensions(ViewportWidth,ViewportHeight); upd:=true; end;
+  end;
+
+  if upd then begin
+    FFBO.DetachAllTextures;
+    FFBO.DetachDepthTexture;
+    FFBO.DetachStencilTexture;
+    FFBO.DetachDepthStencilTexture;
     for i:=0 to high(FAttachments) do begin
       tex:=FAttachments[i].Texture;
-      if (tex.Width<>ViewportWidth) or (tex.Height<>ViewportHeight)
-      then begin tex.SetDimensions(ViewportWidth,ViewportHeight); upd:=true; end;
+      FFBO.AttachTexture(tex,FAttachments[i].TargetTo);
     end;
+  end;
+end;
+
+procedure TRenderShell.UpdateRenderTargetToTexture;
+var i: integer;
+    tex: TTexture;
+    upd: boolean;
+begin
+  if length(FAttachments)=0 then exit;
+  tex:=FAttachments[0].Texture; upd:=false;
+  if FFBOViewportUpdated then
+    if (FViewerHeight=tex.Height) and (FViewerWidth=tex.Width) then exit;
+
+  FViewerHeight:=tex.Height; FViewerWidth:=tex.Width; upd:=true;
+  for i:=1 to length(FAttachments)-1 do begin
+    tex:=FAttachments[i].Texture;
+    if (tex.Width<>FViewerWidth) or (tex.Height<>FViewerHeight)
+    then begin tex.SetDimensions(FViewerWidth,FViewerHeight); upd:=true; end;
   end;
   if upd then begin
     FFBO.DetachAllTextures;
@@ -3002,6 +3028,7 @@ begin
       FFBO.AttachTexture(tex,FAttachments[i].TargetTo);
     end;
   end;
+  FFBOViewportUpdated:=true;
 end;
 
 { TMeshContainer }
