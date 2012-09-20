@@ -13,6 +13,7 @@ void main()
   vec4 Color = texture2D(MainTex, gl_TexCoord[0].st);
 
   float fDepth = texture2D(DepthTex, gl_TexCoord[0].st).r;  
+  if (fDepth == 1.0) discard;
 
   vec4 wPos =  imvp*vec4(vPos.xy, fDepth * 2.0 - 1.0, 1.0); wPos /= wPos.w;  
 

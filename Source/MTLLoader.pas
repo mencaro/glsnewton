@@ -170,9 +170,12 @@ begin
   texName:=MaterialStringProperty(matName, 'map_Kd'); tex:=nil;
   if texName<>'' then LoadTexture(TexName,mtDiffuse,MatObjLib.TexLib,tex);
   if assigned(tex) then begin
-    if Mat.Properties.DiffuseColor.Alpha<1 then
-      tex.BlendingMode:=uTextures.tbmTransparency;
+    if (Mat.Properties.DiffuseColor.Alpha<1)
+    or (MaterialStringProperty(matName, 'map_opacity')<>'') then
+      tex.BlendingMode:=uTextures.tbmAlphaTest50//.tbmTransparency
+    else tex.BlendingMode:=uTextures.tbmOpaque;
     tex.TextureMode:=tcModulate;
+
     MatObj.AttachTexture(tex);
   end;
 
