@@ -538,6 +538,7 @@ Type
 
   TWeightsAttrNames = record IndexAttrName, WeightsAttrName: string; end;
 
+  TGetShaderTextProc = function (ShaderType: TShaderType): ansistring of Object;
   TUniformSMDRender = class (TVBOMeshObject)
     private
       FAnim: PAnimations;
@@ -560,6 +561,7 @@ Type
       FWeightsFormat: TWeightsFormat;
       FAttrNames: TWeightsAttrNames;
       FWeightsRebuilded: boolean;
+      FonGetShaderText: TGetShaderTextProc;
 
       procedure FApplyShader(mo:TObject);
       procedure FUnApplyShader(mo:TObject);
@@ -600,6 +602,7 @@ Type
       property NodeRadius: single read FNodeRadius write FNodeRadius;
       property onUserCulling: TVBOVisibilityEvents read FonUserCulling write FonUserCulling;
       property Anim: PAnimations read FAnim write FAnim;
+      property onGetShaderText: TGetShaderTextProc read FonGetShaderText write FonGetShaderText;
 
       procedure SaveToFile(FileName: string; compressed: boolean=false);
       procedure LoadFromFile(FileName: string);
@@ -1992,10 +1995,20 @@ Vertex:=
   onBeforeRender:=FApplyShader;
   onAfterRender:=FUnApplyShader;
 
-  Shaders:= TShaders.Create;
+  if assigned(Shaders) then begin
+    Shaders.ClearShaderPrograms;
+    Shaders.ClearShaderObject;
+  end else Shaders:= TShaders.Create;
   with Shaders do begin
-    vsId := AddShaderObject(Vertex,GL_VERTEX_SHADER);
-    fsId := AddShaderObject(Fragment,GL_FRAGMENT_SHADER);
+    if assigned(FonGetShaderText) then
+      vsId := AddShaderObject(FonGetShaderText(stVertex),GL_VERTEX_SHADER)
+    else
+      vsId := AddShaderObject(Vertex,GL_VERTEX_SHADER);
+    if assigned(FonGetShaderText) then
+      fsId := AddShaderObject(FonGetShaderText(stFragment),GL_FRAGMENT_SHADER)
+    else
+      fsId := AddShaderObject(Fragment,GL_FRAGMENT_SHADER);
+
     vsId := ShaderObjectsList[vsId];
     fsId := ShaderObjectsList[fsId];
     spId:=CreateShaderProgram;
