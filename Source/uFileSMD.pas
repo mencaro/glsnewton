@@ -1,13 +1,13 @@
 unit uFileSMD;
 
 interface
-Uses Classes, VectorGeometry, uVBO, uMiscUtils,
+uses Classes, SysUtils, VectorGeometry,
    {$IFNDEF DIRECTGL}
      OpenGL1x, VectorLists,
    {$ELSE}
      dglOpenGL, uVectorLists,
    {$ENDIF}
-     SysUtils, OGLStateEmul;
+     uVBO, uMiscUtils, OGLStateEmul;
 
 Type
   TSMDNode = record
@@ -232,7 +232,7 @@ var t:string;
 begin
   i:=pos('"',s);
   t:=copy(s,1,i-1);
-  result.index:=StrToInt(t);
+  result.index:=StrToInt(TrimLeft(t));
   t:=s;delete(t,1,i);
   i:=pos('"',t);
   result.name:=copy(t,1,i-1);
@@ -247,19 +247,19 @@ begin
   t:=ps; i:=1;
   while t[i]=' ' do inc(i); delete(t,1,i-1);
   i:=pos(' ',t);
-  result.index:=StrToInt(copy(t,1,i-1));Delete(t,1,i);
+  result.index:=StrToInt(TrimLeft(copy(t,1,i-1)));Delete(t,1,i);
   i:=1; while t[i]=' ' do inc(i); delete(t,1,i-1);
   i:=pos(' ',t);
-  result.x:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
+  result.x:=StrToFloat(TrimLeft(copy(t,1,i-1)));Delete(t,1,i);
   i:=pos(' ',t);
-  result.y:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
+  result.y:=StrToFloat(TrimLeft(copy(t,1,i-1)));Delete(t,1,i);
   i:=pos(' ',t);
-  result.z:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
+  result.z:=StrToFloat(TrimLeft(copy(t,1,i-1)));Delete(t,1,i);
   i:=pos(' ',t);
-  result.rx:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
+  result.rx:=StrToFloat(TrimLeft(copy(t,1,i-1)));Delete(t,1,i);
   i:=pos(' ',t);
-  result.ry:=StrToFloat(copy(t,1,i-1));Delete(t,1,i);
-  result.rz:=StrToFloat(t);
+  result.ry:=StrToFloat(TrimLeft(copy(t,1,i-1)));Delete(t,1,i);
+  result.rz:=StrToFloat(TrimLeft(t));
 end;
 
 function ParseVertex(s: string): TSMDVertex;

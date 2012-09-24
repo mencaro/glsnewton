@@ -77,6 +77,8 @@ function StrToInt(s:string):integer;
 function StrToFloat(s:string):Single;
 function FloatToStr(x: double; width: byte=10; decimals: byte=6): string;
 function IntToStr(x:integer):string;
+function VectorToStr(x: TVector4f): string; overload;
+function VectorToStr(x: TVector3f): string; overload;
 
 function CheckPath(Path: string): string;
 
@@ -201,6 +203,18 @@ asm
         INC     EDX
         DEC     ECX
         JNE     @@1
+end;
+
+function VectorToStr(x: TVector4f): string; overload;
+begin
+  result:='('+floattostr(x[0])+'; '+floattostr(x[1])+'; '+
+    floattostr(x[2])+'; '+floattostr(x[3])+')';
+end;
+
+function VectorToStr(x: TVector3f): string; overload;
+begin
+  result:='('+floattostr(x[0])+'; '+floattostr(x[1])+'; '+
+    floattostr(x[2])+')';
 end;
 
 function CheckPath(Path: string): string;

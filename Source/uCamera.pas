@@ -73,8 +73,10 @@ function TCameraController.CreateViewMatrix: TMatrix;
 var d: TVector;
     mat3: TAffineMatrix;
 begin
-  if not WorldMatrixUpdated then UpdateWorldMatrix
-  else begin result:=FViewMatrix; exit; end;
+  if FUseLookAtMatrix then begin result:=FViewMatrix; exit; end;
+
+  if not WorldMatrixUpdated then UpdateWorldMatrix;
+//  else begin result:=FViewMatrix; exit; end;
   d:=Matrices.WorldMatrix[3];
   Setmatrix(mat3,Matrices.WorldMatrix);
   TransposeMatrix(mat3);
@@ -229,10 +231,11 @@ begin
   ty := - (top + bottom) / (top - bottom);
   tz := - (zFar + zNear) / (zFar - zNear);
 
-  result[0]:=VectorMake(2 / (right - left), 0, 0, tx);
-  result[1]:=VectorMake(0, 2 / (top - bottom), 0, ty);
-  result[2]:=VectorMake(0, 0, -2 / (zFar - zNear), tz);
-  result[3]:=VectorMake(0, 0, 0, 1);
+  result[0]:=VectorMake(2 / (right - left),0,0,0);
+  result[1]:=VectorMake(0, 2 / (top - bottom),0,0);
+  result[2]:=VectorMake(0, 0, -2 / (zFar - zNear),0);
+  result[3]:=VectorMake(tx,ty,tz,1);
+
   FProjectionMatrix:=result;
 end;
 
@@ -290,6 +293,7 @@ begin
             -VectorDotProduct(zaxis, CamPos),  1);
   FViewMatrix:=result;
   WorldMatrixUpdated:=true;
+  FUseLookAtMatrix:=true;
 end;
 
 procedure TCameraController.LookUp(Angle: single);
