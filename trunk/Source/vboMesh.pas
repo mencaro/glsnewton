@@ -452,6 +452,8 @@ Type
   function UpperCase(const S: string): string;
   function GetTime: double;
 
+  function AABBTransform(const ext: TExtents; const WorldMatrix:TMatrix): TExtents;
+  function AABBUpdate(const aabb: TExtents; const WorldMatrix: TMatrix): TExtents;
 implementation
 
 function Max(a,b: single):single;
@@ -521,6 +523,43 @@ asm
         INC     EDX
         DEC     ECX
         JNE     @@1
+end;
+
+
+function AABBTransform(const ext: TExtents; const WorldMatrix:TMatrix): TExtents;
+begin
+  result.emin:=VectorTransform(ext.emin,WorldMatrix);
+  result.emax:=VectorTransform(ext.emax,WorldMatrix);
+end;
+
+function AABBUpdate(const aabb: TExtents; const WorldMatrix: TMatrix): TExtents;
+var c:array[0..7] of TVector;
+    i:integer;
+    emin,emax:TVector;
+begin
+   setvector(c[0],aabb.emin[0],aabb.emax[1],aabb.emin[2],1);
+   setvector(c[1],aabb.emin,1);
+   setvector(c[2],aabb.emax[0],aabb.emin[1],aabb.emin[2],1);
+   setvector(c[3],aabb.emax[0],aabb.emax[1],aabb.emin[2],1);
+
+   setvector(c[4],aabb.emin[0],aabb.emax[1],aabb.emax[2],1);
+   setvector(c[5],aabb.emin[0],aabb.emin[1],aabb.emax[2],1);
+   setvector(c[6],aabb.emax[0],aabb.emin[1],aabb.emax[2],1);
+   setvector(c[7],aabb.emax,1);
+
+   for i:=0 to 7 do c[i]:=VectorTransform(c[i],WorldMatrix);
+   emin:=c[0];emax:=emin;
+
+   for i:=0 to 7 do begin
+      if c[i][0]<emin[0] then emin[0]:=c[i][0];
+      if c[i][0]>emax[0] then emax[0]:=c[i][0];
+      if c[i][1]<emin[1] then emin[1]:=c[i][1];
+      if c[i][1]>emax[1] then emax[1]:=c[i][1];
+      if c[i][2]<emin[2] then emin[2]:=c[i][2];
+      if c[i][2]>emax[2] then emax[2]:=c[i][2];
+   end;
+   setvector(Result.emin,emin);
+   setvector(Result.emax,emax);
 end;
 
 { TVBOMesh }
@@ -2591,7 +2630,8 @@ var i,j: integer;
     mc1,mc2: TMeshCollection;
 begin
   for i:=0 to MeshCollection.Count-1 do begin
-    mi:=MeshCollection[i];
+    mi:=MeshCollection[i]; if not mi.Active then continue;
+
     case mi.MeshItemType of
       mcCollection,mcContainer: begin
         if TMeshCollection(mi).ExpandingRequired
@@ -2599,6 +2639,7 @@ begin
         else FContainers.Add(mi);
       end;
       mcMeshObject: begin
+        if not TVBOMeshObject(mi).Visible then continue;
         if TVBOMeshObject(mi).MeshPlacement=mpBackground then FEnvObjects.Add(mi)
         else if TVBOMeshObject(mi).MeshPlacement=mpForeground then FFGObjects.Add(mi)
 //        if TVBOMeshObject(mi).MeshType=mtScreenQuad then FEnvObjects.Add(mi)
@@ -2729,11 +2770,6 @@ begin
   end;
   FSceneViewer.CurrentTime:=GetTime;
 
-  //Process Background objects
-  ProcessEnvObjects;
-
-  //Process containers before mesh objects
-  ProcessCollection(true);
   if FRenderBuffer=rtFrameBuffer then
   with FSceneViewer do begin
     //glViewport(0,0,ViewPort[2],ViewPort[3]);
@@ -2747,6 +2783,11 @@ begin
 
     FFBO.Apply;
   end;
+  //Process Background objects
+  ProcessEnvObjects;
+
+  //Process containers before mesh objects
+  ProcessCollection(true);
 
   //Rendering opaque mesh objects
   ProcessOpaque;
