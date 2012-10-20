@@ -285,6 +285,7 @@ Type
       FHMWidth, FHMHeight: integer;
       FHMap: array of array of single;
       FXTiles, FYTiles: integer;
+      FTileSize: integer;
       FPatchWidth, FPatchHeight: integer;
       FCreateBuff: TRenderBuff;
       FExtList: TList;
@@ -293,16 +294,13 @@ Type
       FVisiblePolyCount: integer;
       function GetPolyCount: integer; override;
       Procedure GetHeights(Width, Height: integer; GetHeightFunc: TGetHeightFunc);
-      Procedure CreateAndFillTriBuff(TBuff: PVBOBuffer; Rect: TRect);
-      Procedure CreateAndFillTriStripBuff(TBuff: PVBOBuffer; Rect: TRect);
-      Procedure CreateSolidBuff;
+      Procedure CreateSolidBuffer;
     public
-      FaceMode: (fmTriangles, fmTriangleStrips);
       Constructor Create;
-      Procedure BuildTerrain(Width, Height: integer; GetHeightFunc: TGetHeightFunc);
+      Procedure BuildTerrain(Width, Height: integer; GetHeightFunc: TGetHeightFunc; TileSize: integer = 32);
       Destructor Destroy;override;
       Procedure RenderObject(const ViewMatrix: TMatrix);override;
-     //Get Height&Normal from Terrain
+      //Get Height&Normal from Terrain
       Function GetInterpolatedHeight(X, Y: single): single;
       Function GetNormalInPoint(X, Y: single): TAffineVector;
       Function GetNormalFromHField(X, Y: integer): TAffineVector;
@@ -3225,187 +3223,24 @@ end;
 
 { TVBOTerrain }
 
-procedure TVBOTerrain.CreateAndFillTriBuff(TBuff: PVBOBuffer; Rect: TRect);
-var i, j, ox, oy, offs: integer;
-  LW: integer;
-  h: Single;
-  v, v1, v2, v3, nm: TAffineVector;
-begin
-  InitVBOBuff(TBuff^, GL_TRIANGLES, DrawElements);
-  with TBuff^ do begin
-    LW := Rect.Right - Rect.Left + 1;
-    for i := Rect.Top to Rect.Bottom do begin
-      oy := i - Rect.Top;
-      for j := Rect.Left to Rect.Right do begin
-        H := FHMap[i, j];
-        SetVector(v, j-FHMWidth/2, H, i-FHMHeight/2);
-        Vertexes.Add(v);
-        if uTexCoords in FCreateBuff then begin
-          v[0] := j / (FHMWidth - 1);
-          v[1] := 1 - i / (FHMHeight - 1);
-          v[2] := (H+1)/2.0;
-          TexCoords.Add(v);
-        end;
-{        if uNormals in FCreateBuff then begin
-           c:=0; nm:=NullVector;
-           for a:=-1 to 1 do for b:=-1 to 1 do begin
-               if  (j+a>=0) and (j+a<FHMWidth)
-               and (i+b>=0) and (i+b<FHMHeight)
-               then begin
-                 nm:=VectorAdd(nm,GetNormalFromHField(j+a,i+b));inc(c);
-               end;
-           end;
-           NormalizeVector(nm); Normals.Add(nm);
-//           nm:=(VectorScale(nm,1/c)); NormalizeVector(nm);
-//           Normals.Add(nm);
-           //Normals.Add(VectorScale(nm,1/c));
-        end;
-//           Normals.Add(GetNormalInPoint(j,i));
-}
-        if (i < Rect.Bottom) and (j < Rect.Right) then begin
-          ox := j - Rect.Left; offs := oy * LW + ox;
-          Indices.Add(offs, offs + LW, offs + 1);
-          Indices.Add(offs + LW, offs + LW + 1, offs + 1);
-        end;
-      end;
-    end;
-    if uNormals in FCreateBuff then begin
-      Normals.Count := Vertexes.Count;
-      for i := 0 to Normals.Count-1 do Normals[i]:=NullVector;
-      for i := 0 to (Indices.Count div 3) - 1 do begin
-        v1 := Vertexes[Indices[i * 3]]; ScaleVector(v1,affinevectormake(1,128,1));
-        v2 := Vertexes[Indices[i * 3 + 1]]; ScaleVector(v2,affinevectormake(1,128,1));
-        v3 := Vertexes[Indices[i * 3 + 2]]; ScaleVector(v3,affinevectormake(1,128,1));
-        nm := CalcPlaneNormal(v1, v2, v3);
-        Normals.TranslateItem(Indices[i * 3], nm);
-//        Normals[Indices[i * 3]] := nm;
-        nm := CalcPlaneNormal(v2, v3, v1);
-        Normals.TranslateItem(Indices[i * 3+1], nm);
-//        Normals[Indices[i * 3 + 1]] := nm;
-        nm := CalcPlaneNormal(v3, v1, v2);
-        Normals.TranslateItem(Indices[i * 3+2], nm);
-//        Normals[Indices[i * 3 + 2]] := nm;
-      end;
-    end;
-
-    Vertexes.GetExtents(emin, emax);
-  end;
-  TBuff^.RenderBuffs := FCreateBuff + [uIndices];
-  GenVBOBuff(TBuff^, false);
-end;
-
-//Создаем и заполняем буффер для индексированных Triangle_Strip
-
-procedure TVBOTerrain.CreateAndFillTriStripBuff(TBuff: PVBOBuffer; Rect: TRect);
-var i, j, ox, oy, offs: integer;
-  LW: integer;
-  h: Single;
-  v, v1, v2, v3, nm: TAffineVector;
-begin
-  InitVBOBuff(TBuff^, GL_TRIANGLE_STRIP, DrawElements);
-  with TBuff^ do begin
-    LW := Rect.Right - Rect.Left + 1;
-    for i := Rect.Top to Rect.Bottom do begin
-      oy := i - Rect.Top;
-      for j := Rect.Left to Rect.Right do begin
-        H := FHMap[i, j];
-        SetVector(v, j-FHMWidth/2, H, i-FHMHeight/2);
-        Vertexes.Add(v);
-        if uTexCoords in FCreateBuff then begin
-          v[0] := j / (FHMWidth - 1);
-          v[1] := 1 - i / (FHMHeight - 1);
-          v[2] := H*2+1; TexCoords.Add(v);
-        end;
-        if (i < Rect.Bottom) then begin
-          ox := j - Rect.Left; offs := oy * LW + ox;
-          Indices.Add(offs, offs + LW);
-        end;
-      end;
-      j := Indices[Indices.Count - 1]; offs := (oy + 1) * LW;
-      Indices.Add(j, offs);
-    end;
-    Indices.Count:=Indices.Count-2;
-    if uNormals in FCreateBuff then begin
-      Normals.Count := Vertexes.Count;
-      for i := 0 to Normals.Count-1 do Normals[i]:=NullVector;
-      for i := 0 to Indices.Count - 3 do begin
-        v1 := Vertexes[Indices[i]];
-        v2 := Vertexes[Indices[i + 1]];
-        v3 := Vertexes[Indices[i + 2]];
-        nm := CalcPlaneNormal(v1, v2, v3);
-//        Normals[Indices[i]] := nm;
-        Normals.TranslateItem(Indices[i], nm);
-        nm := CalcPlaneNormal(v2, v3, v1);
-//        Normals[Indices[i + 1]] := nm;
-        Normals.TranslateItem(Indices[i+1], nm);
-        nm := CalcPlaneNormal(v3, v1, v2);
-//        Normals[Indices[i + 2]] := nm;
-        Normals.TranslateItem(Indices[i+2], nm);
-      end;
-    end;
-    Vertexes.GetExtents(emin, emax);
-  end;
-  TBuff^.RenderBuffs := FCreateBuff + [uIndices];
-  GenVBOBuff(TBuff^, false);
-end;
-
-procedure TVBOTerrain.BuildTerrain(Width, Height: integer; GetHeightFunc: TGetHeightFunc);
-var wCount, hCount: integer;
-    i,j: integer;
-    R: TRect;
-    Patch: PVBOBuffer;
-    MaxInd: integer;
-    ps: integer;
+procedure TVBOTerrain.BuildTerrain(Width, Height: integer;
+  GetHeightFunc: TGetHeightFunc; TileSize: integer);
 begin
   FreeVBOList(MeshList);
-  FHMHeight:=Height;
-  FHMWidth:=Width;
+  FHMHeight:=Height; FHMWidth:=Width;
   GetHeights(Width, Height, GetHeightFunc);
-  CreateSolidBuff;
-exit;
-  MaxInd:=GetMaxIndicesCount;
-  if MaxInd<FHMWidth*FHMHeight*2 then begin
-     ps:=trunc(sqrt(MaxInd));
-     if FHMHeight div ps<10 then FPatchHeight:= FHMHeight div 10
-     else FPatchHeight:=ps;
-     if FHMWidth div ps<10 then FPatchWidth:= FPatchWidth div 10
-     else FPatchWidth:=ps;
-  end else begin
-     FPatchHeight:=FHMHeight div 20;
-     FPatchWidth:=FHMWidth div 20;
-  end;
-
-    wCount := FHMWidth div FPatchWidth;
-    if FHMWidth mod FPatchWidth > 0 then inc(wCount);
-    hCount := FHMHeight div FPatchHeight;
-    if FHMHeight mod FPatchHeight > 0 then inc(hCount);
-    FXTiles := wCount; FYTiles := hCount;
-    for i := 0 to hCount - 1 do for j := 0 to wCount - 1 do begin
-        R.Left := j * FPatchWidth;
-        R.Top := i * FPatchHeight;
-        R.Right := (j + 1) * FPatchWidth;
-        R.Bottom := (i + 1) * FPatchHeight;
-        if R.Right >= FHMWidth then R.Right := FHMWidth - 1;
-        if R.Bottom >= FHMHeight then R.Bottom := FHMHeight - 1;
-        new(Patch);
-        case FaceMode of
-          fmTriangles: CreateAndFillTriBuff(Patch, R);
-          fmTriangleStrips: CreateAndFillTriStripBuff(Patch, R);
-        end;
-        Patch.UseTwoTexturesCoord:=false;
-        MeshList.Add(Patch);
-    end;
-    FBaseExtents:=GetExtentsOfList(MeshList);
+  CreateSolidBuffer;
 end;
 
 constructor TVBOTerrain.Create;
 begin
   inherited;
   FCreateBuff:=[uNormals, uTexCoords, uIndices];
-  FaceMode:=fmTriangles;
+  //FaceMode:=fmTriangles;
   FExtList:=TList.Create;
   FOffsList:=TIntegerList.Create;
   FCountList:=TIntegerList.Create;
+  FTileSize:=32;
 end;
 
 destructor TVBOTerrain.Destroy;
@@ -3429,16 +3264,24 @@ begin
 end;
 
 procedure TVBOTerrain.RebuildNormals;
-var i,j,offs:integer;
+var i: integer;
     n: TAffineVector;
+    v1,v2,v3: TAffineVector;
     Buff: PVBOBuffer;
 begin
-    offs:=0; Buff:=MeshList[0];
-    for i:=0 to FHMHeight-1 do for j:=0 to FHMWidth-1 do begin
-        n:=GetNormalFromHField(j,i);
-        Buff^.Normals[offs]:=n; inc(offs);
-    end; //Buff.Normals.Normalize;
-    UpdateVBOBuff(Buff.nId,Buff.Normals.List,0,Buff.Normals.DataSize,true);
+  Buff:=MeshList[0];
+  for i:=0 to Buff.Normals.Count-1 do Buff.Normals[i]:=NullVector;
+  for i:=0 to (Buff.Indices.Count div 3)-1 do begin
+    v1:=Buff.Vertexes[Buff.Indices[i*3]];
+    v2:=Buff.Vertexes[Buff.Indices[i*3+1]];
+    v3:=Buff.Vertexes[Buff.Indices[i*3+2]];
+    n:=CalcPlaneNormal(v1,v2,v3);
+    Buff.Normals.TranslateItem(Buff.Indices[i*3],n);
+    Buff.Normals.TranslateItem(Buff.Indices[i*3+1],n);
+    Buff.Normals.TranslateItem(Buff.Indices[i*3+2],n);
+  end;
+  Buff.Normals.Normalize;
+  UpdateVBOBuff(Buff.nId,Buff.Normals.List,0,Buff.Normals.DataSize,true);
 end;
 
 procedure TVBOTerrain.RenderObject(const ViewMatrix: TMatrix);
@@ -3455,9 +3298,19 @@ begin
   glGetFloatv(GL_PROJECTION_MATRIX, @ProjectionMatrix);
   F := GetFrustum(ProjectionMatrix, ViewMatrix);
   glPushMatrix;
+    if not WorldMatrixUpdated then UpdateWorldMatrix;
     mv:=MatrixMultiply(Matrices.WorldMatrix, ViewMatrix);
     glLoadMatrixf(PGLFloat(@mv));
     if assigned(FonBeforeRender) then FonBeforeRender(self);
+    SetFaceMode;
+    if FTwoSides then begin
+      //glCullFace(GL_FRONT); glDisable(GL_CULL_FACE);
+      //glCullFace(GL_BACK);
+
+      {$IFNDEF DIRECTGL}OpenGL1x.{$ELSE}dglOpenGL.{$ENDIF}glDisable(GL_CULL_FACE);
+    end else
+      {$IFNDEF DIRECTGL}OpenGL1x.{$ELSE}dglOpenGL.{$ENDIF}glEnable(GL_CULL_FACE);
+
        FMaterialObject.Apply(FonMaterialApply);
 //       if assigned(FTexture) then FTexture.Apply;
        glEnableClientState(GL_VERTEX_ARRAY);
@@ -3666,45 +3519,35 @@ begin
 //  NormalizeVector(result);
 end;
 
-procedure TVBOTerrain.CreateSolidBuff;
-var Buff: PVBOBuffer;
-    i,j,a,b,offs :integer;
+procedure TVBOTerrain.CreateSolidBuffer;
+var i,j,a,b,offs :integer;
     v,t,n,v2,v3: TAffineVector;
     dh,dw: integer;
     MaxInd,ps: integer;
     wCount,hCount,c: integer;
     R: TRect;
     Ext: PExtents;
+    Temp,Buff: PVBOBuffer;
 begin
-    new(Buff); InitVBOBuff(Buff^,GL_TRIANGLES,DrawElements);
-    dh:=FHMHeight div 2; dw:=FHMWidth div 2;
-    Buff.Vertexes.Count:=FHMHeight*(FHMWidth);
-    Buff.Normals.Count:=FHMHeight*(FHMWidth);
-    Buff.TexCoords.Count:=FHMHeight*(FHMWidth);
-    offs:=0;
-    for i:=0 to FHMHeight-1 do for j:=0 to FHMWidth-1 do begin
-        v[0]:=j-dw; v[1]:=FHMap[i, j]; v[2]:=i-dh;
-        t[0]:=(j)/FHMWidth; t[1]:=(i)/FHMHeight; t[2]:=v[1];
-        n:=GetNormalFromHField(j,i);
-        with Buff^ do begin
-          Vertexes[offs]:=v;
-          TexCoords[offs]:=t;
-          Normals[offs]:=n;
-          inc(offs);
-//          Normals.Add(NullVector);
-        end;
-    end;
-  MaxInd:=GetMaxIndicesCount;
-  if MaxInd<FHMWidth*FHMHeight*2 then begin
-     ps:=trunc(sqrt(MaxInd));
-     if FHMHeight div ps<10 then FPatchHeight:= FHMHeight div 10
-     else FPatchHeight:=ps;
-     if FHMWidth div ps<10 then FPatchWidth:= FPatchWidth div 10
-     else FPatchWidth:=ps;
-  end else begin
-     FPatchHeight:=FHMHeight div 20;
-     FPatchWidth:=FHMWidth div 20;
+  dh:=FHMHeight div 2; dw:=FHMWidth div 2;
+  new(Buff); InitVBOBuff(Buff^,GL_TRIANGLES,DrawElements);
+  Buff.Vertexes.Count:=FHMHeight*(FHMWidth);
+  Buff.Normals.Count:=FHMHeight*(FHMWidth);
+  Buff.TexCoords.Count:=FHMHeight*(FHMWidth);
+  offs:=0;
+  for i:=0 to FHMHeight-1 do for j:=0 to FHMWidth-1 do begin
+    v[0]:=j-dw; v[1]:=FHMap[i, j]; v[2]:=i-dh;
+    t[0]:=(j)/FHMWidth; t[1]:=1-(i)/FHMHeight; t[2]:=v[1];
+    Buff.Vertexes[offs]:=v;
+    Buff.TexCoords[offs]:=t;
+    Buff.Normals[offs]:=NullVector;
+    inc(offs);
   end;
+  FPatchHeight:=FTileSize;
+  FPatchWidth:=FTileSize;
+  if FPatchHeight>FHMHeight then FPatchHeight:=FHMHeight;
+  if FPatchWidth>FHMHeight then FPatchWidth:=FHMWidth;
+
   wCount := FHMWidth div FPatchWidth;
   if FHMWidth mod FPatchWidth > 0 then inc(wCount);
   hCount := FHMHeight div FPatchHeight;
@@ -3719,9 +3562,6 @@ begin
       if R.Bottom >= FHMHeight then R.Bottom := FHMHeight - 2;
       FOffsList.Add(Buff.Indices.Count); c:=0;
       for a:=R.Top+1 to R.Bottom do for b:=R.Left+1 to R.Right do begin
-//        offs:=a*(FHMWidth+1)+b;
-//        Buff.Indices.Add(offs,offs+FHMWidth+1,offs+1);
-//        Buff.Indices.Add(offs+FHMWidth+1,offs+FHMWidth+2, offs+1);
         offs:=a*(FHMWidth)+b;
         Buff.Indices.Add(offs,offs+FHMWidth,offs+1);
         Buff.Indices.Add(offs+FHMWidth,offs+FHMWidth+1, offs+1);
@@ -3729,6 +3569,17 @@ begin
       end;
       FCountList.Add(c);
   end;
+  for i:=0 to (Buff.Indices.Count div 3)-1 do begin
+    v:=Buff.Vertexes[Buff.Indices[i*3]];
+    v2:=Buff.Vertexes[Buff.Indices[i*3+1]];
+    v3:=Buff.Vertexes[Buff.Indices[i*3+2]];
+    n:=CalcPlaneNormal(v,v2,v3);
+    Buff.Normals.TranslateItem(Buff.Indices[i*3],n);
+    Buff.Normals.TranslateItem(Buff.Indices[i*3+1],n);
+    Buff.Normals.TranslateItem(Buff.Indices[i*3+2],n);
+  end;
+  Buff.Normals.Normalize;
+
   for i:=0 to FOffsList.Count-1 do begin
       offs:=FOffsList[i]; c:=FCountList[i];
       New(ext); v:=Buff.Vertexes[Buff.Indices[offs]];
@@ -3741,22 +3592,15 @@ begin
          ext.emax[0]:=max(v[0],ext.emax[0]);
          ext.emax[1]:=max(v[1],ext.emax[1]);
          ext.emax[2]:=max(v[2],ext.emax[2]);
-{         if j<Buff.Indices.Count-2 then begin
-            v[1]:=v[1]*128;
-            v2:=Buff.Vertexes[Buff.Indices[j+1]]; v2[1]:=v2[1]*128;
-            v3:=Buff.Vertexes[Buff.Indices[j+2]]; v3[1]:=v3[1]*128;
-            n:=CalcPlaneNormal(v,v2,v3);
-            Buff.Normals.TranslateItem(Buff.Indices[j],n);
-         end;
-}
       end; FExtList.Add(ext);
   end;
-  Buff.Normals.Normalize;
+
   Buff.UseTwoTexturesCoord:=false;
   Buff.RenderBuffs:=[uNormals,uTexCoords,uIndices];
-  MeshList.Clear; MeshList.Add(Buff);
-  GenVBOBuff(buff^,false);
+  MeshList.Add(Buff); GenVBOBuff(buff^,false);
+
   FBaseExtents:=GetExtentsOfList(MeshList);
+//  FNeedUpdate:=false; FNeedUpdateTC:=false; FBuilded:=true;
 end;
 
 function TVBOTerrain.GetPolyCount: integer;
