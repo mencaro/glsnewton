@@ -902,7 +902,12 @@ var i: integer;
     p: pointer;
 begin
   glBindTexture(GL_TEXTURE_2D, FTexture.Id);
-  SetDimensions(dds.Width,dds.Height);
+
+  FTexture.Width:=dds.Width;
+  FTexture.Height:=dds.Height;
+  FTexture.Depth:=1;
+  FSettedParams:=FSettedParams+[stSizes];
+
   p:=dds.Data; FTexture.Data:=dds.Data;
   //glTexParameteri(TEXTURE_2D, TEXTURE_MAX_LEVEL, level-1); //TEXTURE_BASE_LEVEL
   for i:=0 to 0{dds.Levels-1} do begin
@@ -930,6 +935,7 @@ begin
   glTexParameteri(FTexture.Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   SetWraps(twRepeat,twRepeat);
   glBindTexture(GL_TEXTURE_2D, 0);
+  FTexture.Created:=true;
 end;
 
 procedure TTexture.CreateUnCompressedTexture2D(dds: PDDSImageDesc);
@@ -937,7 +943,12 @@ var i: integer;
     p: pointer;
 begin
   glBindTexture(GL_TEXTURE_2D, FTexture.Id);
-  SetDimensions(dds.Width,dds.Height);
+
+  FTexture.Width:=dds.Width;
+  FTexture.Height:=dds.Height;
+  FTexture.Depth:=1;
+  FSettedParams:=FSettedParams+[stSizes];
+
   p:=dds.Data; FTexture.Data:=dds.Data;
   //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, dds.Levels-1); //TEXTURE_BASE_LEVEL
   for i:=0 to dds.Levels-1 do begin
@@ -966,6 +977,7 @@ begin
   glTexParameteri(FTexture.Target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   SetWraps(twRepeat,twRepeat);
   glBindTexture(GL_TEXTURE_2D, 0);
+  FTexture.Created:=true;
 end;
 
 procedure TTexture.CreateUnCompressedTextureCube(dds: PDDSImageDesc);
@@ -988,7 +1000,12 @@ CubeMapTarget: array[0..5] of cardinal = (
 
 begin
   glBindTexture(GL_TEXTURE_CUBE_MAP, FTexture.Id);
-  SetDimensions(dds.Width,dds.Height);
+
+  FTexture.Width:=dds.Width;
+  FTexture.Height:=dds.Height;
+  FTexture.Depth:=1;
+  FSettedParams:=FSettedParams+[stSizes];
+
   p:=dds.Data; offs:=0; FTexture.Data:=dds.Data;
   for f:=0 to 5 do begin
     //glTexParameteri(GL_TEXTURE_CUBE_MAP_POSITIVE_X+f, GL_TEXTURE_MAX_LEVEL, 1); //TEXTURE_BASE_LEVEL
@@ -1019,6 +1036,7 @@ begin
 //  SetWraps(twRepeat,twRepeat);
     SetWraps(twClampToEdge,twClampToEdge);
   glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  FTexture.Created:=true;
 end;
 
 Constructor  TTexture.CreateFromFile(Filename: string; target: TTexTarget);
