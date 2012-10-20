@@ -536,7 +536,7 @@ Type
 
   TWeightsAttrNames = record IndexAttrName, WeightsAttrName: string; end;
 
-  TGetShaderTextProc = function (ShaderType: TShaderType): ansistring of Object;
+  TGetShaderTextProc = function (Sender: TObject; ShaderType: TShaderType): ansistring of Object;
   TUniformSMDRender = class (TVBOMeshObject)
     private
       FAnim: PAnimations;
@@ -1999,11 +1999,11 @@ Vertex:=
   end else Shaders:= TShaders.Create;
   with Shaders do begin
     if assigned(FonGetShaderText) then
-      vsId := AddShaderObject(FonGetShaderText(stVertex),GL_VERTEX_SHADER)
+      vsId := AddShaderObject(FonGetShaderText(self,stVertex),GL_VERTEX_SHADER)
     else
       vsId := AddShaderObject(Vertex,GL_VERTEX_SHADER);
     if assigned(FonGetShaderText) then
-      fsId := AddShaderObject(FonGetShaderText(stFragment),GL_FRAGMENT_SHADER)
+      fsId := AddShaderObject(FonGetShaderText(self,stFragment),GL_FRAGMENT_SHADER)
     else
       fsId := AddShaderObject(Fragment,GL_FRAGMENT_SHADER);
 

@@ -1859,6 +1859,7 @@ procedure RenderVBOBuffer(var VBuff: TVBOBuffer);
 var RCount:integer;
 begin
   if (not VBuff.Builded) then GenVBOBuff(VBuff,false);
+  if not VBuff.Visible then exit; 
   BindVBO(VBuff);
   with VBuff do begin
     if ElementsCount>MaxElements then RCount:=MaxElements else
@@ -1878,6 +1879,7 @@ var i,RCount:integer;
     m: PMatrix;
 begin
   if (not assigned(MatList)) or (MatList.Count=0) then exit;
+  if not VBuff.Visible then exit; 
   BindVBO(VBuff);
   with VBuff do begin
     if ElementsCount>MaxElements then RCount:=MaxElements
