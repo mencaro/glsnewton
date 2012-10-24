@@ -8,7 +8,7 @@ Uses Classes, Contnrs, VectorTypes, VectorGeometry, SysUtils,
    {$ELSE}
      dglOpenGL, uVectorLists,
    {$ENDIF}
-     IniFiles, uMiscUtils, OGLStateEmul;
+     IniFiles, uMiscUtils, uBaseResource, OGLStateEmul;
 
 Const
   cDiffuseColor: TVector = (0.8,0.8,0.8,1);
@@ -29,7 +29,7 @@ Type
 
   TColorVectorClass = class;
 
-  TLightSource = class
+  TLightSource = class(TPersistentResource)
     private
      FEnabled: boolean;
      FLightStyle: TLightStyle;

@@ -25,7 +25,7 @@ Uses Windows, Classes, Contnrs, Graphics, SysUtils,
    {$ELSE}
      dglOpenGL, uVectorLists,
    {$ENDIF}
-     GLTextureFormat, Textures, uDDSLoader, VectorGeometry,
+     GLTextureFormat, Textures, uDDSLoader, VectorGeometry, uBaseResource,
      OGLStateEmul{$IFDEF Logging},uLogs{$ENDIF};
 
 Type
@@ -101,7 +101,7 @@ Type
 
   TTextureCombines = (tcDecal, tcModulate, tcBlend, tcReplace, tcAdd);
 
-  TTexture = class(TObject)
+  TTexture = class(TPersistentResource)
      private
        FTexture: TTextureDecription;
        FSettedParams: TSettedTexParams;
