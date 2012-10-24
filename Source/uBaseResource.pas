@@ -19,6 +19,7 @@ type
 
   TPersistentResource = class (TPersistent)
   protected
+    FGUID: TGUID;
     procedure WriteString(const s: WideString; const stream: TStream);
     function ReadString(const Stream: TStream): WideString;
     procedure WriteInt(const Value: integer; const stream: TStream);
@@ -29,17 +30,20 @@ type
     function ReadGUID(const stream: TStream): TGUID;
     procedure WriteFloat(const Value: single; const stream: TStream);
     function ReadFloat(const stream: TStream): single;
+    procedure SetGUID(Value: TGUID);overload;
   public
-    GUID: TGUID;
     Version: integer;
     Storage: TObject;
     ResourceId: string;
     FriendlyName: string;
     procedure SaveToStream(s: TStream); virtual;
     procedure LoadFromStream(s: TStream); virtual;
-    procedure SetGUID(GUIDString: string);
-    constructor Create;
+    procedure SetGUID(GUIDString: string);overload;
+    constructor Create;overload;
+    constructor Create(GUIDString: string);overload;
+    constructor Create(aGUID: TGUID);overload;
     destructor Destroy; override;
+    property GUID: TGUID read FGUID write setGUID;
   end;
 
   TPersistentResClass = class of TPersistentResource;
@@ -96,6 +100,8 @@ type
   public
     function Add(Resource: TPersistentResource): integer;
     function ResourceByGUID(const aGUID: TGUID): TPersistentResource;
+    function ResourceByName(const aName: string): TPersistentResource;
+    function ResourceById(const ResId: string): TPersistentResource;
   end;
 
   TFixUpData = record
@@ -207,9 +213,21 @@ end;
 { TPersistentResource }
 
 constructor TPersistentResource.Create;
+var tmpGUID: TGUID;
 begin
-  CreateGuid(GUID); Version:=1;
+  CreateGuid(tmpGUID); Version:=1;
+  SetGUID(tmpGUID);
   vResourceList.Add(Self);
+end;
+
+constructor TPersistentResource.Create(GUIDString: string);
+begin
+  SetGUID(GUIDString); Version:=1; vResourceList.Add(Self);
+end;
+
+constructor TPersistentResource.Create(aGUID: TGUID);
+begin
+  SetGUID(aGUID); Version:=1; vResourceList.Add(Self);
 end;
 
 destructor TPersistentResource.Destroy;
@@ -225,7 +243,7 @@ var l: integer;
     t: string;
 begin
   t:=ReadString(s);
-  GUID:=ReadGUID(s);
+  FGUID:=ReadGUID(s);
   Version:=ReadInt(s);
   ResourceId:=ReadString(s);
   FriendlyName:=ReadString(s);
@@ -269,15 +287,26 @@ procedure TPersistentResource.SaveToStream(s: TStream);
 var l: integer;
 begin
   WriteString(ClassName,s);
-  WriteGUID(GUID,s);
+  WriteGUID(FGUID,s);
   WriteInt(Version,s);
   WriteString(ResourceId,s);
   WriteString(FriendlyName,s);
 end;
 
-procedure TPersistentResource.SetGUID(GUIDString: string);
+procedure TPersistentResource.SetGUID(Value: TGUID);
+var oldGUID: TGUID;
+    s: string;
 begin
-  GUID:=StringToGUID(GUIDString);
+  s:=GUIDToString(FGUID); FGUID:=Value;
+  if (ResourceId='') or (ResourceId=s)
+  then ResourceId:=GUIDToString(Value);
+end;
+
+procedure TPersistentResource.SetGUID(GUIDString: string);
+var s: string;
+begin
+  s:=GUIDToString(FGUID); FGUID:=StringToGUID(GUIDString);
+  if (ResourceId='') or (ResourceId=s) then ResourceId:=GUIDString;
 end;
 
 procedure TPersistentResource.WriteBool(const Value: boolean;
@@ -335,6 +364,32 @@ begin
   for i:=0 to Count-1 do begin
     res:=Items[i];
     if IsEqualGUID(res.GUID,aGUID) then begin
+      result:=res; exit;
+    end;
+  end;
+end;
+
+function TResourceList.ResourceById(const ResId: string): TPersistentResource;
+var i: integer;
+    res: TPersistentResource;
+begin
+  result:=nil;
+  for i:=0 to Count-1 do begin
+    res:=Items[i];
+    if res.ResourceId=ResId then begin
+      result:=res; exit;
+    end;
+  end;
+end;
+
+function TResourceList.ResourceByName(const aName: string): TPersistentResource;
+var i: integer;
+    res: TPersistentResource;
+begin
+  result:=nil;
+  for i:=0 to Count-1 do begin
+    res:=Items[i];
+    if res.FriendlyName=aName then begin
       result:=res; exit;
     end;
   end;
