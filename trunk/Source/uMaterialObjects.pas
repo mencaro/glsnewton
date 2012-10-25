@@ -553,7 +553,7 @@ begin
   if assigned(UnApplyProc) then UnApplyProc(self);
   if assigned(FShader) and FUseShader then
   FShader.UnApply;
-  if assigned(FTexture) and FUseTexture then FTexture.UnApply(0);
+  if assigned(FTexture) and FUseTexture then FTexture.UnApply;
   if assigned(FMaterial) and FUseMaterial then FMaterial.UnApply;
   if TwoSideLighting then glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,0);
   if IgnoreLighting then glEnable(GL_LIGHTING);
