@@ -62,7 +62,7 @@ end;
 procedure TForm1.unApplyShader(mo: TObject);
 begin
   Shaders.EndProgram;
-  Pal.UnApply(1); Tex.UnApply(0);
+  Pal.UnApply; Tex.UnApply;
 end;
 
 function TForm1.CreateShader: cardinal;

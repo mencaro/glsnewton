@@ -254,7 +254,7 @@ end;
 
 procedure TForm1.UnApplyShadowShader(ShaderProgram: TShaderProgram);
 begin
-  dpt2.UnApply(2); depthtex.UnApply(1); fbotex2.UnApply(0);
+  dpt2.UnApply; depthtex.UnApply; fbotex2.UnApply;
 end;
 
 end.
