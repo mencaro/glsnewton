@@ -121,6 +121,7 @@ Type
        FTwoSides: boolean;
        FDisabled: boolean;
        FMapTargets: TMapTargets;
+       FAppledUnit: integer;
 
        procedure UploadTexture;
        function GetReadPBO: GLUint;
@@ -141,7 +142,7 @@ Type
        procedure CreateCompressedTexture(dds: PDDSImageDesc);
        procedure CreateUnCompressedTexture2D(dds: PDDSImageDesc);
        procedure CreateUnCompressedTextureCube(dds: PDDSImageDesc);
-    procedure setCompareMode(const Value: boolean);
+       procedure setCompareMode(const Value: boolean);
 //       function CreateCompressedTexture(DDSDesc: PDDSImageDesc): boolean;
      public
        constructor Create;
@@ -160,7 +161,7 @@ Type
        procedure ImportTextureParams(aTarget: GLEnum; TexId: GLUInt);
        procedure Assign(Texture: TTexture);
        procedure Apply(TextureUnit: GLEnum = 0; ApplyCombiner: boolean=true);
-       procedure UnApply(TextureUnit: GLEnum = 0);
+       procedure UnApply;
        procedure SetPixel(x,y: integer; color: TVector);
        function  ReadPixel(x,y: integer): TVector;
 
@@ -371,6 +372,7 @@ begin
    end;
    FTextureMode:=tcModulate;
    FMapTargets:=[mtDiffuse];
+   FAppledUnit:=-1;
 end;
 
 function TTexture.CreateTexture: boolean;
@@ -473,6 +475,7 @@ begin
   end else glDisable( GL_TEXTURE_GEN_R );
 
   glBindTexture(FTexture.Target,FTexture.Id);
+  FAppledUnit:=TextureUnit;
   if ApplyCombiner then SetTextureMode;
   if FBlendingMode<>tbmMesh then SetBlending;
   if FTexMatrixChanged then begin
@@ -489,17 +492,17 @@ begin
   if FTwoSides then glDisable(GL_CULL_FACE) else glEnable(GL_CULL_FACE);
 end;
 
-procedure TTexture.UnApply(TextureUnit: GLEnum = 0);
+procedure TTexture.UnApply;
 var MMode: GLUInt;
 begin
-  if FDisabled then exit;
+  if FDisabled or (FAppledUnit=-1) then exit;
   glDisable ( GL_TEXTURE_GEN_S );
   glDisable ( GL_TEXTURE_GEN_T );
   glDisable ( GL_TEXTURE_GEN_R );
+  glActiveTexture(GL_TEXTURE0+FAppledUnit);
   glBindTexture(FTexture.Target,0);
-  glActiveTexture(GL_TEXTURE0+TextureUnit);
   glDisable(FTexture.Target);
-  if TextureUnit<>0 then glActiveTexture(GL_TEXTURE0);
+  if FAppledUnit<>0 then glActiveTexture(GL_TEXTURE0);
 {  if FTexMatrixChanged then begin
     glGetIntegerv(GL_MATRIX_MODE,@MMode);
     glMatrixMode(GL_TEXTURE); glPopMatrix; glMatrixMode(MMode);
@@ -507,6 +510,7 @@ begin
 }
   glEnable(GL_CULL_FACE);
   if FBlendingMode<>tbmMesh then ResetBlending;
+  FAppledUnit:=-1;
 end;
 
 
