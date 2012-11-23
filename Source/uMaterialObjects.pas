@@ -381,8 +381,9 @@ begin
   if TwoSideLighting then glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,1)
   else glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,0);
   if IgnoreLighting then glDisable(GL_LIGHTING);
-  if assigned(FMaterial) and FUseMaterial then FMaterial.Apply;
-  if assigned(FShader) and FUseShader then FShader.Apply;
+  if assigned(FMaterial) and FUseMaterial then FMaterial.Apply
+  else OGLStateEmul.GLStateCache.MaterialCache.Reset;
+  if assigned(FShader) and FUseShader then FShader.Apply else glUseProgram(0);
   if assigned(ApplyProc) then ApplyProc(Self);
 end;
 
@@ -549,10 +550,17 @@ begin
 end;
 
 procedure TMaterialObject.UnApply(UnApplyProc: TMaterialProc);
+var i: integer;
 begin
   if assigned(UnApplyProc) then UnApplyProc(self);
   if assigned(FShader) and FUseShader then
   FShader.UnApply;
+  if FUseAddTex then begin
+    for i:=0 to FLastAddTex-1 do // high(FAdditionalTextures) do
+      if assigned(FAdditionalTextures[i]) then
+        FAdditionalTextures[i].UnApply;
+  end;
+
   if assigned(FTexture) and FUseTexture then FTexture.UnApply;
   if assigned(FMaterial) and FUseMaterial then FMaterial.UnApply;
   if TwoSideLighting then glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,0);

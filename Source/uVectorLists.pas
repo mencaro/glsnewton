@@ -239,6 +239,12 @@ implementation
 
 const CVectorSize: array [vtInteger..vtMat4] of byte = (1,1,2,3,4,9,16);
 
+function min(a,b: single): single;
+begin if a<b then result:=a else result:=b; end;
+
+function max(a,b: single): single;
+begin if a>b then result:=a else result:=b; end;
+
 { TVectorAttribList }
 
 function TVectorAttribList.Add(const v: TVector2f): integer;
@@ -480,9 +486,42 @@ begin
 end;
 
 function TVectorAttribList.getExtents: TExtents;
+var emin, emax: TAffineVector;
+    t: TVector; t2: TVector2f;
+    t3: TAffineVector;
+    i: integer;
 begin
-  result.emin:=FMin;
-  result.emax:=FMax;
+  if (Count=0) or (FVectorType = vtInteger) or (FVectorType = vtMat3)
+  or (FVectorType = vtMat4) then exit;
+  emin:=GetVector3f(0); emax:=emin;
+  for i:=0 to Count-1 do begin
+    case FVectorType of
+      vtSingle: begin
+        t[0]:=GetSingle(i);
+        if t[0]<emin[0] then emin[0]:=t[0];
+        if t[0]>emax[0] then emax[0]:=t[0];
+      end;
+      vtDouble: begin
+        t2:=GetVector2f(i);
+        emin[0]:=min(t[0],emin[0]);
+        emin[1]:=min(t[1],emin[1]);
+        emax[0]:=max(t[0],emax[0]);
+        emax[1]:=max(t[1],emax[1]);
+      end;
+      vtVector, vtPoint: begin
+        t3:=GetVector3f(i);
+        emin[0]:=min(t[0],emin[0]);
+        emin[1]:=min(t[1],emin[1]);
+        emin[2]:=min(t[2],emin[2]);
+
+        emax[0]:=max(t[0],emax[0]);
+        emax[1]:=max(t[1],emax[1]);
+        emax[2]:=max(t[2],emax[2]);
+      end;
+    end;
+  end;
+  result.emin:=emin; FMin:=emin;
+  result.emax:=emax; FMax:=emax;
 end;
 
 function TVectorAttribList.getItem(Index: integer): single;
