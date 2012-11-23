@@ -720,10 +720,10 @@ begin
   FPolyCount:=0;
   if (not Visible) then exit;
   OGLStateEmul.GLStateCache.CheckStates;
-//{$IFNDEF DIRECTGL}
+{$IFNDEF DIRECTGL}
   OGLStateEmul.GLStateCache.PushStates;
-//{$ENDIF}
-{$IFDEF DIRECTGL}  OGLStateEmul.GLStateCache.ResetStates;{$ENDIF}
+{$ENDIF}
+
   time:=GetTime;   glGetIntegerv(GL_VIEWPORT, @FViewPort);
   if assigned(FCamera) then begin
     FRender.FSceneViewer.ViewMatrix:=FCamera.ViewMatrix;
@@ -848,9 +848,9 @@ begin
 //  QueryObjectList.Free;
 //  inc(FRenderPass); if FRenderPass=2 then FRenderPass:=0;
   if assigned(onAfterRender) then onAfterRender;
-//{$IFNDEF DIRECTGL}
+{$IFNDEF DIRECTGL}
   OGLStateEmul.GLStateCache.PopStates;
-//{$ENDIF}
+{$ENDIF}
 end;
 
 function TVBOMesh.ExtentsIntersect(const rayStart, rayVector: TVector; var List:Tlist): boolean;

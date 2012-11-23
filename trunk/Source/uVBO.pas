@@ -1728,6 +1728,13 @@ begin
                 glDisableClientState(GL_TEXTURE_COORD_ARRAY);
             end;
           end;
+
+          for i:=0 to AttribList.Count-1 do begin
+            attr:=AttribList[i];
+            if (attr.Location>0) and (attr.Id>0) then 
+              glDisableVertexAttribArray(attr.Location);
+          end;
+
           glBindBuffer(GL_ARRAY_BUFFER, 0);
           if (iId <> 0) then glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         end;
