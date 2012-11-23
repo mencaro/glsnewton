@@ -487,7 +487,7 @@ end;
 
 function TVectorAttribList.getExtents: TExtents;
 var emin, emax: TAffineVector;
-    t: TVector; t2: TVector2f;
+    t: single; t2: TVector2f;
     t3: TAffineVector;
     i: integer;
 begin
@@ -497,26 +497,26 @@ begin
   for i:=0 to Count-1 do begin
     case FVectorType of
       vtSingle: begin
-        t[0]:=GetSingle(i);
-        if t[0]<emin[0] then emin[0]:=t[0];
-        if t[0]>emax[0] then emax[0]:=t[0];
+        t:=GetSingle(i);
+        if t<emin[0] then emin[0]:=t;
+        if t>emax[0] then emax[0]:=t;
       end;
       vtDouble: begin
         t2:=GetVector2f(i);
-        emin[0]:=min(t[0],emin[0]);
-        emin[1]:=min(t[1],emin[1]);
-        emax[0]:=max(t[0],emax[0]);
-        emax[1]:=max(t[1],emax[1]);
+        emin[0]:=min(t2[0],emin[0]);
+        emin[1]:=min(t2[1],emin[1]);
+        emax[0]:=max(t2[0],emax[0]);
+        emax[1]:=max(t2[1],emax[1]);
       end;
       vtVector, vtPoint: begin
         t3:=GetVector3f(i);
-        emin[0]:=min(t[0],emin[0]);
-        emin[1]:=min(t[1],emin[1]);
-        emin[2]:=min(t[2],emin[2]);
+        emin[0]:=min(t3[0],emin[0]);
+        emin[1]:=min(t3[1],emin[1]);
+        emin[2]:=min(t3[2],emin[2]);
 
-        emax[0]:=max(t[0],emax[0]);
-        emax[1]:=max(t[1],emax[1]);
-        emax[2]:=max(t[2],emax[2]);
+        emax[0]:=max(t3[0],emax[0]);
+        emax[1]:=max(t3[1],emax[1]);
+        emax[2]:=max(t3[2],emax[2]);
       end;
     end;
   end;
@@ -859,8 +859,11 @@ begin
 end;
 
 procedure _TBaseVectorList.GetExtents(var min, max: TAffineVector);
+var ext: TExtents;
 begin
-  min:=Extents.emin; max:=Extents.emax;
+  ext:=inherited GetExtents;
+  min:=ext.emin; max:=ext.emax;
+
 end;
 
 procedure _TBaseVectorList.Lerp(const list1, list2: _TBaseVectorList;
