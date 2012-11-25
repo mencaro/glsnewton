@@ -2253,6 +2253,8 @@ end;
 function TMeshCollection.AddUserObject(Name: string;
   VBOMeshList: TList): TVBOMeshObject;
 var mo: TVBOMeshObject;
+    i: integer;
+    buff: PVBOBuffer;
 begin
   mo:=TVBOMeshObject.Create;
   if name='' then Name:='VBOUserObject';
@@ -2261,6 +2263,9 @@ begin
   with mo do begin
     MeshType:=mtUser; 
     if Assigned(VBOMeshList) then MeshList.Assign(VBOMeshList);
+    for i:=0 to VBOMeshList.Count-1 do begin
+      buff:=VBOMeshList[i]; buff.MaterialFunc:=mo.MaterialSetter;
+    end;
     Visible:=true; UpdateExtents; 
     UpdateWorldMatrix; UpdateMaterialList;
   end;
