@@ -14,7 +14,8 @@ void main ()
     vec3 l = normalize ( LightPos.xyz - pp.xyz );
     float lambertTerm = dot(n,l);
     vec4 TexColor = texture2D(ColorTex,TexCoord.xy);
-    vec4 color = clamp(lambertTerm*TexColor*LightColor,0.0,1.0);
-    gl_FragColor = vec4(color.rgb,1.0);
+    if (pp.z>0.0) TexColor.a = 0.0;
+    vec3 color = clamp(lambertTerm * TexColor.rgb * LightColor.rgb, 0.0,1.0);
+    gl_FragColor = vec4(color.rgb*TexColor.a, 1.0);
 }
 

@@ -1,7 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <BorlandProject>
 	<Transactions>
-    <Transaction>1899.12.30 00:00:00.000.309,I:\GLScene\VBOMesh_RC1\Demos\Demo\FBO\TexturesDemo\Textures.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\FBO\TexturesDemo\Project1.dproj</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.512,I:\GLScene\VBOMesh_RC1\Demos\Demo\FBO\TexturesDemo\SimpleTexture.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\FBO\TexturesDemo\Textures.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.512,I:\GLScene\VBOMesh_RC1\Demos\Demo\FBO\TexturesDemo\Textures.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\FBO\TexturesDemo\SimpleTexture.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.309,I:\GLScene\VBOMesh_RC1\Demos\Demo\FBO\TexturesDemo\Project1.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\FBO\TexturesDemo\Textures.dproj</Transaction>
   </Transactions>
+	<ProjectSortOrder AutoSort="-1" SortType="1"/>
 </BorlandProject>

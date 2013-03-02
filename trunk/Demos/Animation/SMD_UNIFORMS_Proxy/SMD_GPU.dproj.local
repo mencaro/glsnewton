@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <BorlandProject>
 	<Transactions>
-    <Transaction>1899.12.30 00:00:00.000.562,I:\GLScene\VBOMesh_RC1\Demos\Demo\Animation\SMD\Project1.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Animation\SMD\SMD_GPU.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.562,I:\GLScene\VBOMesh_RC1\Demos\Demo\Animation\SMD\SMD_GPU.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Animation\SMD\Project1.dproj</Transaction>
   </Transactions>
+	<ProjectSortOrder AutoSort="-1" SortType="1"/>
 </BorlandProject>

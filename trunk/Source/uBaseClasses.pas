@@ -609,12 +609,13 @@ begin
    FParentMatrix:=parent.Matrices.WorldMatrix;
   end;
 
-  wm:=IdentityHmgMatrix;
+{  wm:=IdentityHmgMatrix;
   if (FParent<>nil) and ((ttParent in UseMatrix) or (ttAll in UseMatrix)) then begin
      if not Parent.WorldMatrixUpdated then parent.UpdateWorldMatrix;
      wm:=parent.Matrices.WorldMatrix;
      wm:=MatrixMultiply(wm, ModelMatrix);
-  end else wm := ModelMatrix;
+  end else }
+  wm := ModelMatrix;
 
   if (not (ttModel in UseMatrix)) and (not(ttAll in UseMatrix))
   then wm:=IdentityHmgMatrix;

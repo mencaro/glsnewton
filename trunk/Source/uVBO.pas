@@ -101,6 +101,7 @@ type
   TMaterialSetter = procedure (const MatName: string; Action: TMatAction) of object;
 
   TSubMesh = record
+    VBO: PVBOBuffer;
     Name: string;
     PrimType: Integer;
     VertexCount: Integer;
@@ -111,6 +112,11 @@ type
     MaterialName: string;
   end;
   PSubMesh = ^TSubMesh;
+
+  TSubmeshGroup = record
+    GroupName: string;
+    Parts: array of TSubMesh;
+  end;
 
   TMultiObjectMesh = class;
 

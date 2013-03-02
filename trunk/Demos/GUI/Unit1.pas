@@ -67,7 +67,7 @@ begin
 
   //Добавляем к сцене контейнер с примитивами
   world:=TVBOMesh.CreateAsChild(GLScene1.Objects);
-  //world.OldRender:=false;
+  world.OldRender:=false;
   GUIRender:=world.AddGUI;
 
   Layer:=GUIRender.AddNewLayer(0);
