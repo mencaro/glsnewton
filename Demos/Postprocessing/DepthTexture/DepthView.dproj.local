@@ -1,9 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <BorlandProject>
 	<Transactions>
-    <Transaction>1899.12.30 00:00:00.000.296,I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Project1.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Primitives.dproj</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.944,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\GaussianBlur.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Containers.dproj</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.991,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Primitives.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Containers.dproj</Transaction>
-    <Transaction>2012.09.16 00:13:44.453,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\DepthTexture\DepthView.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\DepthTexture\GaussianBlur.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.453,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\DepthTexture\GaussianBlur.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\DepthTexture\DepthView.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.296,I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Primitives.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Project1.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.991,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Containers.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Primitives.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.944,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Containers.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\GaussianBlur.dproj</Transaction>
   </Transactions>
+	<ProjectSortOrder AutoSort="-1" SortType="1"/>
 </BorlandProject>

@@ -68,8 +68,8 @@ procedure TForm1.GLCadencer1Progress(Sender: TObject; const deltaTime,
   newTime: Double);
 begin
   if CheckBox1.Checked then begin
-    Lights[1]:=VectorMake(5*sin(newTime/1),5*cos(newTime/1),5*(sin(newTime/10)+cos(newtime/1)));
-    Lights[2]:=VectorMake(-5*sin(newTime/1),-5*cos(newTime/1),-5*(sin(newTime/10)+cos(newtime/1)));
+    Lights[1]:=VectorMake(5*sin(newTime/1),5*cos(newTime/1),5*(sin(newTime/10)+cos(newtime/1)), 1);
+    Lights[2]:=VectorMake(-5*sin(newTime/1),-5*cos(newTime/1),-5*(sin(newTime/10)+cos(newtime/1)), 1);
   end;
   GLSceneViewer1.Invalidate;
 end;
@@ -138,6 +138,10 @@ begin
      MoveObject(0,0,0); buff:=MeshList[0];
      //генерируем TBN для сферы
      SetTBNBufferLoc(buff,Shader1);
+     MaterialObject.AttachTexture(DiffMap);
+     MaterialObject.AddExTextures(NormalMap);
+     MaterialObject.UseAddinionalTextures:=true;
+     MaterialObject.UseActiveShader:=true;
   end;
 
   //Добавляем на сцену скринквад для второго прохода
@@ -187,7 +191,7 @@ end;
 
 procedure TForm1.ApplyShader(ShaderProgram: TShaderProgram);
 begin
-  DiffMap.Apply(0); NormalMap.Apply(1);
+  //DiffMap.Apply(0); NormalMap.Apply(1);
   Shader1.SetUniforms('DiffuseMap',0);
   Shader1.SetUniforms('NormalMap',1);
 end;

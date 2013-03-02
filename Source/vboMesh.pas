@@ -95,7 +95,7 @@ Uses
    {$ENDIF}
      VectorTypes, VectorGeometry, GeometryBB,
      uVBO, PFXManager, uTextures, uFBO, uShaders, MTLLoader, SysUtils, uCamera,
-     uFileSMD, uFileObj, uAnimatedMesh, uMaterials, uMaterialObjects, uMiscUtils,
+     uFileSMD, uFileObj, uFile3ds, uMaterials, uMaterialObjects, uMiscUtils,
      uVectorLists, uBaseClasses, uMeshObjects, uGUI, OGLStateEmul;
 
 Type

@@ -227,7 +227,7 @@ var
    hv : THomogeneousVector;
    av : TAffineVector;
 
-   procedure GetFaceIdices(faceVertices : String; var vIdx, tIdx, nIdx: integer);
+   procedure GetFaceIndices(faceVertices : String; var vIdx, tIdx, nIdx: integer);
    begin
       vIdx:=(GetIndex(faceVertices, FVertices.Count));
       tIdx:=(GetIndex(faceVertices, FTexCoords.Count));
@@ -246,7 +246,7 @@ var
         while FLine<>'' do begin
            faceVertices:=FTextFile.NextToken(FLine, ' ');
            vIdx2:=vIdx; tIdx2:=tIdx; nIdx2:=nIdx;
-           GetFaceIdices(faceVertices, vIdx, tIdx, nIdx); inc(n);
+           GetFaceIndices(faceVertices, vIdx, tIdx, nIdx); inc(n);
            if n=1 then begin vIdx1:=vIdx; tIdx1:=tIdx; nIdx1:=nIdx; end;
            if n>3 then begin
            //Split poly to triangles

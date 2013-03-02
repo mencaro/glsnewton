@@ -3,7 +3,8 @@
 	<Transactions>
     <Transaction>1899.12.30 00:00:00.000.296,I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Project1.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Primitives.dproj</Transaction>
     <Transaction>1899.12.30 00:00:00.000.991,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Primitives.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Containers.dproj</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.944,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\GaussianBlur.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Containers.dproj</Transaction>
     <Transaction>1899.12.30 00:00:00.000.234,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\GaussianBlur.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\ShadowMap.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.944,I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\GaussianBlur.dproj=I:\GLScene\VBOMesh2.0\RawDemos\Postprocessing\Containers.dproj</Transaction>
   </Transactions>
+	<ProjectSortOrder AutoSort="-1" SortType="1"/>
 </BorlandProject>

@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>1899.12.30 00:00:00.000.453,C:\Documents and Settings\Алексей\Мои документы\RAD Studio\Projects\ProjectGroup1.groupproj=I:\GLScene\VBOMesh2.0\Demos\VBOMeshDemos.groupproj</Transaction>
+  </Transactions>
+	<Default.Personality>
+		<Projects ActiveProject="i:\GLScene\VBOMesh2.0\Demos\Postprocessing\DeferredLighting\DeferredLighting.dproj"/>
+	</Default.Personality>
+</BorlandProject>

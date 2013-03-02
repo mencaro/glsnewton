@@ -71,6 +71,7 @@ Type
     FUseAddTex: boolean;
     FLastAddTex: integer;
     FNormalScale: single;
+    FUseActiveShader: boolean;
 
     function GetHash: integer;
     function CheckTransparency: boolean;
@@ -111,6 +112,7 @@ Type
     property UseMaterial: boolean read FUseMaterial write setUseMaterial;
     property UseTexture: boolean read FUseTexture write setUseTexture;
     property UseShader: boolean read FUseShader write setUseShader;
+    property UseActiveShader: boolean read FUseActiveShader write FUseActiveShader;
     property UseAddinionalTextures: boolean read FUseAddTex write FUseAddTex;
     property TwoSideLighting: boolean read FTwoSideLighting write setTwoSideLighting;
     property IgnoreLighting: boolean read FIgnoreLighting write setIgnoreLighting;
@@ -383,7 +385,8 @@ begin
   if IgnoreLighting then glDisable(GL_LIGHTING);
   if assigned(FMaterial) and FUseMaterial then FMaterial.Apply
   else OGLStateEmul.GLStateCache.MaterialCache.Reset;
-  if assigned(FShader) and FUseShader then FShader.Apply else glUseProgram(0);
+  if assigned(FShader) and FUseShader then FShader.Apply
+  else if not FUseActiveShader then glUseProgram(0);
   if assigned(ApplyProc) then ApplyProc(Self);
 end;
 
@@ -451,6 +454,7 @@ begin
   FUseTexture:=false;
   FUseMaterial:=false;
   FUseShader:=false;
+  FUseActiveShader:=false;
   FOwner:=nil;
   FName:='MeterialObject';
   FNameChanged:=true;

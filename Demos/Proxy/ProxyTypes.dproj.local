@@ -1,10 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <BorlandProject>
 	<Transactions>
+    <Transaction>1899.12.30 00:00:00.000.906,I:\GLScene\VBOMesh_RC1\Demos\Demo\Proxy\ProxyTypes.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Proxy\Primitives.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.296,I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Primitives.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Project1.dproj</Transaction>
     <Transaction>1899.12.30 00:00:00.000.781,=I:\GLScene\VBOMesh_RC1\Demos\Demo\Proxy\collada_schema_1_4.pas</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.984,I:\GLScene\VBOMesh_RC1\Demos\Demo\Proxy\collada_schema_1_4.pas=e:\collada_schema_1_4.pas</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.296,I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Project1.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Primitives\Primitives.dproj</Transaction>
-    <Transaction>1899.12.30 00:00:00.000.906,I:\GLScene\VBOMesh_RC1\Demos\Demo\Proxy\Primitives.dproj=I:\GLScene\VBOMesh_RC1\Demos\Demo\Proxy\ProxyTypes.dproj</Transaction>
+    <Transaction>1899.12.30 00:00:00.000.984,e:\collada_schema_1_4.pas=I:\GLScene\VBOMesh_RC1\Demos\Demo\Proxy\collada_schema_1_4.pas</Transaction>
     <Transaction>1899.12.30 00:00:00.000.734,e:\collada_schema_1_4.pas=</Transaction>
   </Transactions>
+	<ProjectSortOrder AutoSort="-1" SortType="1"/>
 </BorlandProject>

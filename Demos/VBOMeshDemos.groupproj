@@ -1,0 +1,396 @@
+﻿	<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+		<PropertyGroup>
+			<ProjectGuid>{DC1A426E-770F-4B14-BBAA-0A194429F7C6}</ProjectGuid>
+		</PropertyGroup>
+		<ItemGroup>
+			<Projects Include="Postprocessing\GaussianBlur\GaussianBlur.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Postprocessing\DeferredShading\DeferredShading.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="GUI\GUIRender.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Animation\AnimatedMesh\KeyFrameAnimation.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Animation\AnimatedSprite\AnimatedSprite.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Animation\LinkedObjects\LinkedObjects.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Animation\SMD_UNIFORMS_Proxy\SMD_GPU.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Camera\CameraControl.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Containers\Containers.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="FBO\FBODemo\SimpleFBO.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="FBO\SimpleMRTDemo\SimpleMRT.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Lines\VolumetricLines\VolumetricLines.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Materials\MatCollection\MaterialCollection.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Materials\MaterialEditor\MaterialEditor.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Materials\TexturesDemo\SimpleTexture.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Particles\ParticleControl\Particles.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="PBO\UploadTexturePBO\PBOUpload.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="PickObjects\PickObject.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Postprocessing\DepthTexture\DepthView.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Postprocessing\ShadowMapping\ShadowMap.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Primitives\Primitives.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Proxy\ProxyTypes.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="R2VB\R2VBDemo\R2VB.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="ScreenToWorld\ScreenToWorld.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Shaders\LightModels\LightModels.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Shaders\MultipleShaderObjects\MultipleShaderObjects.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Shaders\Voxels\Voxels.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Sorting\Sorting.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Surface\Surface.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Vertices\Vertices.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="Postprocessing\DeferredLighting\DeferredLighting.dproj">
+				<Dependencies/>
+			</Projects>
+		</ItemGroup>
+		<ProjectExtensions>
+			<Borland.Personality>Default.Personality.12</Borland.Personality>
+			<Borland.ProjectType/>
+			<BorlandProject>
+				<Default.Personality/>
+			</BorlandProject>
+		</ProjectExtensions>
+		<Target Name="GaussianBlur">
+			<MSBuild Projects="Postprocessing\GaussianBlur\GaussianBlur.dproj"/>
+		</Target>
+		<Target Name="GaussianBlur:Clean">
+			<MSBuild Projects="Postprocessing\GaussianBlur\GaussianBlur.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="GaussianBlur:Make">
+			<MSBuild Projects="Postprocessing\GaussianBlur\GaussianBlur.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="DeferredShading">
+			<MSBuild Projects="Postprocessing\DeferredShading\DeferredShading.dproj"/>
+		</Target>
+		<Target Name="DeferredShading:Clean">
+			<MSBuild Projects="Postprocessing\DeferredShading\DeferredShading.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="DeferredShading:Make">
+			<MSBuild Projects="Postprocessing\DeferredShading\DeferredShading.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="GUIRender">
+			<MSBuild Projects="GUI\GUIRender.dproj"/>
+		</Target>
+		<Target Name="GUIRender:Clean">
+			<MSBuild Projects="GUI\GUIRender.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="GUIRender:Make">
+			<MSBuild Projects="GUI\GUIRender.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="KeyFrameAnimation">
+			<MSBuild Projects="Animation\AnimatedMesh\KeyFrameAnimation.dproj"/>
+		</Target>
+		<Target Name="KeyFrameAnimation:Clean">
+			<MSBuild Projects="Animation\AnimatedMesh\KeyFrameAnimation.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="KeyFrameAnimation:Make">
+			<MSBuild Projects="Animation\AnimatedMesh\KeyFrameAnimation.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="AnimatedSprite">
+			<MSBuild Projects="Animation\AnimatedSprite\AnimatedSprite.dproj"/>
+		</Target>
+		<Target Name="AnimatedSprite:Clean">
+			<MSBuild Projects="Animation\AnimatedSprite\AnimatedSprite.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="AnimatedSprite:Make">
+			<MSBuild Projects="Animation\AnimatedSprite\AnimatedSprite.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="LinkedObjects">
+			<MSBuild Projects="Animation\LinkedObjects\LinkedObjects.dproj"/>
+		</Target>
+		<Target Name="LinkedObjects:Clean">
+			<MSBuild Projects="Animation\LinkedObjects\LinkedObjects.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="LinkedObjects:Make">
+			<MSBuild Projects="Animation\LinkedObjects\LinkedObjects.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="SMD_GPU">
+			<MSBuild Projects="Animation\SMD_UNIFORMS_Proxy\SMD_GPU.dproj"/>
+		</Target>
+		<Target Name="SMD_GPU:Clean">
+			<MSBuild Projects="Animation\SMD_UNIFORMS_Proxy\SMD_GPU.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="SMD_GPU:Make">
+			<MSBuild Projects="Animation\SMD_UNIFORMS_Proxy\SMD_GPU.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="CameraControl">
+			<MSBuild Projects="Camera\CameraControl.dproj"/>
+		</Target>
+		<Target Name="CameraControl:Clean">
+			<MSBuild Projects="Camera\CameraControl.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="CameraControl:Make">
+			<MSBuild Projects="Camera\CameraControl.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="Containers">
+			<MSBuild Projects="Containers\Containers.dproj"/>
+		</Target>
+		<Target Name="Containers:Clean">
+			<MSBuild Projects="Containers\Containers.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="Containers:Make">
+			<MSBuild Projects="Containers\Containers.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="SimpleFBO">
+			<MSBuild Projects="FBO\FBODemo\SimpleFBO.dproj"/>
+		</Target>
+		<Target Name="SimpleFBO:Clean">
+			<MSBuild Projects="FBO\FBODemo\SimpleFBO.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="SimpleFBO:Make">
+			<MSBuild Projects="FBO\FBODemo\SimpleFBO.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="SimpleMRT">
+			<MSBuild Projects="FBO\SimpleMRTDemo\SimpleMRT.dproj"/>
+		</Target>
+		<Target Name="SimpleMRT:Clean">
+			<MSBuild Projects="FBO\SimpleMRTDemo\SimpleMRT.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="SimpleMRT:Make">
+			<MSBuild Projects="FBO\SimpleMRTDemo\SimpleMRT.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="VolumetricLines">
+			<MSBuild Projects="Lines\VolumetricLines\VolumetricLines.dproj"/>
+		</Target>
+		<Target Name="VolumetricLines:Clean">
+			<MSBuild Projects="Lines\VolumetricLines\VolumetricLines.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="VolumetricLines:Make">
+			<MSBuild Projects="Lines\VolumetricLines\VolumetricLines.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="MaterialCollection">
+			<MSBuild Projects="Materials\MatCollection\MaterialCollection.dproj"/>
+		</Target>
+		<Target Name="MaterialCollection:Clean">
+			<MSBuild Projects="Materials\MatCollection\MaterialCollection.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="MaterialCollection:Make">
+			<MSBuild Projects="Materials\MatCollection\MaterialCollection.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="MaterialEditor">
+			<MSBuild Projects="Materials\MaterialEditor\MaterialEditor.dproj"/>
+		</Target>
+		<Target Name="MaterialEditor:Clean">
+			<MSBuild Projects="Materials\MaterialEditor\MaterialEditor.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="MaterialEditor:Make">
+			<MSBuild Projects="Materials\MaterialEditor\MaterialEditor.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="SimpleTexture">
+			<MSBuild Projects="Materials\TexturesDemo\SimpleTexture.dproj"/>
+		</Target>
+		<Target Name="SimpleTexture:Clean">
+			<MSBuild Projects="Materials\TexturesDemo\SimpleTexture.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="SimpleTexture:Make">
+			<MSBuild Projects="Materials\TexturesDemo\SimpleTexture.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="Particles">
+			<MSBuild Projects="Particles\ParticleControl\Particles.dproj"/>
+		</Target>
+		<Target Name="Particles:Clean">
+			<MSBuild Projects="Particles\ParticleControl\Particles.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="Particles:Make">
+			<MSBuild Projects="Particles\ParticleControl\Particles.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="PBOUpload">
+			<MSBuild Projects="PBO\UploadTexturePBO\PBOUpload.dproj"/>
+		</Target>
+		<Target Name="PBOUpload:Clean">
+			<MSBuild Projects="PBO\UploadTexturePBO\PBOUpload.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="PBOUpload:Make">
+			<MSBuild Projects="PBO\UploadTexturePBO\PBOUpload.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="PickObject">
+			<MSBuild Projects="PickObjects\PickObject.dproj"/>
+		</Target>
+		<Target Name="PickObject:Clean">
+			<MSBuild Projects="PickObjects\PickObject.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="PickObject:Make">
+			<MSBuild Projects="PickObjects\PickObject.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="DepthView">
+			<MSBuild Projects="Postprocessing\DepthTexture\DepthView.dproj"/>
+		</Target>
+		<Target Name="DepthView:Clean">
+			<MSBuild Projects="Postprocessing\DepthTexture\DepthView.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="DepthView:Make">
+			<MSBuild Projects="Postprocessing\DepthTexture\DepthView.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="ShadowMap">
+			<MSBuild Projects="Postprocessing\ShadowMapping\ShadowMap.dproj"/>
+		</Target>
+		<Target Name="ShadowMap:Clean">
+			<MSBuild Projects="Postprocessing\ShadowMapping\ShadowMap.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="ShadowMap:Make">
+			<MSBuild Projects="Postprocessing\ShadowMapping\ShadowMap.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="Primitives">
+			<MSBuild Projects="Primitives\Primitives.dproj"/>
+		</Target>
+		<Target Name="Primitives:Clean">
+			<MSBuild Projects="Primitives\Primitives.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="Primitives:Make">
+			<MSBuild Projects="Primitives\Primitives.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="ProxyTypes">
+			<MSBuild Projects="Proxy\ProxyTypes.dproj"/>
+		</Target>
+		<Target Name="ProxyTypes:Clean">
+			<MSBuild Projects="Proxy\ProxyTypes.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="ProxyTypes:Make">
+			<MSBuild Projects="Proxy\ProxyTypes.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="R2VB">
+			<MSBuild Projects="R2VB\R2VBDemo\R2VB.dproj"/>
+		</Target>
+		<Target Name="R2VB:Clean">
+			<MSBuild Projects="R2VB\R2VBDemo\R2VB.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="R2VB:Make">
+			<MSBuild Projects="R2VB\R2VBDemo\R2VB.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="ScreenToWorld">
+			<MSBuild Projects="ScreenToWorld\ScreenToWorld.dproj"/>
+		</Target>
+		<Target Name="ScreenToWorld:Clean">
+			<MSBuild Projects="ScreenToWorld\ScreenToWorld.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="ScreenToWorld:Make">
+			<MSBuild Projects="ScreenToWorld\ScreenToWorld.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="LightModels">
+			<MSBuild Projects="Shaders\LightModels\LightModels.dproj"/>
+		</Target>
+		<Target Name="LightModels:Clean">
+			<MSBuild Projects="Shaders\LightModels\LightModels.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="LightModels:Make">
+			<MSBuild Projects="Shaders\LightModels\LightModels.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="MultipleShaderObjects">
+			<MSBuild Projects="Shaders\MultipleShaderObjects\MultipleShaderObjects.dproj"/>
+		</Target>
+		<Target Name="MultipleShaderObjects:Clean">
+			<MSBuild Projects="Shaders\MultipleShaderObjects\MultipleShaderObjects.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="MultipleShaderObjects:Make">
+			<MSBuild Projects="Shaders\MultipleShaderObjects\MultipleShaderObjects.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="Voxels">
+			<MSBuild Projects="Shaders\Voxels\Voxels.dproj"/>
+		</Target>
+		<Target Name="Voxels:Clean">
+			<MSBuild Projects="Shaders\Voxels\Voxels.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="Voxels:Make">
+			<MSBuild Projects="Shaders\Voxels\Voxels.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="Sorting">
+			<MSBuild Projects="Sorting\Sorting.dproj"/>
+		</Target>
+		<Target Name="Sorting:Clean">
+			<MSBuild Projects="Sorting\Sorting.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="Sorting:Make">
+			<MSBuild Projects="Sorting\Sorting.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="Surface">
+			<MSBuild Projects="Surface\Surface.dproj"/>
+		</Target>
+		<Target Name="Surface:Clean">
+			<MSBuild Projects="Surface\Surface.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="Surface:Make">
+			<MSBuild Projects="Surface\Surface.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="Vertices">
+			<MSBuild Projects="Vertices\Vertices.dproj"/>
+		</Target>
+		<Target Name="Vertices:Clean">
+			<MSBuild Projects="Vertices\Vertices.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="Vertices:Make">
+			<MSBuild Projects="Vertices\Vertices.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="DeferredLighting">
+			<MSBuild Projects="Postprocessing\DeferredLighting\DeferredLighting.dproj"/>
+		</Target>
+		<Target Name="DeferredLighting:Clean">
+			<MSBuild Projects="Postprocessing\DeferredLighting\DeferredLighting.dproj" Targets="Clean"/>
+		</Target>
+		<Target Name="DeferredLighting:Make">
+			<MSBuild Projects="Postprocessing\DeferredLighting\DeferredLighting.dproj" Targets="Make"/>
+		</Target>
+		<Target Name="Build">
+			<CallTarget Targets="GaussianBlur;DeferredShading;GUIRender;KeyFrameAnimation;AnimatedSprite;LinkedObjects;SMD_GPU;CameraControl;Containers;SimpleFBO;SimpleMRT;VolumetricLines;MaterialCollection;MaterialEditor;SimpleTexture;Particles;PBOUpload;PickObject;DepthView;ShadowMap;Primitives;ProxyTypes;R2VB;ScreenToWorld;LightModels;MultipleShaderObjects;Voxels;Sorting;Surface;Vertices;DeferredLighting"/>
+		</Target>
+		<Target Name="Clean">
+			<CallTarget Targets="GaussianBlur:Clean;DeferredShading:Clean;GUIRender:Clean;KeyFrameAnimation:Clean;AnimatedSprite:Clean;LinkedObjects:Clean;SMD_GPU:Clean;CameraControl:Clean;Containers:Clean;SimpleFBO:Clean;SimpleMRT:Clean;VolumetricLines:Clean;MaterialCollection:Clean;MaterialEditor:Clean;SimpleTexture:Clean;Particles:Clean;PBOUpload:Clean;PickObject:Clean;DepthView:Clean;ShadowMap:Clean;Primitives:Clean;ProxyTypes:Clean;R2VB:Clean;ScreenToWorld:Clean;LightModels:Clean;MultipleShaderObjects:Clean;Voxels:Clean;Sorting:Clean;Surface:Clean;Vertices:Clean;DeferredLighting:Clean"/>
+		</Target>
+		<Target Name="Make">
+			<CallTarget Targets="GaussianBlur:Make;DeferredShading:Make;GUIRender:Make;KeyFrameAnimation:Make;AnimatedSprite:Make;LinkedObjects:Make;SMD_GPU:Make;CameraControl:Make;Containers:Make;SimpleFBO:Make;SimpleMRT:Make;VolumetricLines:Make;MaterialCollection:Make;MaterialEditor:Make;SimpleTexture:Make;Particles:Make;PBOUpload:Make;PickObject:Make;DepthView:Make;ShadowMap:Make;Primitives:Make;ProxyTypes:Make;R2VB:Make;ScreenToWorld:Make;LightModels:Make;MultipleShaderObjects:Make;Voxels:Make;Sorting:Make;Surface:Make;Vertices:Make;DeferredLighting:Make"/>
+		</Target>
+		<Import Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')" Project="$(BDS)\Bin\CodeGear.Group.Targets"/>
+	</Project>
