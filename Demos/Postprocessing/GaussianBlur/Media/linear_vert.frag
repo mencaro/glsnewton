@@ -12,4 +12,5 @@ void main(void)
 		gl_FragColor += texture2D( image, ( vec2(gl_FragCoord)+vec2(0.0, offset[i]) )/TexSize.xy ) * weight[i];
 		gl_FragColor += texture2D( image, ( vec2(gl_FragCoord)-vec2(0.0, offset[i]) )/TexSize.xy ) * weight[i];
 	}
+	gl_FragColor = vec4(0.1, 1.0, 0.1, 1.0);
 }

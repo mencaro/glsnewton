@@ -97,6 +97,7 @@ begin
 
   cam:=TCameraController.Create;
   lcam:=TCameraController.Create;
+  lcam.ProjectionMatrix:=IdentityHmgMatrix;
 
   //Добавляем к сцене контейнер с примитивами
   Pass1:=world.AddNewContainer;

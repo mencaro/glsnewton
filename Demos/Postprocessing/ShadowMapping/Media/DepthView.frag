@@ -12,5 +12,5 @@ void main()
 { 
   vec2 uv =  gl_TexCoord[0].xy;
   float d = LinearizeDepth(uv);
-  gl_FragColor.rgb = vec4(d, d, d, 1.0);
+  gl_FragColor.rgba = vec4(d, d, d, 1.0);
 }
