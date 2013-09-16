@@ -744,7 +744,8 @@ begin
 
   if not FOldRender then begin
     glEnable(GL_LIGHTING); glEnable(GL_LIGHT0); glDisable(GL_TEXTURE_2D);
-    Lights.Apply;
+    glPushMatrix; glLoadMatrixf(@FViewMatrix);
+    Lights.Apply; glPopMatrix;
     if assigned(onBeforeRender) then onBeforeRender;
     FRender.Process;
     FPolyCount:=FRender.PolyCount;
