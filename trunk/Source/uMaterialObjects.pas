@@ -83,6 +83,7 @@ Type
     procedure setAddTex(index: integer; const Value: TTexture);
     procedure setIgnoreLighting(const Value: boolean);
     procedure setTwoSideLighting(const Value: boolean);
+    function getTexCount: integer;
   public
     constructor Create;
     destructor Destroy;override;
@@ -99,6 +100,7 @@ Type
     function AddNewShader(aName: string=''): TShaderProgram;
 
     function TextureByMapTarget(Map: TMapTarget): TTexture;
+    function TextureIndexByMapTarget(Map: TMapTarget): integer;
 
     property Name: string read FName write setName;
     property Active: boolean read FActive write FActive;
@@ -118,6 +120,7 @@ Type
     property IgnoreLighting: boolean read FIgnoreLighting write setIgnoreLighting;
 
     property NormalScale: single read FNormalScale write FNormalScale;
+    property TexturesCount: integer read getTexCount;
 
   end;
 
@@ -459,8 +462,8 @@ begin
   FName:='MeterialObject';
   FNameChanged:=true;
   glGetIntegerv( GL_MAX_TEXTURE_IMAGE_UNITS,@mtc);
+  if mtc>128 then mtc:=128;
   setlength(FAdditionalTextures,mtc); FUseAddTex:=false;
-  if mtc>1024 then mtc:=1024;
   for i:=0 to length(FAdditionalTextures)-1 do FAdditionalTextures[i]:=nil;
   FLastAddTex:=0;
   FActive:=false; FTexture:=nil; FMaterial:=nil; FShader:=nil;
@@ -497,6 +500,11 @@ begin
   hash[4]:=integer(FShader);
   FHashKey:=GetHashFromBuff(hash,sizeof(hash));
   result:=FHashKey;
+end;
+
+function TMaterialObject.getTexCount: integer;
+begin
+  result := FLastAddTex;
 end;
 
 procedure TMaterialObject.setAddTex(index: integer; const Value: TTexture);
@@ -551,6 +559,27 @@ begin
         result:=FAdditionalTextures[i]; exit;
       end;
   end; result:=nil;
+end;
+
+function TMaterialObject.TextureIndexByMapTarget(Map: TMapTarget): integer;
+var
+  i: integer;
+begin
+  if Map = mtDiffuse then
+  begin
+    result := 0;
+    Exit;
+  end;
+  for i := 0 to FLastAddTex - 1 do
+  begin
+    if assigned(FAdditionalTextures[i]) then
+      if Map in FAdditionalTextures[i].MapTargets then
+      begin
+        result := i + 1;
+        Exit;
+      end;
+  end;
+  result := -1;
 end;
 
 procedure TMaterialObject.UnApply(UnApplyProc: TMaterialProc);
